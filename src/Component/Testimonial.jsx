@@ -18,7 +18,7 @@ const Testimonial = () => {
           variant="h4"
           sx={{
             fontWeight: "bold",
-            color: "#fff",
+            color: "green",
             mb: 4,
             textTransform: "uppercase",
             letterSpacing: 1,
