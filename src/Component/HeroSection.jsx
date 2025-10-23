@@ -34,6 +34,7 @@ const Hero = () => {
 
               <Typography
                 variant="h6"
+                color="wheat"
                 sx={{
                   mb: 3,
                   opacity: 0.9,

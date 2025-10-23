@@ -16,8 +16,8 @@ const LandingPage = () => {
       <FounderSection />
       <Course />
       <CoursesSection />
-      {/* <VisionMission /> */}
       <MissionAndVision />
+      <VisionMission />
     </div>
   );
 };
