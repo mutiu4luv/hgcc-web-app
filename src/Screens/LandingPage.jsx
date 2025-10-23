@@ -6,6 +6,8 @@ import FounderSection from "../Component/Founder";
 import CoursesSection from "../Component/SpecialCousesSection";
 import Course from "../Component/Course";
 import MissionAndVision from "../Component/MissionAndVisition";
+import Benefits from "../Component/Benefits";
+import Footer from "../Component/Footer";
 
 const LandingPage = () => {
   return (
@@ -18,6 +20,8 @@ const LandingPage = () => {
       <CoursesSection />
       <MissionAndVision />
       <VisionMission />
+      <Benefits />
+      <Footer />
     </div>
   );
 };
