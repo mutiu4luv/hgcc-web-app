@@ -168,7 +168,7 @@ const App = () => {
                 left: 0,
                 bottom: -5,
                 height: "3px",
-                backgroundColor: "#14CD02",
+                backgroundColor: "black",
                 borderRadius: "2px",
               }}
             />

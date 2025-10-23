@@ -24,6 +24,7 @@ const FounderSection = () => {
         {/* Title */}
         <Typography
           variant="h4"
+          color="white"
           sx={{
             fontWeight: "bold",
             mb: { xs: 4, md: 6 },

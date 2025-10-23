@@ -5,6 +5,7 @@ import NavBar from "../Component/NavBar";
 import FounderSection from "../Component/Founder";
 import CoursesSection from "../Component/SpecialCousesSection";
 import Course from "../Component/Course";
+import MissionAndVision from "../Component/MissionAndVisition";
 
 const LandingPage = () => {
   return (
@@ -16,6 +17,7 @@ const LandingPage = () => {
       <Course />
       <CoursesSection />
       {/* <VisionMission /> */}
+      <MissionAndVision />
     </div>
   );
 };
