@@ -2,7 +2,6 @@ import React, { useState } from "react";
 import {
   AppBar,
   Toolbar,
-  Typography,
   Box,
   Button,
   Container,
@@ -11,9 +10,12 @@ import {
   MenuItem,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
+import { useNavigate } from "react-router-dom"; // ✅ For navigation
+import logo from "../assets/logo.jpeg"; // ✅ ensure correct path
 
 const Navbar = () => {
   const [anchorEl, setAnchorEl] = useState(null);
+  const navigate = useNavigate(); // ✅ useNavigate hook
 
   const handleOpenMenu = (event) => {
     setAnchorEl(event.currentTarget);
@@ -21,6 +23,10 @@ const Navbar = () => {
 
   const handleCloseMenu = () => {
     setAnchorEl(null);
+  };
+
+  const handleLogoClick = () => {
+    navigate("/"); // ✅ Navigate to home
   };
 
   const menuItems = [
@@ -36,37 +42,47 @@ const Navbar = () => {
       position="static"
       elevation={0}
       color="transparent"
-      sx={{ background: "transparent", mb: 2 }}
+      sx={{
+        background: "transparent",
+        mb: 1,
+        height: { xs: 60, md: 70 }, // ✅ Reduced height
+        display: "flex",
+        justifyContent: "center",
+      }}
     >
       <Container maxWidth="lg">
         <Toolbar
           disableGutters
-          sx={{ display: "flex", justifyContent: "space-between" }}
+          sx={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            minHeight: "unset", // ✅ prevent default Toolbar height
+          }}
         >
-          {/* Logo Section */}
-          <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
+          {/* ✅ Logo Section */}
+          <Box
+            onClick={handleLogoClick}
+            sx={{
+              display: "flex",
+              alignItems: "center",
+              cursor: "pointer", // ✅ Indicate clickable logo
+            }}
+          >
             <Box
+              component="img"
+              src={logo}
+              alt="HGSC² Academy Logo"
               sx={{
-                width: 44,
-                height: 44,
-                borderRadius: 1,
-                bgcolor: "primary.main",
-                display: "flex",
-                alignItems: "center",
-                justifyContent: "center",
-                color: "#fff",
-                fontWeight: 700,
+                width: { xs: 100, sm: 130, md: 150 }, // ✅ Slightly smaller
+                height: "auto",
+                objectFit: "contain",
               }}
-            >
-              HG
-            </Box>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: "#065f46" }}>
-              HGSC² Academy
-            </Typography>
+            />
           </Box>
 
           {/* Desktop Menu */}
-          <Box sx={{ display: { xs: "none", md: "flex" }, gap: 2 }}>
+          <Box sx={{ display: { xs: "none", md: "flex" }, gap: 3 }}>
             {menuItems.map((item) => (
               <Button
                 key={item.label}
@@ -75,6 +91,7 @@ const Navbar = () => {
                   color: "#065f46",
                   textTransform: "none",
                   fontWeight: 600,
+                  fontSize: "1rem",
                 }}
               >
                 {item.label}
