@@ -8,7 +8,7 @@ const Hero = () => {
     <Box
       sx={{
         display: "flex",
-        flexDirection: { xs: "column", md: "row" },
+        flexDirection: { xs: "column-reverse", md: "row" }, // image on top for mobile
         width: "100%",
         minHeight: "100vh",
         overflow: "hidden",
@@ -29,7 +29,7 @@ const Hero = () => {
           boxSizing: "border-box",
         }}
       >
-        {/* ✨ Typewriter animation for heading */}
+        {/* ✨ Heading */}
         <Typography
           component={motion.h1}
           variant="h3"
@@ -41,9 +41,9 @@ const Hero = () => {
             display: "inline-block",
             overflow: "hidden",
             borderRight: ".15em solid #14CD02",
-            whiteSpace: "normal", // allows wrapping
+            whiteSpace: "normal",
             wordBreak: "break-word",
-            maxWidth: { xs: "100%", md: "90%" }, // wrap around 50% visually
+            maxWidth: { xs: "100%", md: "90%" },
             mx: { xs: "auto", md: 0 },
           }}
           initial={{ width: 0 }}
@@ -57,24 +57,36 @@ const Hero = () => {
           HGSC² Digital Skill Academy LTD.
         </Typography>
 
-        {/* Subtitle */}
-        <Typography
-          component={motion.p}
-          variant="h6"
-          color="wheat"
+        {/* 🔹 Bullet Subtitle */}
+        <Box
+          component={motion.div}
           sx={{
             mb: 3,
-            opacity: 0.9,
-            lineHeight: 1.5,
+            textAlign: { xs: "center", md: "left" },
+            color: "wheat",
             fontSize: { xs: "1rem", md: "1.1rem" },
+            display: "flex",
+            flexDirection: "column",
+            gap: 1,
           }}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1.5, delay: 2.8 }}
         >
-          4x award-winning academy • 2,000+ students from 18 countries •
-          practical, career-focused tech training
-        </Typography>
+          <Typography variant="body1" color="inherit">
+            • 4x Award-Winning Academy
+          </Typography>
+          <Typography variant="body1" color="inherit">
+            • Over 2,000 Certified Students from 18 Countries
+          </Typography>
+          <Typography variant="body1" color="inherit">
+            • Affordable, High-Quality Training in Digital, Tech, and Personal
+            Development Skills
+          </Typography>
+          <Typography variant="body1" color="inherit">
+            • Access to Job Referrals and Career Opportunities
+          </Typography>
+        </Box>
 
         {/* BUTTONS */}
         <Box
