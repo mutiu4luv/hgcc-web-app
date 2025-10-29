@@ -14,7 +14,7 @@ const Hero = () => {
         overflow: "hidden",
       }}
     >
-      {/* LEFT SECTION (EXACT 50%) */}
+      {/* LEFT SECTION */}
       <Box
         sx={{
           width: { xs: "100%", md: "50%" },
@@ -23,9 +23,9 @@ const Hero = () => {
           display: "flex",
           flexDirection: "column",
           justifyContent: "center",
-          px: { xs: 3, md: 8 },
+          px: { xs: 3, sm: 5, md: 8 },
           py: { xs: 6, md: 0 },
-          textAlign: { xs: "center", md: "left" },
+          textAlign: "left", // always left-aligned
           boxSizing: "border-box",
         }}
       >
@@ -44,7 +44,6 @@ const Hero = () => {
             whiteSpace: "normal",
             wordBreak: "break-word",
             maxWidth: { xs: "100%", md: "90%" },
-            mx: { xs: "auto", md: 0 },
           }}
           initial={{ width: 0 }}
           animate={{ width: "100%" }}
@@ -62,12 +61,13 @@ const Hero = () => {
           component={motion.div}
           sx={{
             mb: 3,
-            textAlign: { xs: "center", md: "left" },
             color: "wheat",
             fontSize: { xs: "1rem", md: "1.1rem" },
             display: "flex",
             flexDirection: "column",
             gap: 1,
+            alignItems: "flex-start", // ensures bullets align left
+            pl: 1, // slight padding for visual alignment
           }}
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
@@ -93,7 +93,7 @@ const Hero = () => {
           component={motion.div}
           sx={{
             display: "flex",
-            justifyContent: { xs: "center", md: "flex-start" },
+            justifyContent: { xs: "flex-start", md: "flex-start" },
             gap: 2,
             flexWrap: "wrap",
             mb: 4,
@@ -142,7 +142,7 @@ const Hero = () => {
           sx={{
             display: "flex",
             gap: 2,
-            justifyContent: { xs: "center", md: "flex-start" },
+            justifyContent: { xs: "flex-start", md: "flex-start" },
             flexWrap: "wrap",
           }}
           initial={{ opacity: 0, y: 20 }}
