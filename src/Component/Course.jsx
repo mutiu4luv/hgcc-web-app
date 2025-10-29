@@ -1,5 +1,5 @@
 import React from "react";
-import { School, WorkspacePremium, TrendingUp } from "@mui/icons-material"; // better icons
+import { School, WorkspacePremium, TrendingUp } from "@mui/icons-material";
 import {
   Box,
   Container,
@@ -8,36 +8,58 @@ import {
   Card,
   CardContent,
   Avatar,
+  List,
+  ListItem,
+  ListItemText,
+  Button,
 } from "@mui/material";
 import { motion } from "framer-motion";
 
 const PRIMARY_GREEN_DARK = "#006400";
 const ACCENT_GREEN_LIGHT = "#6aa84f";
 const BORDER_ACCENT = "#d9ead3";
+const BUTTON_GREEN = "#14CD02";
 
-// Updated course data with better icons
+// Course data
 const courses = [
   {
     icon: School,
     title: "1 Month Course",
+    description: [
+      "Copy Writing",
+      "Video Editing",
+      "Ghost Writing",
+      "Fashion Design",
+      "Graphics Design",
+      "SEO Writing",
+      "Community Management",
+      "Digital Marketing",
+    ],
   },
   {
     icon: WorkspacePremium,
     title: "3 Months Course",
+    description: [
+      "Data Analytics",
+      "UI/UX Design",
+      "Product/Project Management",
+    ],
   },
   {
     icon: TrendingUp,
     title: "6 Months Course",
+    description: ["Full Stack", "AI Programming", "Cyber Security"],
   },
 ];
 
-// Course card component with animation
+// Course card component
 const CourseCard = ({ icon: Icon, title, description, index }) => (
   <motion.div
     initial={{ opacity: 0, y: 40 }}
     whileInView={{ opacity: 1, y: 0 }}
     transition={{ duration: 0.6, delay: index * 0.2 }}
     whileHover={{ scale: 1.05 }}
+    style={{ height: "100%" }}
   >
     <Card
       sx={{
@@ -45,6 +67,7 @@ const CourseCard = ({ icon: Icon, title, description, index }) => (
         flexDirection: "column",
         alignItems: "center",
         textAlign: "center",
+        justifyContent: "space-between",
         p: 3,
         borderRadius: "12px",
         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
@@ -55,9 +78,19 @@ const CourseCard = ({ icon: Icon, title, description, index }) => (
         borderTop: `8px solid ${ACCENT_GREEN_LIGHT}`,
         bgcolor: "#fff",
         height: "100%",
+        minHeight: { xs: 440, md: 480 },
+        width: 300,
       }}
     >
-      <CardContent sx={{ flexGrow: 1, width: "100%", p: 0 }}>
+      <CardContent
+        sx={{
+          flexGrow: 1,
+          width: "100%",
+          display: "flex",
+          flexDirection: "column",
+          alignItems: "center",
+        }}
+      >
         <Avatar
           sx={{
             bgcolor: BORDER_ACCENT,
@@ -74,20 +107,56 @@ const CourseCard = ({ icon: Icon, title, description, index }) => (
           variant="h6"
           component="h3"
           fontWeight="bold"
-          mb={1}
+          mb={2}
           sx={{ color: PRIMARY_GREEN_DARK }}
         >
           {title}
         </Typography>
 
-        <Typography
-          variant="body1"
-          color="text.secondary"
-          mb={3}
-          sx={{ minHeight: "5rem" }}
+        {/* Bullet list of courses */}
+        <List
+          dense
+          disablePadding
+          sx={{
+            textAlign: "left",
+            width: "100%",
+            maxWidth: 280,
+            mx: "auto",
+            flexGrow: 1,
+          }}
         >
-          {description}
-        </Typography>
+          {description.map((item, i) => (
+            <ListItem key={i} sx={{ py: 0.3 }}>
+              <ListItemText
+                primaryTypographyProps={{
+                  fontSize: "0.95rem",
+                  color: "text.secondary",
+                }}
+                primary={`• ${item}`}
+              />
+            </ListItem>
+          ))}
+        </List>
+
+        {/* Learn More Button */}
+        <Button
+          variant="contained"
+          sx={{
+            mt: 2,
+            backgroundColor: BUTTON_GREEN,
+            color: "#fff",
+            borderRadius: "30px",
+            textTransform: "none",
+            px: 4,
+            py: 1,
+            fontWeight: "bold",
+            "&:hover": {
+              backgroundColor: "#0ea800",
+            },
+          }}
+        >
+          Learn More
+        </Button>
       </CardContent>
     </Card>
   </motion.div>
@@ -112,7 +181,6 @@ const CoursesWeOffer = () => {
             }}
           >
             COURSES WE OFFER
-            {/* Animated underline */}
             <motion.span
               animate={{ width: ["0%", "100%", "0%"] }}
               transition={{
@@ -136,7 +204,7 @@ const CoursesWeOffer = () => {
           </Typography>
         </Box>
 
-        {/* Centered Grid for Cards */}
+        {/* Grid for Cards */}
         <Grid
           container
           spacing={4}
@@ -144,7 +212,14 @@ const CoursesWeOffer = () => {
           alignItems="stretch"
         >
           {courses.map((course, index) => (
-            <Grid item xs={12} sm={6} md={4} key={index}>
+            <Grid
+              item
+              key={index}
+              sx={{
+                display: "flex",
+                justifyContent: "center",
+              }}
+            >
               <CourseCard {...course} index={index} />
             </Grid>
           ))}

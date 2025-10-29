@@ -32,13 +32,13 @@ const courses = [
       "Start your learning journey with zero cost and no commitments.",
     buttonText: "Register Now",
   },
-  {
-    icon: Monitor,
-    title: "Hands-On Projects",
-    description:
-      "Apply what you learn through practical, real-world projects that build your portfolio.",
-    buttonText: "Register Now",
-  },
+  // {
+  //   icon: Monitor,
+  //   title: "Hands-On Projects",
+  //   description:
+  //     "Apply what you learn through practical, real-world projects that build your portfolio.",
+  //   buttonText: "Register Now",
+  // },
   {
     icon: FlashOn,
     title: "Live Classes",

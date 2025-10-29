@@ -8,6 +8,7 @@ import Course from "../Component/Course";
 import MissionAndVision from "../Component/MissionAndVisition";
 import Benefits from "../Component/Benefits";
 import Footer from "../Component/Footer";
+import Allumini from "../Component/Allumini";
 
 const LandingPage = () => {
   return (
@@ -15,11 +16,13 @@ const LandingPage = () => {
       {/* <NavBar /> */}
       <Hero />
       <Testimonials />
-      <FounderSection />
       <Course />
+      <FounderSection />
+
       <CoursesSection />
       <MissionAndVision />
       <VisionMission />
+      <Allumini />
       <Benefits />
       <Footer />
     </div>
