@@ -14,7 +14,7 @@ import {
   MenuItem,
 } from "@mui/material";
 import { motion } from "framer-motion";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, Link } from "react-router-dom";
 import UploadIcon from "@mui/icons-material/CloudUpload";
 
 const RegisterForm = () => {
@@ -66,7 +66,7 @@ const RegisterForm = () => {
     try {
       setLoading(true);
       const res = await axios.post(
-        `${process.env.REACT_APP_BASE_URL}/api/users/register`,
+        "https://digital-skill-benedicta.onrender.com/api/users/register",
         data,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
@@ -88,7 +88,7 @@ const RegisterForm = () => {
         display: "flex",
         alignItems: "center",
         justifyContent: "center",
-        background: "linear-gradient(135deg, #065f46 0%, #16a34a 100%)", // green bg for whole screen
+        background: "linear-gradient(135deg, #065f46 0%, #16a34a 100%)",
         p: 2,
       }}
     >
@@ -102,7 +102,7 @@ const RegisterForm = () => {
           sx={{
             p: 4,
             borderRadius: 4,
-            background: "rgba(255, 255, 255, 0.15)", // transparent white box
+            background: "rgba(255, 255, 255, 0.15)",
             backdropFilter: "blur(8px)",
             color: "#fff",
           }}
@@ -126,6 +126,7 @@ const RegisterForm = () => {
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.6 }}
           >
+            {/* Full Name */}
             <TextField
               fullWidth
               label="Full Name"
@@ -137,6 +138,7 @@ const RegisterForm = () => {
               sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
             />
 
+            {/* Email */}
             <TextField
               fullWidth
               label="Email Address"
@@ -149,6 +151,7 @@ const RegisterForm = () => {
               sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
             />
 
+            {/* Password */}
             <TextField
               fullWidth
               label="Password"
@@ -161,6 +164,7 @@ const RegisterForm = () => {
               sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
             />
 
+            {/* Role Dropdown */}
             <TextField
               select
               fullWidth
@@ -176,6 +180,7 @@ const RegisterForm = () => {
               <MenuItem value="owner">Owner</MenuItem>
             </TextField>
 
+            {/* Phone */}
             <TextField
               fullWidth
               label="Phone Number"
@@ -186,6 +191,7 @@ const RegisterForm = () => {
               sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
             />
 
+            {/* Country */}
             <TextField
               fullWidth
               label="Country"
@@ -196,6 +202,7 @@ const RegisterForm = () => {
               sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
             />
 
+            {/* Upload */}
             <Box sx={{ mt: 2, textAlign: "center" }}>
               <motion.div
                 whileHover={{ scale: 1.05 }}
@@ -247,6 +254,7 @@ const RegisterForm = () => {
               </motion.div>
             </Box>
 
+            {/* Terms */}
             <FormControlLabel
               control={
                 <Checkbox
@@ -263,6 +271,7 @@ const RegisterForm = () => {
               }
             />
 
+            {/* Register Button */}
             <Box mt={3} textAlign="center">
               <motion.div
                 whileHover={{ scale: 1.05 }}
@@ -291,6 +300,25 @@ const RegisterForm = () => {
               </motion.div>
             </Box>
           </motion.form>
+
+          {/* Login Link */}
+          <Typography
+            variant="body2"
+            align="center"
+            sx={{ mt: 3, color: "#fff" }}
+          >
+            Already have an account?{" "}
+            <Link
+              to="/login"
+              style={{
+                color: "#a7f3d0",
+                textDecoration: "none",
+                fontWeight: "bold",
+              }}
+            >
+              Login
+            </Link>
+          </Typography>
         </Paper>
       </Container>
     </Box>

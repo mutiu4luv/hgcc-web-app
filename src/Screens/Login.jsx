@@ -1,0 +1,214 @@
+import React, { useState } from "react";
+import axios from "axios";
+import {
+  Box,
+  TextField,
+  Button,
+  Typography,
+  Container,
+  Paper,
+  CircularProgress,
+  IconButton,
+  InputAdornment,
+} from "@mui/material";
+import { motion } from "framer-motion";
+import { useNavigate, Link } from "react-router-dom";
+import { Visibility, VisibilityOff } from "@mui/icons-material";
+
+const LoginForm = () => {
+  const navigate = useNavigate();
+
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
+  const [loading, setLoading] = useState(false);
+
+  const BASE_URL = import.meta.env.REACT_APP_BASE_URL;
+  const handleLogin = async (e) => {
+    e.preventDefault();
+
+    if (!email || !password) {
+      alert("Please fill in all fields");
+      return;
+    }
+
+    try {
+      setLoading(true);
+      const res = await axios.post(
+        "https://digital-skill-benedicta.onrender.com/api/users/login",
+        {
+          email,
+          password,
+        }
+      );
+
+      // ✅ Save user info to localStorage
+      const { fullName, email: userEmail, phoneNumber } = res.data.user;
+      localStorage.setItem(
+        "user",
+        JSON.stringify({ fullName, email: userEmail, phoneNumber })
+      );
+
+      alert(res.data.message || "Login successful!");
+      navigate("/dashboard");
+    } catch (error) {
+      console.error("❌ Login error:", error.response?.data || error);
+      alert(error.response?.data?.message || "Login failed!");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleTogglePassword = () => {
+    setShowPassword((prev) => !prev);
+  };
+
+  return (
+    <Box
+      sx={{
+        minHeight: "100vh",
+        display: "flex",
+        alignItems: "center",
+        justifyContent: "center",
+        background: "linear-gradient(135deg, #065f46 0%, #16a34a 100%)",
+        p: 2,
+      }}
+    >
+      <Container maxWidth="sm">
+        <Paper
+          elevation={12}
+          component={motion.div}
+          initial={{ opacity: 0, scale: 0.9, y: 30 }}
+          animate={{ opacity: 1, scale: 1, y: 0 }}
+          transition={{ duration: 0.6, ease: "easeOut" }}
+          sx={{
+            p: 4,
+            borderRadius: 4,
+            background: "rgba(255, 255, 255, 0.15)",
+            backdropFilter: "blur(8px)",
+            color: "#fff",
+          }}
+        >
+          <Typography
+            variant="h4"
+            textAlign="center"
+            gutterBottom
+            sx={{
+              fontWeight: "bold",
+              textShadow: "1px 1px 3px rgba(0,0,0,0.3)",
+            }}
+          >
+            Welcome Back
+          </Typography>
+
+          <Typography
+            variant="body2"
+            textAlign="center"
+            sx={{ mb: 3, opacity: 0.8 }}
+            color="inherit"
+          >
+            Login to your HGSC² Digital Skills account
+          </Typography>
+
+          <motion.form
+            onSubmit={handleLogin}
+            initial={{ opacity: 0, y: 30 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.2, duration: 0.6 }}
+          >
+            <TextField
+              fullWidth
+              label="Email Address"
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              variant="filled"
+              sx={{
+                mb: 2,
+                bgcolor: "rgba(255,255,255,0.95)",
+                borderRadius: 1,
+              }}
+            />
+
+            <TextField
+              fullWidth
+              label="Password"
+              type={showPassword ? "text" : "password"}
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+              variant="filled"
+              sx={{
+                mb: 3,
+                bgcolor: "rgba(255,255,255,0.95)",
+                borderRadius: 1,
+              }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={handleTogglePassword}
+                      edge="end"
+                      sx={{ color: "#14532d" }}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+
+            <Box textAlign="center">
+              <motion.div
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.98 }}
+              >
+                <Button
+                  variant="contained"
+                  size="large"
+                  type="submit"
+                  disabled={loading}
+                  sx={{
+                    px: 6,
+                    py: 1.5,
+                    borderRadius: 3,
+                    backgroundColor: "#14532d",
+                    fontWeight: "bold",
+                    "&:hover": { backgroundColor: "#15803d" },
+                  }}
+                >
+                  {loading ? (
+                    <CircularProgress size={24} color="inherit" />
+                  ) : (
+                    "Login"
+                  )}
+                </Button>
+              </motion.div>
+            </Box>
+
+            <Typography
+              variant="body2"
+              textAlign="center"
+              sx={{ mt: 3, color: "#fff" }}
+            >
+              Don’t have an account?{" "}
+              <Link
+                to="/register"
+                style={{
+                  color: "#9ae6b4",
+                  fontWeight: "bold",
+                  textDecoration: "none",
+                }}
+              >
+                Create one
+              </Link>
+            </Typography>
+          </motion.form>
+        </Paper>
+      </Container>
+    </Box>
+  );
+};
+
+export default LoginForm;
