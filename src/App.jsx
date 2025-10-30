@@ -5,6 +5,8 @@ import "./App.css";
 import { Route, Routes } from "react-router-dom";
 import LandingPage from "./Screens/LandingPage";
 import Navbar from "./Component/NavBar";
+import Register from "./Screens/Register";
+import ConfirmCode from "./Screens/Confirm";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -14,6 +16,8 @@ function App() {
       <Navbar />
       <Routes>
         <Route path="/" element={<LandingPage />} />
+        <Route path="/register" element={<Register />} />
+        <Route path="/confirm" element={<ConfirmCode />} />
       </Routes>
     </>
   );

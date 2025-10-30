@@ -29,6 +29,10 @@ const Navbar = () => {
     navigate("/"); // ✅ Navigate to home
   };
 
+  const handleEnrollNow = () => {
+    navigate("/register"); // ✅ Navigate to registration page
+  };
+
   const menuItems = [
     { label: "Home", href: "#home" },
     { label: "Offers", href: "#offers" },
@@ -45,7 +49,7 @@ const Navbar = () => {
       sx={{
         background: "transparent",
         mb: 1,
-        height: { xs: 60, md: 70 }, // ✅ Reduced height
+        height: { xs: 60, md: 70 },
         display: "flex",
         justifyContent: "center",
       }}
@@ -57,7 +61,7 @@ const Navbar = () => {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            minHeight: "unset", // ✅ prevent default Toolbar height
+            minHeight: "unset",
           }}
         >
           {/* ✅ Logo Section */}
@@ -66,7 +70,7 @@ const Navbar = () => {
             sx={{
               display: "flex",
               alignItems: "center",
-              cursor: "pointer", // ✅ Indicate clickable logo
+              cursor: "pointer",
             }}
           >
             <Box
@@ -74,15 +78,21 @@ const Navbar = () => {
               src={logo}
               alt="HGSC² Academy Logo"
               sx={{
-                width: { xs: 100, sm: 130, md: 150 }, // ✅ Slightly smaller
+                width: { xs: 100, sm: 130, md: 150 },
                 height: "auto",
                 objectFit: "contain",
               }}
             />
           </Box>
 
-          {/* Desktop Menu */}
-          <Box sx={{ display: { xs: "none", md: "flex" }, gap: 3 }}>
+          {/* ✅ Desktop Menu */}
+          <Box
+            sx={{
+              display: { xs: "none", md: "flex" },
+              alignItems: "center",
+              gap: 3,
+            }}
+          >
             {menuItems.map((item) => (
               <Button
                 key={item.label}
@@ -97,9 +107,29 @@ const Navbar = () => {
                 {item.label}
               </Button>
             ))}
+
+            {/* ✅ Enroll Now Button */}
+            <Button
+              variant="contained"
+              onClick={handleEnrollNow}
+              sx={{
+                backgroundColor: "#16a34a",
+                color: "#fff",
+                textTransform: "none",
+                fontWeight: 600,
+                px: 3,
+                py: 1,
+                borderRadius: "8px",
+                "&:hover": {
+                  backgroundColor: "#15803d",
+                },
+              }}
+            >
+              Enroll Now
+            </Button>
           </Box>
 
-          {/* Mobile Menu Icon */}
+          {/* ✅ Mobile Menu Icon */}
           <Box sx={{ display: { xs: "flex", md: "none" } }}>
             <IconButton
               size="large"
@@ -111,7 +141,7 @@ const Navbar = () => {
             </IconButton>
           </Box>
 
-          {/* Mobile Dropdown Menu */}
+          {/* ✅ Mobile Dropdown Menu */}
           <Menu
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
@@ -136,6 +166,27 @@ const Navbar = () => {
                 {item.label}
               </MenuItem>
             ))}
+
+            {/* ✅ Enroll Now (Mobile) */}
+            <MenuItem
+              onClick={() => {
+                handleCloseMenu();
+                handleEnrollNow();
+              }}
+              sx={{
+                color: "#fff",
+                fontWeight: 600,
+                backgroundColor: "#16a34a",
+                borderRadius: "6px",
+                mx: 1,
+                mt: 1,
+                "&:hover": {
+                  backgroundColor: "#15803d",
+                },
+              }}
+            >
+              Enroll Now
+            </MenuItem>
           </Menu>
         </Toolbar>
       </Container>
