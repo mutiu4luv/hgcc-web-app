@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   AppBar,
   Toolbar,
@@ -8,37 +8,55 @@ import {
   IconButton,
   Menu,
   MenuItem,
+  Typography,
+  Avatar,
+  Divider,
+  ListItemIcon,
 } from "@mui/material";
 import MenuIcon from "@mui/icons-material/Menu";
-import { useNavigate } from "react-router-dom"; // ✅ For navigation
-import logo from "../assets/logo.jpeg"; // ✅ ensure correct path
+import AccountCircleIcon from "@mui/icons-material/AccountCircle";
+import DashboardIcon from "@mui/icons-material/Dashboard";
+import PersonIcon from "@mui/icons-material/Person";
+import LogoutIcon from "@mui/icons-material/Logout";
+import { useNavigate } from "react-router-dom";
+import logo from "../assets/logo.jpeg";
 
 const Navbar = () => {
   const [anchorEl, setAnchorEl] = useState(null);
-  const navigate = useNavigate(); // ✅ useNavigate hook
+  const [userMenuAnchor, setUserMenuAnchor] = useState(null);
+  const [userName, setUserName] = useState(null);
+  const [userPhoto, setUserPhoto] = useState(null);
+  const navigate = useNavigate();
 
-  const handleOpenMenu = (event) => {
-    setAnchorEl(event.currentTarget);
-  };
+  useEffect(() => {
+    const name = localStorage.getItem("userName");
+    const photo = localStorage.getItem("userPhoto");
+    if (name) setUserName(name);
+    if (photo) setUserPhoto(photo);
+  }, []);
 
-  const handleCloseMenu = () => {
-    setAnchorEl(null);
-  };
+  const handleOpenMenu = (event) => setAnchorEl(event.currentTarget);
+  const handleCloseMenu = () => setAnchorEl(null);
 
-  const handleLogoClick = () => {
-    navigate("/"); // ✅ Navigate to home
-  };
+  const handleLogoClick = () => navigate("/");
+  const handleEnrollNow = () => navigate("/register");
+  const handleUserMenuOpen = (event) => setUserMenuAnchor(event.currentTarget);
+  const handleUserMenuClose = () => setUserMenuAnchor(null);
 
-  const handleEnrollNow = () => {
-    navigate("/register"); // ✅ Navigate to registration page
+  const handleLogout = () => {
+    localStorage.clear();
+    setUserName(null);
+    setUserPhoto(null);
+    handleUserMenuClose();
+    navigate("/");
   };
 
   const menuItems = [
-    { label: "Home", href: "#home" },
-    { label: "Offers", href: "#offers" },
-    { label: "Special Offer", href: "#special" },
-    { label: "Awards", href: "#awards" },
-    { label: "Contact", href: "#contact" },
+    { label: "Home", path: "/" },
+    { label: "Offers", path: "/offers" },
+    { label: "Special Offer", path: "/special" },
+    { label: "Awards", path: "/awards" },
+    { label: "Contact", path: "/contact" },
   ];
 
   return (
@@ -64,7 +82,7 @@ const Navbar = () => {
             minHeight: "unset",
           }}
         >
-          {/* ✅ Logo Section */}
+          {/* ✅ Logo */}
           <Box
             onClick={handleLogoClick}
             sx={{
@@ -76,7 +94,7 @@ const Navbar = () => {
             <Box
               component="img"
               src={logo}
-              alt="HGSC² Academy Logo"
+              alt="HGSC² Digital Skills Logo"
               sx={{
                 width: { xs: 100, sm: 130, md: 150 },
                 height: "auto",
@@ -96,7 +114,7 @@ const Navbar = () => {
             {menuItems.map((item) => (
               <Button
                 key={item.label}
-                href={item.href}
+                onClick={() => navigate(item.path)}
                 sx={{
                   color: "#065f46",
                   textTransform: "none",
@@ -108,28 +126,104 @@ const Navbar = () => {
               </Button>
             ))}
 
-            {/* ✅ Enroll Now Button */}
-            <Button
-              variant="contained"
-              onClick={handleEnrollNow}
-              sx={{
-                backgroundColor: "#16a34a",
-                color: "#fff",
-                textTransform: "none",
-                fontWeight: 600,
-                px: 3,
-                py: 1,
-                borderRadius: "8px",
-                "&:hover": {
-                  backgroundColor: "#15803d",
-                },
-              }}
-            >
-              Enroll Now
-            </Button>
+            {userName ? (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                <Typography
+                  variant="body1"
+                  sx={{
+                    fontWeight: 600,
+                    color: "#065f46",
+                  }}
+                >
+                  Hi, {userName.split(" ")[0]}
+                </Typography>
+                <IconButton onClick={handleUserMenuOpen}>
+                  <Avatar
+                    src={userPhoto || ""}
+                    alt={userName || "User"}
+                    sx={{
+                      bgcolor: userPhoto ? "transparent" : "#16a34a",
+                    }}
+                  >
+                    {!userPhoto && <AccountCircleIcon />}
+                  </Avatar>
+                </IconButton>
+
+                {/* ✅ User Dropdown Menu */}
+                <Menu
+                  anchorEl={userMenuAnchor}
+                  open={Boolean(userMenuAnchor)}
+                  onClose={handleUserMenuClose}
+                  PaperProps={{
+                    sx: {
+                      mt: 1.5,
+                      borderRadius: 2,
+                      minWidth: 220,
+                      boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)",
+                    },
+                  }}
+                >
+                  <MenuItem onClick={() => navigate("/profile")}>
+                    <ListItemIcon>
+                      <PersonIcon fontSize="small" />
+                    </ListItemIcon>
+                    Profile
+                  </MenuItem>
+
+                  <MenuItem onClick={() => navigate("/dashboard")}>
+                    <ListItemIcon>
+                      <DashboardIcon fontSize="small" />
+                    </ListItemIcon>
+                    Dashboard
+                  </MenuItem>
+
+                  <Divider />
+
+                  {menuItems.map((item) => (
+                    <MenuItem
+                      key={item.label}
+                      onClick={() => {
+                        handleUserMenuClose();
+                        navigate(item.path);
+                      }}
+                    >
+                      {item.label}
+                    </MenuItem>
+                  ))}
+
+                  <Divider sx={{ my: 1 }} />
+
+                  <MenuItem onClick={handleLogout} sx={{ color: "red" }}>
+                    <ListItemIcon>
+                      <LogoutIcon fontSize="small" color="error" />
+                    </ListItemIcon>
+                    Logout
+                  </MenuItem>
+                </Menu>
+              </Box>
+            ) : (
+              <Button
+                variant="contained"
+                onClick={handleEnrollNow}
+                sx={{
+                  backgroundColor: "#16a34a",
+                  color: "#fff",
+                  textTransform: "none",
+                  fontWeight: 600,
+                  px: 3,
+                  py: 1,
+                  borderRadius: "8px",
+                  "&:hover": {
+                    backgroundColor: "#15803d",
+                  },
+                }}
+              >
+                Enroll Now
+              </Button>
+            )}
           </Box>
 
-          {/* ✅ Mobile Menu Icon */}
+          {/* ✅ Mobile Menu */}
           <Box sx={{ display: { xs: "flex", md: "none" } }}>
             <IconButton
               size="large"
@@ -141,52 +235,68 @@ const Navbar = () => {
             </IconButton>
           </Box>
 
-          {/* ✅ Mobile Dropdown Menu */}
           <Menu
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
             onClose={handleCloseMenu}
-            anchorOrigin={{
-              vertical: "bottom",
-              horizontal: "right",
-            }}
-            transformOrigin={{
-              vertical: "top",
-              horizontal: "right",
-            }}
           >
             {menuItems.map((item) => (
               <MenuItem
                 key={item.label}
-                onClick={handleCloseMenu}
-                component="a"
-                href={item.href}
+                onClick={() => {
+                  handleCloseMenu();
+                  navigate(item.path);
+                }}
                 sx={{ color: "#065f46", fontWeight: 500 }}
               >
                 {item.label}
               </MenuItem>
             ))}
 
-            {/* ✅ Enroll Now (Mobile) */}
-            <MenuItem
-              onClick={() => {
-                handleCloseMenu();
-                handleEnrollNow();
-              }}
-              sx={{
-                color: "#fff",
-                fontWeight: 600,
-                backgroundColor: "#16a34a",
-                borderRadius: "6px",
-                mx: 1,
-                mt: 1,
-                "&:hover": {
-                  backgroundColor: "#15803d",
-                },
-              }}
-            >
-              Enroll Now
-            </MenuItem>
+            {userName ? (
+              <>
+                <Divider />
+                <MenuItem onClick={() => navigate("/profile")}>
+                  <ListItemIcon>
+                    <PersonIcon fontSize="small" />
+                  </ListItemIcon>
+                  Profile
+                </MenuItem>
+                <MenuItem onClick={() => navigate("/dashboard")}>
+                  <ListItemIcon>
+                    <DashboardIcon fontSize="small" />
+                  </ListItemIcon>
+                  Dashboard
+                </MenuItem>
+                <Divider sx={{ my: 1 }} />
+                <MenuItem onClick={handleLogout} sx={{ color: "red" }}>
+                  <ListItemIcon>
+                    <LogoutIcon fontSize="small" color="error" />
+                  </ListItemIcon>
+                  Logout
+                </MenuItem>
+              </>
+            ) : (
+              <MenuItem
+                onClick={() => {
+                  handleCloseMenu();
+                  handleEnrollNow();
+                }}
+                sx={{
+                  color: "#fff",
+                  fontWeight: 600,
+                  backgroundColor: "#16a34a",
+                  borderRadius: "6px",
+                  mx: 1,
+                  mt: 1,
+                  "&:hover": {
+                    backgroundColor: "#15803d",
+                  },
+                }}
+              >
+                Enroll Now
+              </MenuItem>
+            )}
           </Menu>
         </Toolbar>
       </Container>

@@ -36,20 +36,27 @@ const LoginForm = () => {
       setLoading(true);
       const res = await axios.post(
         "https://digital-skill-benedicta.onrender.com/api/users/login",
-        {
-          email,
-          password,
-        }
+        { email, password }
       );
 
-      // ✅ Save user info to localStorage
-      const { fullName, email: userEmail, phoneNumber } = res.data.user;
-      localStorage.setItem(
-        "user",
-        JSON.stringify({ fullName, email: userEmail, phoneNumber })
-      );
+      // ✅ Destructure response data
+      const {
+        _id,
+        fullName,
+        email: userEmail,
+        phoneNumber,
+        profilePhoto,
+      } = res.data.user;
+
+      // ✅ Save user info including photo
+      localStorage.setItem("userId", _id);
+      localStorage.setItem("userName", fullName);
+      localStorage.setItem("userEmail", userEmail);
+      localStorage.setItem("userPhone", phoneNumber);
+      if (profilePhoto) localStorage.setItem("userPhoto", profilePhoto);
 
       alert(res.data.message || "Login successful!");
+
       navigate("/dashboard");
     } catch (error) {
       console.error("❌ Login error:", error.response?.data || error);
@@ -58,7 +65,6 @@ const LoginForm = () => {
       setLoading(false);
     }
   };
-
   const handleTogglePassword = () => {
     setShowPassword((prev) => !prev);
   };

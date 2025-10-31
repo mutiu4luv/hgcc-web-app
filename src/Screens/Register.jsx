@@ -11,11 +11,14 @@ import {
   Paper,
   CircularProgress,
   Avatar,
-  MenuItem,
+  IconButton,
+  InputAdornment,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import UploadIcon from "@mui/icons-material/CloudUpload";
+import Visibility from "@mui/icons-material/Visibility";
+import VisibilityOff from "@mui/icons-material/VisibilityOff";
 
 const RegisterForm = () => {
   const navigate = useNavigate();
@@ -24,14 +27,16 @@ const RegisterForm = () => {
     fullName: "",
     email: "",
     password: "",
-    role: "student",
+    role: "student", // Fixed role
     phoneNumber: "",
     country: "",
     acceptedTerms: false,
   });
+
   const [profilePhoto, setProfilePhoto] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
 
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
@@ -111,6 +116,7 @@ const RegisterForm = () => {
             variant="h4"
             textAlign="center"
             gutterBottom
+            color="white"
             sx={{
               fontWeight: "bold",
               textShadow: "1px 1px 3px rgba(0,0,0,0.3)",
@@ -151,35 +157,41 @@ const RegisterForm = () => {
               sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
             />
 
-            {/* Password */}
+            {/* Password with visibility toggle */}
             <TextField
               fullWidth
               label="Password"
               name="password"
-              type="password"
+              type={showPassword ? "text" : "password"}
               value={formData.password}
               onChange={handleChange}
               required
               variant="filled"
               sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword(!showPassword)}
+                      edge="end"
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
 
-            {/* Role Dropdown */}
+            {/* Role - fixed as Student */}
             <TextField
-              select
               fullWidth
-              label="Select Role"
-              required
+              label="Role"
               name="role"
-              value={formData.role}
-              onChange={handleChange}
+              value="Student"
+              disabled
               variant="filled"
-              sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
-            >
-              <MenuItem value="student">Student</MenuItem>
-              <MenuItem value="coach">Coach</MenuItem>
-              <MenuItem value="owner">Owner</MenuItem>
-            </TextField>
+              sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.7)", borderRadius: 1 }}
+            />
 
             {/* Phone */}
             <TextField

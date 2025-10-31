@@ -2,6 +2,7 @@ import React from "react";
 import { Box, Typography, Button, Paper } from "@mui/material";
 import { motion } from "framer-motion";
 import heroSide from "../assets/heroSide.png";
+import { Link } from "react-router-dom";
 
 const Hero = () => {
   return (
@@ -102,19 +103,22 @@ const Hero = () => {
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 1, delay: 3.2 }}
         >
-          <Button
-            variant="contained"
-            size="large"
-            sx={{
-              textTransform: "none",
-              fontWeight: 600,
-              px: 3,
-              backgroundColor: "#14CD02",
-              "&:hover": { backgroundColor: "#15803d" },
-            }}
-          >
-            Enroll Now
-          </Button>
+          <Link to="/register">
+            {" "}
+            <Button
+              variant="contained"
+              size="large"
+              sx={{
+                textTransform: "none",
+                fontWeight: 600,
+                px: 3,
+                backgroundColor: "#14CD02",
+                "&:hover": { backgroundColor: "#15803d" },
+              }}
+            >
+              Enroll Now
+            </Button>
+          </Link>
 
           <Button
             variant="outlined"
