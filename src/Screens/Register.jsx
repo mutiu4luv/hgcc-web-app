@@ -67,6 +67,10 @@ const RegisterForm = () => {
       data.append(key, value);
     });
     if (profilePhoto) data.append("profilePhoto", profilePhoto);
+    if (!profilePhoto) {
+      alert("Please upload a profile photo");
+      return;
+    }
 
     try {
       setLoading(true);
@@ -261,7 +265,6 @@ const RegisterForm = () => {
                       id="profilePhoto"
                       type="file"
                       accept="image/*"
-                      required
                       onChange={handleFileChange}
                       style={{ display: "none" }}
                     />
