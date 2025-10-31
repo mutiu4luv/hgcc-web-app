@@ -39,7 +39,8 @@ const Navbar = () => {
   const handleCloseMenu = () => setAnchorEl(null);
 
   const handleLogoClick = () => navigate("/");
-  const handleEnrollNow = () => navigate("/register");
+  const handleLoginNow = () => navigate("/login");
+  // const handleEnrollNow = () => navigate("/register");
   const handleUserMenuOpen = (event) => setUserMenuAnchor(event.currentTarget);
   const handleUserMenuClose = () => setUserMenuAnchor(null);
 
@@ -204,7 +205,7 @@ const Navbar = () => {
             ) : (
               <Button
                 variant="contained"
-                onClick={handleEnrollNow}
+                onClick={handleLoginNow}
                 sx={{
                   backgroundColor: "#16a34a",
                   color: "#fff",
@@ -218,7 +219,7 @@ const Navbar = () => {
                   },
                 }}
               >
-                Enroll Now
+                Login Now
               </Button>
             )}
           </Box>
@@ -280,7 +281,7 @@ const Navbar = () => {
               <MenuItem
                 onClick={() => {
                   handleCloseMenu();
-                  handleEnrollNow();
+                  handleLoginNow();
                 }}
                 sx={{
                   color: "#fff",
@@ -294,7 +295,7 @@ const Navbar = () => {
                   },
                 }}
               >
-                Enroll Now
+                Login Now
               </MenuItem>
             )}
           </Menu>
