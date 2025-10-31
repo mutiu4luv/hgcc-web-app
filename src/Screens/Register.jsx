@@ -169,6 +169,7 @@ const RegisterForm = () => {
               select
               fullWidth
               label="Select Role"
+              required
               name="role"
               value={formData.role}
               onChange={handleChange}
@@ -185,6 +186,7 @@ const RegisterForm = () => {
               fullWidth
               label="Phone Number"
               name="phoneNumber"
+              required
               value={formData.phoneNumber}
               onChange={handleChange}
               variant="filled"
@@ -196,6 +198,7 @@ const RegisterForm = () => {
               fullWidth
               label="Country"
               name="country"
+              required
               value={formData.country}
               onChange={handleChange}
               variant="filled"
@@ -246,6 +249,7 @@ const RegisterForm = () => {
                       id="profilePhoto"
                       type="file"
                       accept="image/*"
+                      required
                       onChange={handleFileChange}
                       style={{ display: "none" }}
                     />
