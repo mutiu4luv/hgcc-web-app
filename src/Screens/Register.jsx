@@ -27,7 +27,7 @@ const RegisterForm = () => {
     fullName: "",
     email: "",
     password: "",
-    role: "student", // Fixed role
+    role: "student",
     phoneNumber: "",
     country: "",
     acceptedTerms: false,
@@ -57,34 +57,47 @@ const RegisterForm = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    console.log("Form submitted 🚀", formData); // Debug log
+
     if (!formData.acceptedTerms) {
       alert("Please accept the terms & conditions");
       return;
     }
 
-    const data = new FormData();
-    Object.entries(formData).forEach(([key, value]) => {
-      data.append(key, value);
-    });
-    if (profilePhoto) data.append("profilePhoto", profilePhoto);
     if (!profilePhoto) {
       alert("Please upload a profile photo");
       return;
     }
 
+    const data = new FormData();
+    Object.entries(formData).forEach(([key, value]) => data.append(key, value));
+    data.append("profilePhoto", profilePhoto);
+
     try {
       setLoading(true);
+
       const res = await axios.post(
         "https://digital-skill-benedicta.onrender.com/api/users/register",
         data,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
+      console.log("✅ Registration response:", res.data); // Always shows before navigation
       alert(res.data.message || "Registered successfully!");
+
       navigate("/confirm", { state: { email: formData.email } });
     } catch (error) {
-      console.error("❌ Registration failed:", error.response?.data || error);
-      alert(error.response?.data?.message || "Registration failed!");
+      console.error("❌ Registration failed:", error);
+      if (error.response) {
+        console.error("Backend responded:", error.response.data);
+        alert(error.response.data.message || "Registration failed!");
+      } else if (error.request) {
+        console.error("No response received:", error.request);
+        alert("No response from the server. Check your internet or backend.");
+      } else {
+        console.error("Error setting up request:", error.message);
+        alert("An unexpected error occurred.");
+      }
     } finally {
       setLoading(false);
     }
@@ -129,198 +142,222 @@ const RegisterForm = () => {
             Create Your Account
           </Typography>
 
-          <motion.form
-            onSubmit={handleSubmit}
-            encType="multipart/form-data"
+          <motion.div
             initial={{ opacity: 0, y: 30 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ delay: 0.2, duration: 0.6 }}
           >
-            {/* Full Name */}
-            <TextField
-              fullWidth
-              label="Full Name"
-              name="fullName"
-              value={formData.fullName}
-              onChange={handleChange}
-              required
-              variant="filled"
-              sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
-            />
+            <form onSubmit={handleSubmit} encType="multipart/form-data">
+              {/* Full Name */}
+              <TextField
+                fullWidth
+                label="Full Name"
+                name="fullName"
+                value={formData.fullName}
+                onChange={handleChange}
+                required
+                variant="filled"
+                sx={{
+                  mb: 2,
+                  bgcolor: "rgba(255,255,255,0.95)",
+                  borderRadius: 1,
+                }}
+              />
 
-            {/* Email */}
-            <TextField
-              fullWidth
-              label="Email Address"
-              name="email"
-              type="email"
-              value={formData.email}
-              onChange={handleChange}
-              required
-              variant="filled"
-              sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
-            />
+              {/* Email */}
+              <TextField
+                fullWidth
+                label="Email Address"
+                name="email"
+                type="email"
+                value={formData.email}
+                onChange={handleChange}
+                required
+                variant="filled"
+                sx={{
+                  mb: 2,
+                  bgcolor: "rgba(255,255,255,0.95)",
+                  borderRadius: 1,
+                }}
+              />
 
-            {/* Password with visibility toggle */}
-            <TextField
-              fullWidth
-              label="Password"
-              name="password"
-              type={showPassword ? "text" : "password"}
-              value={formData.password}
-              onChange={handleChange}
-              required
-              variant="filled"
-              sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
-              InputProps={{
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      onClick={() => setShowPassword(!showPassword)}
-                      edge="end"
+              {/* Password with visibility toggle */}
+              <TextField
+                fullWidth
+                label="Password"
+                name="password"
+                type={showPassword ? "text" : "password"}
+                value={formData.password}
+                onChange={handleChange}
+                required
+                variant="filled"
+                sx={{
+                  mb: 2,
+                  bgcolor: "rgba(255,255,255,0.95)",
+                  borderRadius: 1,
+                }}
+                InputProps={{
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        onClick={() => setShowPassword(!showPassword)}
+                        edge="end"
+                      >
+                        {showPassword ? <VisibilityOff /> : <Visibility />}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                }}
+              />
+
+              {/* Role */}
+              <TextField
+                fullWidth
+                label="Role"
+                name="role"
+                value="Student"
+                disabled
+                variant="filled"
+                sx={{
+                  mb: 2,
+                  bgcolor: "rgba(255,255,255,0.7)",
+                  borderRadius: 1,
+                }}
+              />
+
+              {/* Phone Number */}
+              <TextField
+                fullWidth
+                label="Phone Number"
+                name="phoneNumber"
+                required
+                value={formData.phoneNumber}
+                onChange={handleChange}
+                variant="filled"
+                sx={{
+                  mb: 2,
+                  bgcolor: "rgba(255,255,255,0.95)",
+                  borderRadius: 1,
+                }}
+              />
+
+              {/* Country */}
+              <TextField
+                fullWidth
+                label="Country"
+                name="country"
+                required
+                value={formData.country}
+                onChange={handleChange}
+                variant="filled"
+                sx={{
+                  mb: 2,
+                  bgcolor: "rgba(255,255,255,0.95)",
+                  borderRadius: 1,
+                }}
+              />
+
+              {/* Upload Photo */}
+              <Box sx={{ mt: 2, textAlign: "center" }}>
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  transition={{ duration: 0.3 }}
+                >
+                  <label htmlFor="profilePhoto">
+                    <Box
+                      sx={{
+                        border: "2px dashed #9ae6b4",
+                        borderRadius: 3,
+                        p: 3,
+                        display: "flex",
+                        flexDirection: "column",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        color: "#fff",
+                        "&:hover": {
+                          borderColor: "#34d399",
+                          background: "rgba(255,255,255,0.1)",
+                        },
+                      }}
                     >
-                      {showPassword ? <VisibilityOff /> : <Visibility />}
-                    </IconButton>
-                  </InputAdornment>
-                ),
-              }}
-            />
+                      {previewUrl ? (
+                        <Avatar
+                          src={previewUrl}
+                          alt="Preview"
+                          sx={{
+                            width: 100,
+                            height: 100,
+                            mb: 1.5,
+                            border: "3px solid #34d399",
+                          }}
+                        />
+                      ) : (
+                        <UploadIcon sx={{ fontSize: 50, mb: 1 }} />
+                      )}
+                      <Typography variant="body2">
+                        {previewUrl ? "Change Photo" : "Upload Profile Photo"}
+                      </Typography>
+                      <input
+                        id="profilePhoto"
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        style={{ display: "none" }}
+                      />
+                    </Box>
+                  </label>
+                </motion.div>
+              </Box>
 
-            {/* Role - fixed as Student */}
-            <TextField
-              fullWidth
-              label="Role"
-              name="role"
-              value="Student"
-              disabled
-              variant="filled"
-              sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.7)", borderRadius: 1 }}
-            />
+              {/* Terms & Conditions */}
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={formData.acceptedTerms}
+                    onChange={handleChange}
+                    name="acceptedTerms"
+                    sx={{ color: "#fff" }}
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ color: "#fff" }}>
+                    I agree to the terms & conditions
+                  </Typography>
+                }
+              />
 
-            {/* Phone */}
-            <TextField
-              fullWidth
-              label="Phone Number"
-              name="phoneNumber"
-              required
-              value={formData.phoneNumber}
-              onChange={handleChange}
-              variant="filled"
-              sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
-            />
-
-            {/* Country */}
-            <TextField
-              fullWidth
-              label="Country"
-              name="country"
-              required
-              value={formData.country}
-              onChange={handleChange}
-              variant="filled"
-              sx={{ mb: 2, bgcolor: "rgba(255,255,255,0.95)", borderRadius: 1 }}
-            />
-
-            {/* Upload */}
-            <Box sx={{ mt: 2, textAlign: "center" }}>
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                transition={{ duration: 0.3 }}
-              >
-                <label htmlFor="profilePhoto">
-                  <Box
+              {/* Submit Button */}
+              <Box mt={3} textAlign="center">
+                <motion.div
+                  whileHover={{ scale: 1.05 }}
+                  whileTap={{ scale: 0.98 }}
+                >
+                  <Button
+                    variant="contained"
+                    size="large"
+                    type="submit"
+                    disabled={loading}
                     sx={{
-                      border: "2px dashed #9ae6b4",
+                      px: 6,
+                      py: 1.5,
                       borderRadius: 3,
-                      p: 3,
-                      display: "flex",
-                      flexDirection: "column",
-                      alignItems: "center",
-                      justifyContent: "center",
-                      color: "#fff",
-                      "&:hover": {
-                        borderColor: "#34d399",
-                        background: "rgba(255,255,255,0.1)",
-                      },
+                      backgroundColor: "#14532d",
+                      fontWeight: "bold",
+                      "&:hover": { backgroundColor: "#15803d" },
                     }}
                   >
-                    {previewUrl ? (
-                      <Avatar
-                        src={previewUrl}
-                        alt="Preview"
-                        sx={{
-                          width: 100,
-                          height: 100,
-                          mb: 1.5,
-                          border: "3px solid #34d399",
-                        }}
-                      />
+                    {loading ? (
+                      <CircularProgress size={24} color="inherit" />
                     ) : (
-                      <UploadIcon sx={{ fontSize: 50, mb: 1 }} />
+                      "Register"
                     )}
-                    <Typography variant="body2">
-                      {previewUrl ? "Change Photo" : "Upload Profile Photo"}
-                    </Typography>
-                    <input
-                      id="profilePhoto"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleFileChange}
-                      style={{ display: "none" }}
-                    />
-                  </Box>
-                </label>
-              </motion.div>
-            </Box>
+                  </Button>
+                </motion.div>
+              </Box>
+            </form>
+          </motion.div>
 
-            {/* Terms */}
-            <FormControlLabel
-              control={
-                <Checkbox
-                  checked={formData.acceptedTerms}
-                  onChange={handleChange}
-                  name="acceptedTerms"
-                  sx={{ color: "#fff" }}
-                />
-              }
-              label={
-                <Typography variant="body2" sx={{ color: "#fff" }}>
-                  I agree to the terms & conditions
-                </Typography>
-              }
-            />
-
-            {/* Register Button */}
-            <Box mt={3} textAlign="center">
-              <motion.div
-                whileHover={{ scale: 1.05 }}
-                whileTap={{ scale: 0.98 }}
-              >
-                <Button
-                  variant="contained"
-                  size="large"
-                  type="submit"
-                  disabled={loading}
-                  sx={{
-                    px: 6,
-                    py: 1.5,
-                    borderRadius: 3,
-                    backgroundColor: "#14532d",
-                    fontWeight: "bold",
-                    "&:hover": { backgroundColor: "#15803d" },
-                  }}
-                >
-                  {loading ? (
-                    <CircularProgress size={24} color="inherit" />
-                  ) : (
-                    "Register"
-                  )}
-                </Button>
-              </motion.div>
-            </Box>
-          </motion.form>
-
-          {/* Login Link */}
+          {/* Login link */}
           <Typography
             variant="body2"
             align="center"
