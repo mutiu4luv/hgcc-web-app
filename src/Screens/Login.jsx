@@ -98,6 +98,7 @@ const LoginForm = () => {
           <Typography
             variant="h4"
             textAlign="center"
+            color="white"
             gutterBottom
             sx={{
               fontWeight: "bold",

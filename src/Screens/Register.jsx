@@ -27,7 +27,6 @@ const RegisterForm = () => {
     fullName: "",
     email: "",
     password: "",
-    role: "student",
     phoneNumber: "",
     country: "",
     acceptedTerms: false,
@@ -38,6 +37,7 @@ const RegisterForm = () => {
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
 
+  // Handle input changes
   const handleChange = (e) => {
     const { name, value, type, checked } = e.target;
     setFormData((prev) => ({
@@ -46,57 +46,52 @@ const RegisterForm = () => {
     }));
   };
 
+  // Handle file selection
   const handleFileChange = (e) => {
     const file = e.target.files[0];
     setProfilePhoto(file);
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setPreviewUrl(url);
-    }
+    if (file) setPreviewUrl(URL.createObjectURL(file));
   };
 
+  // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    console.log("Form submitted 🚀", formData); // Debug log
 
+    // Validate terms
     if (!formData.acceptedTerms) {
       alert("Please accept the terms & conditions");
       return;
     }
 
+    // Validate photo
     if (!profilePhoto) {
       alert("Please upload a profile photo");
       return;
     }
 
+    // Prepare FormData
     const data = new FormData();
     Object.entries(formData).forEach(([key, value]) => data.append(key, value));
-    data.append("profilePhoto", profilePhoto);
+    if (profilePhoto) data.append("profilePhoto", profilePhoto);
 
     try {
       setLoading(true);
-
       const res = await axios.post(
         "https://digital-skill-benedicta.onrender.com/api/users/register",
         data,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
 
-      console.log("✅ Registration response:", res.data); // Always shows before navigation
+      console.log("✅ Registration response:", res.data);
       alert(res.data.message || "Registered successfully!");
 
       navigate("/confirm", { state: { email: formData.email } });
     } catch (error) {
       console.error("❌ Registration failed:", error);
       if (error.response) {
-        console.error("Backend responded:", error.response.data);
         alert(error.response.data.message || "Registration failed!");
-      } else if (error.request) {
-        console.error("No response received:", error.request);
-        alert("No response from the server. Check your internet or backend.");
       } else {
-        console.error("Error setting up request:", error.message);
-        alert("An unexpected error occurred.");
+        alert("Server not responding. Check your internet or backend.");
       }
     } finally {
       setLoading(false);
@@ -181,7 +176,7 @@ const RegisterForm = () => {
                 }}
               />
 
-              {/* Password with visibility toggle */}
+              {/* Password */}
               <TextField
                 fullWidth
                 label="Password"
@@ -207,21 +202,6 @@ const RegisterForm = () => {
                       </IconButton>
                     </InputAdornment>
                   ),
-                }}
-              />
-
-              {/* Role */}
-              <TextField
-                fullWidth
-                label="Role"
-                name="role"
-                value="Student"
-                disabled
-                variant="filled"
-                sx={{
-                  mb: 2,
-                  bgcolor: "rgba(255,255,255,0.7)",
-                  borderRadius: 1,
                 }}
               />
 
@@ -326,7 +306,7 @@ const RegisterForm = () => {
                 }
               />
 
-              {/* Submit Button */}
+              {/* Submit */}
               <Box mt={3} textAlign="center">
                 <motion.div
                   whileHover={{ scale: 1.05 }}
@@ -357,7 +337,6 @@ const RegisterForm = () => {
             </form>
           </motion.div>
 
-          {/* Login link */}
           <Typography
             variant="body2"
             align="center"
