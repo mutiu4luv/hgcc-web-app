@@ -28,7 +28,7 @@ const ConfirmCode = () => {
     try {
       setLoading(true);
       const res = await axios.post(
-        `${process.env.REACT_APP_BASE_URL}/api/users/verify-otp`,
+        `${process.env.REACT_APP_BASE_URL}/api/users/verify-email`,
         {
           email,
           otp,
