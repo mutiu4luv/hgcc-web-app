@@ -35,7 +35,7 @@ const LoginForm = () => {
     try {
       setLoading(true);
       const res = await axios.post(
-        "https://digital-skill-benedicta.onrender.com/api/users/login",
+        `${import.meta.env.VITE_BASE_URL}/api/users/login`,
         { email, password }
       );
 

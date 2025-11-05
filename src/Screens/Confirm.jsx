@@ -28,15 +28,15 @@ const ConfirmCode = () => {
     try {
       setLoading(true);
       const res = await axios.post(
-        `${process.env.REACT_APP_BASE_URL}/api/users/verify-email`,
+        `${import.meta.env.VITE_BASE_URL}/api/users/verify-email`,
         {
           email,
           otp,
         }
       );
-
+      console.log(import.meta.env.VITE_BASE_URL);
       alert(res.data.message || "Account verified successfully!");
-      navigate("/login");
+      navigate("/dashboard");
     } catch (error) {
       console.error("❌ Verification failed:", error.response?.data || error);
       alert(error.response?.data?.message || "Invalid or expired code!");

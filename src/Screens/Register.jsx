@@ -77,7 +77,7 @@ const RegisterForm = () => {
     try {
       setLoading(true);
       const res = await axios.post(
-        "https://digital-skill-benedicta.onrender.com/api/users/register",
+        `${import.meta.env.VITE_BASE_URL}/api/users/register`,
         data,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
