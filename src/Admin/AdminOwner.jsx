@@ -19,6 +19,7 @@ import {
   ListItemIcon,
   ListItemText,
   Divider,
+  IconButton,
 } from "@mui/material";
 import {
   Dashboard,
@@ -26,6 +27,11 @@ import {
   People,
   School,
   Logout,
+  Edit,
+  Delete,
+  Notifications,
+  Email,
+  ManageAccounts,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -43,14 +49,16 @@ const AdminOwner = () => {
   const [title, setTitle] = useState("");
   const [video, setVideo] = useState(null);
   const [videos, setVideos] = useState([]);
+  const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [globalLoading, setGlobalLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
 
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-  // 📥 Fetch videos
+  // 📥 Fetch Videos
   const fetchVideos = async () => {
     try {
       const res = await axios.get(`${BASE_URL}/api/videos`);
@@ -60,11 +68,33 @@ const AdminOwner = () => {
     }
   };
 
-  useEffect(() => {
-    if (activeTab === "videos") fetchVideos();
-  }, [activeTab]);
+  // 📥 Fetch Users
+  const fetchUsers = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/api/users/all`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUsers(res.data);
+    } catch (err) {
+      console.error("Fetch users failed:", err);
+      setMessage("Failed to load users");
+    }
+  };
 
-  // 📤 Upload
+  // ⏳ Global loader on first load
+  useEffect(() => {
+    const loadAll = async () => {
+      setGlobalLoading(true);
+      try {
+        await Promise.all([fetchVideos(), fetchUsers()]);
+      } finally {
+        setTimeout(() => setGlobalLoading(false), 800);
+      }
+    };
+    loadAll();
+  }, []);
+
+  // 📤 Upload Video
   const handleUpload = async (e) => {
     e.preventDefault();
     if (!title || !video) return alert("All fields are required");
@@ -92,7 +122,7 @@ const AdminOwner = () => {
     }
   };
 
-  // 🗑 Delete video
+  // 🗑 Delete Video
   const deleteVideo = async (id) => {
     if (!window.confirm("Are you sure you want to delete this video?")) return;
     try {
@@ -103,6 +133,21 @@ const AdminOwner = () => {
       setMessage("Video deleted");
     } catch {
       setMessage("Delete failed");
+    }
+  };
+
+  // 🧑‍💼 Delete User
+  const handleDeleteUser = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this user?")) return;
+    try {
+      await axios.delete(`${BASE_URL}/api/users/${id}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUsers(users.filter((u) => u._id !== id));
+      setMessage("User deleted successfully");
+    } catch (err) {
+      console.error(err);
+      setMessage("Failed to delete user");
     }
   };
 
@@ -119,9 +164,10 @@ const AdminOwner = () => {
     { text: "Manage Videos", icon: <VideoLibrary />, key: "videos" },
     { text: "Students", icon: <People />, key: "students" },
     { text: "Coaches", icon: <School />, key: "coaches" },
+    { text: "Owner Tools", icon: <ManageAccounts />, key: "owner" },
   ];
 
-  // 🧮 Fake analytics
+  // 📊 Analytics
   const chartData = [
     { name: "Jan", users: 400, videos: 24 },
     { name: "Feb", users: 300, videos: 18 },
@@ -129,44 +175,55 @@ const AdminOwner = () => {
     { name: "Apr", users: 600, videos: 40 },
   ];
 
-  // 📊 Sample Students & Coaches
-  const studentRows = [
+  // 🧑‍🎓 Filter users
+  const students = users.filter((u) => u.role === "student");
+  const coaches = users.filter((u) => u.role === "coach");
+
+  const commonColumns = [
+    { field: "fullName", headerName: "Full Name", flex: 1 },
+    { field: "email", headerName: "Email", flex: 1 },
+    { field: "phoneNumber", headerName: "Phone Number", flex: 1 },
+    { field: "role", headerName: "Role", width: 120 },
     {
-      id: 1,
-      name: "John Doe",
-      email: "john@example.com",
-      course: "HTML Basics",
-    },
-    {
-      id: 2,
-      name: "Jane Smith",
-      email: "jane@example.com",
-      course: "React Advanced",
-    },
-  ];
-  const coachRows = [
-    { id: 1, name: "Coach Ben", email: "ben@coach.com", expertise: "Frontend" },
-    {
-      id: 2,
-      name: "Coach Lisa",
-      email: "lisa@coach.com",
-      expertise: "Backend",
+      field: "actions",
+      headerName: "Actions",
+      width: 120,
+      renderCell: (params) => (
+        <>
+          <IconButton
+            color="primary"
+            onClick={() => alert("Edit user feature coming soon")}
+          >
+            <Edit />
+          </IconButton>
+          <IconButton
+            color="error"
+            onClick={() => handleDeleteUser(params.row._id)}
+          >
+            <Delete />
+          </IconButton>
+        </>
+      ),
     },
   ];
 
-  const studentCols = [
-    { field: "id", headerName: "ID", width: 70 },
-    { field: "name", headerName: "Name", flex: 1 },
-    { field: "email", headerName: "Email", flex: 1 },
-    { field: "course", headerName: "Course", flex: 1 },
-  ];
-
-  const coachCols = [
-    { field: "id", headerName: "ID", width: 70 },
-    { field: "name", headerName: "Name", flex: 1 },
-    { field: "email", headerName: "Email", flex: 1 },
-    { field: "expertise", headerName: "Expertise", flex: 1 },
-  ];
+  // 🌀 Full-screen loader
+  if (globalLoading) {
+    return (
+      <Box
+        sx={{
+          height: "100vh",
+          width: "100vw",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "#f0fdf4",
+        }}
+      >
+        <CircularProgress size={80} thickness={5} color="success" />
+      </Box>
+    );
+  }
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
@@ -224,7 +281,7 @@ const AdminOwner = () => {
 
       {/* Main Content */}
       <Box sx={{ flexGrow: 1, bgcolor: "#f0fdf4", p: 4 }}>
-        {/* Dashboard Section */}
+        {/* Dashboard */}
         {activeTab === "dashboard" && (
           <Container>
             <Paper sx={{ p: 4, borderRadius: 4 }}>
@@ -249,7 +306,7 @@ const AdminOwner = () => {
           </Container>
         )}
 
-        {/* Video Management */}
+        {/* Videos */}
         {activeTab === "videos" && (
           <Container maxWidth="md">
             <Paper
@@ -257,11 +314,7 @@ const AdminOwner = () => {
               component={motion.div}
               initial={{ opacity: 0, scale: 0.95, y: 20 }}
               animate={{ opacity: 1, scale: 1, y: 0 }}
-              sx={{
-                p: 4,
-                borderRadius: 4,
-                background: "#fff",
-              }}
+              sx={{ p: 4, borderRadius: 4, background: "#fff" }}
             >
               <Typography
                 variant="h4"
@@ -288,7 +341,6 @@ const AdminOwner = () => {
                   onChange={(e) => setTitle(e.target.value)}
                   sx={{ mb: 2 }}
                 />
-
                 <Button
                   variant="contained"
                   component="label"
@@ -343,9 +395,17 @@ const AdminOwner = () => {
                       <CardContent>
                         <Typography>{v.title}</Typography>
                         <Button
-                          color="error"
                           onClick={() => deleteVideo(v._id)}
-                          sx={{ mt: 1 }}
+                          sx={{
+                            mt: 1,
+                            backgroundColor: "#fff",
+                            color: "#b91c1c",
+                            fontWeight: "bold",
+                            "&:hover": {
+                              backgroundColor: "#fee2e2",
+                              color: "#991b1b",
+                            },
+                          }}
                         >
                           Delete
                         </Button>
@@ -369,8 +429,12 @@ const AdminOwner = () => {
             >
               👨‍🎓 Students
             </Typography>
-            <div style={{ height: 400, width: "100%" }}>
-              <DataGrid rows={studentRows} columns={studentCols} pageSize={5} />
+            <div style={{ height: 500, width: "100%" }}>
+              <DataGrid
+                rows={students.map((s) => ({ id: s._id, ...s }))}
+                columns={commonColumns}
+                pageSize={5}
+              />
             </div>
           </Paper>
         )}
@@ -386,10 +450,63 @@ const AdminOwner = () => {
             >
               🧑‍🏫 Coaches
             </Typography>
-            <div style={{ height: 400, width: "100%" }}>
-              <DataGrid rows={coachRows} columns={coachCols} pageSize={5} />
+            <div style={{ height: 500, width: "100%" }}>
+              <DataGrid
+                rows={coaches.map((c) => ({ id: c._id, ...c }))}
+                columns={commonColumns}
+                pageSize={5}
+              />
             </div>
           </Paper>
+        )}
+
+        {/* Owner Tools */}
+        {activeTab === "owner" && (
+          <Container>
+            <Paper sx={{ p: 4, borderRadius: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                🧠 Owner Control Panel
+              </Typography>
+              <Typography sx={{ mb: 3 }}>
+                Manage global notifications, send broadcast emails, or perform
+                system maintenance.
+              </Typography>
+
+              <Grid container spacing={2}>
+                <Grid item xs={12} md={6}>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="success"
+                    startIcon={<Email />}
+                    sx={{ py: 2, fontWeight: "bold" }}
+                    onClick={() => alert("Email broadcast tool coming soon")}
+                  >
+                    Send Broadcast Email
+                  </Button>
+                </Grid>
+                <Grid item xs={12} md={6}>
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    color="warning"
+                    startIcon={<Notifications />}
+                    sx={{ py: 2, fontWeight: "bold" }}
+                    onClick={() =>
+                      alert("Push notification feature coming soon")
+                    }
+                  >
+                    Send Notification
+                  </Button>
+                </Grid>
+              </Grid>
+            </Paper>
+          </Container>
         )}
       </Box>
     </Box>
