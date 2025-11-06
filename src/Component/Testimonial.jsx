@@ -1,86 +1,4 @@
-// import React from "react";
-// import { Box, Typography, Container, Paper } from "@mui/material";
-// import { motion } from "framer-motion";
-
-// const Testimonial = () => {
-//   return (
-//     <Box
-//       sx={{
-//         py: { xs: 8, md: 10 },
-//         // backgroundColor: "#0A3D2E", // deep green like figma
-//         backgroundColor: "wheat",
-//         textAlign: "center",
-//       }}
-//     >
-//       <Container maxWidth="md">
-//         {/* Title */}
-//         <Typography
-//           variant="h4"
-//           sx={{
-//             fontWeight: "bold",
-//             color: "green",
-//             mb: 4,
-//             textTransform: "uppercase",
-//             letterSpacing: 1,
-//           }}
-//         >
-//           Student’s Testimonial
-//         </Typography>
-
-//         {/* White Paper Background */}
-//         <Paper
-//           elevation={6}
-//           sx={{
-//             borderRadius: 3,
-//             p: { xs: 2, md: 3 },
-//             mx: "auto",
-//             backgroundColor: "#fff",
-//             maxWidth: 720,
-//           }}
-//         >
-//           {/* Video Frame Animation */}
-//           <motion.div
-//             initial={{ scale: 0.95, opacity: 0 }}
-//             whileInView={{ scale: 1, opacity: 1 }}
-//             transition={{ duration: 0.8 }}
-//             viewport={{ once: true }}
-//           >
-//             {/* Embedded Video */}
-//             <Box
-//               sx={{
-//                 position: "relative",
-//                 width: "100%",
-//                 paddingTop: "56.25%", // 16:9 aspect ratio
-//                 overflow: "hidden",
-//                 borderRadius: 2,
-//                 boxShadow: "0px 4px 20px rgba(0,0,0,0.2)",
-//               }}
-//             >
-//               <iframe
-//                 src="https://www.youtube.com/embed/ysz5S6PUM-U"
-//                 title="HGSC² Student Testimonial"
-//                 frameBorder="0"
-//                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-//                 allowFullScreen
-//                 style={{
-//                   position: "absolute",
-//                   top: 0,
-//                   left: 0,
-//                   width: "100%",
-//                   height: "100%",
-//                   borderRadius: "12px",
-//                 }}
-//               />
-//             </Box>
-//           </motion.div>
-//         </Paper>
-//       </Container>
-//     </Box>
-//   );
-// };
-
-// export default Testimonial;
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Box,
   Typography,
@@ -91,33 +9,46 @@ import {
 } from "@mui/material";
 import { motion } from "framer-motion";
 import axios from "axios";
+import Slider from "react-slick";
+import "slick-carousel/slick/slick.css";
+import "slick-carousel/slick/slick-theme.css";
 
 const Testimonial = () => {
-  const [video, setVideo] = useState(null);
+  const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const sliderRef = useRef(null); // <-- add ref
 
   useEffect(() => {
-    const fetchVideo = async () => {
+    const fetchVideos = async () => {
       try {
         const res = await axios.get(
           `${import.meta.env.VITE_BASE_URL}/api/videos`
         );
-        // Pick the latest video (assuming backend sorts newest first)
         if (res.data.length > 0) {
-          setVideo(res.data[0]);
-          console.log(res);
+          setVideos(res.data);
         }
       } catch (err) {
-        console.error("❌ Error fetching video:", err);
-        setError("Failed to load testimonial video");
+        console.error("❌ Error fetching videos:", err);
+        setError("Failed to load testimonial videos");
       } finally {
         setLoading(false);
       }
     };
 
-    fetchVideo();
+    fetchVideos();
   }, []);
+
+  const settings = {
+    dots: true,
+    infinite: true,
+    speed: 700,
+    slidesToShow: 1,
+    slidesToScroll: 1,
+    autoplay: false, // turn off auto play
+    arrows: true,
+    adaptiveHeight: true,
+  };
 
   return (
     <Box
@@ -128,7 +59,6 @@ const Testimonial = () => {
       }}
     >
       <Container maxWidth="md">
-        {/* Title */}
         <Typography
           variant="h4"
           sx={{
@@ -156,40 +86,59 @@ const Testimonial = () => {
             <CircularProgress />
           ) : error ? (
             <Alert severity="error">{error}</Alert>
-          ) : video ? (
-            <motion.div
-              initial={{ scale: 0.95, opacity: 0 }}
-              whileInView={{ scale: 1, opacity: 1 }}
-              transition={{ duration: 0.8 }}
-              viewport={{ once: true }}
-            >
-              <Box
-                sx={{
-                  position: "relative",
-                  width: "100%",
-                  paddingTop: "56.25%", // 16:9
-                  overflow: "hidden",
-                  borderRadius: 2,
-                  boxShadow: "0px 4px 20px rgba(0,0,0,0.2)",
-                }}
-              >
-                <video
-                  src={video.videoUrl}
-                  controls
-                  style={{
-                    position: "absolute",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    borderRadius: "12px",
-                  }}
-                />
-              </Box>
-            </motion.div>
+          ) : videos.length > 0 ? (
+            <Slider ref={sliderRef} {...settings}>
+              {videos.map((video, index) => (
+                <motion.div
+                  key={video._id}
+                  initial={{ scale: 0.95, opacity: 0 }}
+                  whileInView={{ scale: 1, opacity: 1 }}
+                  transition={{ duration: 0.8 }}
+                  viewport={{ once: true }}
+                >
+                  <Box
+                    sx={{
+                      position: "relative",
+                      width: "100%",
+                      paddingTop: "56.25%", // 16:9
+                      overflow: "hidden",
+                      borderRadius: 2,
+                      boxShadow: "0px 4px 20px rgba(0,0,0,0.2)",
+                    }}
+                  >
+                    <video
+                      src={video.videoUrl}
+                      controls
+                      onEnded={() => {
+                        if (sliderRef.current) sliderRef.current.slickNext();
+                      }}
+                      style={{
+                        position: "absolute",
+                        top: 0,
+                        left: 0,
+                        width: "100%",
+                        height: "100%",
+                        borderRadius: "12px",
+                        objectFit: "cover",
+                      }}
+                    />
+                  </Box>
+                  <Typography
+                    variant="h6"
+                    sx={{
+                      mt: 2,
+                      color: "green",
+                      fontWeight: "bold",
+                    }}
+                  >
+                    {video.title || "Student Testimonial"}
+                  </Typography>
+                </motion.div>
+              ))}
+            </Slider>
           ) : (
             <Typography variant="body1" sx={{ mt: 2 }}>
-              No testimonial video available yet.
+              No testimonial videos available yet.
             </Typography>
           )}
         </Paper>

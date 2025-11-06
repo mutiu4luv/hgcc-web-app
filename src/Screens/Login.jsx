@@ -24,6 +24,8 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
 
   const BASE_URL = import.meta.env.REACT_APP_BASE_URL;
+  // ✅ Replace your handleLogin function inside LoginForm.jsx
+
   const handleLogin = async (e) => {
     e.preventDefault();
 
@@ -39,25 +41,22 @@ const LoginForm = () => {
         { email, password }
       );
 
-      // ✅ Destructure response data
-      const {
-        _id,
-        fullName,
-        email: userEmail,
-        phoneNumber,
-        profilePhoto,
-      } = res.data.user;
+      const { token, user } = res.data;
 
-      // ✅ Save user info including photo
-      localStorage.setItem("userId", _id);
-      localStorage.setItem("userName", fullName);
-      localStorage.setItem("userEmail", userEmail);
-      localStorage.setItem("userPhone", phoneNumber);
-      if (profilePhoto) localStorage.setItem("userPhoto", profilePhoto);
+      // ✅ Store token and user info
+      localStorage.setItem("token", token);
+      localStorage.setItem("user", JSON.stringify(user));
 
       alert(res.data.message || "Login successful!");
 
-      navigate("/dashboard");
+      // ✅ Redirect based on role
+      if (user.role === "owner") {
+        navigate("/owner");
+      } else if (user.role === "coach") {
+        navigate("/coach");
+      } else if (user.role === "student") {
+        navigate("/dashboard");
+      }
     } catch (error) {
       console.error("❌ Login error:", error.response?.data || error);
       alert(error.response?.data?.message || "Login failed!");
@@ -65,6 +64,7 @@ const LoginForm = () => {
       setLoading(false);
     }
   };
+
   const handleTogglePassword = () => {
     setShowPassword((prev) => !prev);
   };
