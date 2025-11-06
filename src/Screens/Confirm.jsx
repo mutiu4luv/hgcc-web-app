@@ -27,6 +27,7 @@ const ConfirmCode = () => {
 
     try {
       setLoading(true);
+
       const res = await axios.post(
         `${import.meta.env.VITE_BASE_URL}/api/users/verify-email`,
         {
@@ -34,7 +35,22 @@ const ConfirmCode = () => {
           otp,
         }
       );
-      console.log(import.meta.env.VITE_BASE_URL);
+
+      const user = res.data.user;
+
+      if (!user) {
+        alert("Verification succeeded, but user data missing.");
+        return navigate("/login");
+      }
+
+      // ✅ Store verified user details in localStorage (like LoginForm)
+      localStorage.setItem("userId", user._id);
+      localStorage.setItem("userName", user.fullName);
+      localStorage.setItem("userEmail", user.email);
+      if (user.phoneNumber) localStorage.setItem("userPhone", user.phoneNumber);
+      if (user.profilePhoto)
+        localStorage.setItem("userPhoto", user.profilePhoto);
+
       alert(res.data.message || "Account verified successfully!");
       navigate("/dashboard");
     } catch (error) {
