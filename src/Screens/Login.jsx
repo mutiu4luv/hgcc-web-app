@@ -46,6 +46,11 @@ const LoginForm = () => {
       // ✅ Store token and user info
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
+      localStorage.setItem(
+        "userName",
+        user.fullName || user.name || user.username || ""
+      );
+      localStorage.setItem("userPhoto", user.photo || "");
 
       alert(res.data.message || "Login successful!");
 
