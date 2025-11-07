@@ -1,4 +1,3 @@
-// src/admin/AdminOwner.jsx
 import React, { useState, useEffect } from "react";
 import {
   Box,
@@ -20,6 +19,7 @@ import {
   ListItemText,
   Divider,
   IconButton,
+  useMediaQuery,
 } from "@mui/material";
 import {
   Dashboard,
@@ -32,6 +32,8 @@ import {
   Notifications,
   Email,
   ManageAccounts,
+  Menu as MenuIcon,
+  Close as CloseIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -54,7 +56,9 @@ const AdminOwner = () => {
   const [globalLoading, setGlobalLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
+  const [mobileOpen, setMobileOpen] = useState(false);
 
+  const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
@@ -81,7 +85,7 @@ const AdminOwner = () => {
     }
   };
 
-  // ⏳ Global loader on first load
+  // ⏳ Global loader
   useEffect(() => {
     const loadAll = async () => {
       setGlobalLoading(true);
@@ -158,7 +162,7 @@ const AdminOwner = () => {
     window.location.href = "/login";
   };
 
-  // 🧭 Sidebar
+  // 🧭 Sidebar items
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
     { text: "Manage Videos", icon: <VideoLibrary />, key: "videos" },
@@ -167,7 +171,7 @@ const AdminOwner = () => {
     { text: "Owner Tools", icon: <ManageAccounts />, key: "owner" },
   ];
 
-  // 📊 Analytics
+  // 📊 Dummy chart data
   const chartData = [
     { name: "Jan", users: 400, videos: 24 },
     { name: "Feb", users: 300, videos: 18 },
@@ -176,28 +180,32 @@ const AdminOwner = () => {
   ];
 
   // 🧑‍🎓 Filter users
-  const students = users.filter((u) => u.role === "student");
-  const coaches = users.filter((u) => u.role === "coach");
+  const students = Array.isArray(users)
+    ? users.filter((u) => u.role === "student")
+    : [];
+  const coaches = Array.isArray(users)
+    ? users.filter((u) => u.role === "coach")
+    : [];
 
   const commonColumns = [
-    { field: "fullName", headerName: "Full Name", flex: 1 },
-    { field: "email", headerName: "Email", flex: 1 },
-    { field: "phoneNumber", headerName: "Phone Number", flex: 1 },
-    { field: "role", headerName: "Role", width: 120 },
+    { field: "fullName", headerName: "Full Name", width: 300 }, // fixed width for long names
+    { field: "email", headerName: "Email", width: 350 }, // fixed width for long emails
+    { field: "phoneNumber", headerName: "Phone Number", width: 200 },
+    { field: "role", headerName: "Role", width: 140 }, // fixed (not shrinkable)
     {
       field: "actions",
       headerName: "Actions",
-      width: 120,
+      width: 150,
       renderCell: (params) => (
         <>
           <IconButton
-            color="primary"
+            sx={{ color: "white", bgcolor: "#15803d", mr: 1 }}
             onClick={() => alert("Edit user feature coming soon")}
           >
             <Edit />
           </IconButton>
           <IconButton
-            color="error"
+            sx={{ color: "white", bgcolor: "#b91c1c" }}
             onClick={() => handleDeleteUser(params.row._id)}
           >
             <Delete />
@@ -207,7 +215,7 @@ const AdminOwner = () => {
     },
   ];
 
-  // 🌀 Full-screen loader
+  // 🌀 Global Loader
   if (globalLoading) {
     return (
       <Box
@@ -227,9 +235,12 @@ const AdminOwner = () => {
 
   return (
     <Box sx={{ display: "flex", minHeight: "100vh" }}>
-      {/* Sidebar */}
+      {/* Sidebar Drawer */}
       <Drawer
-        variant="permanent"
+        variant={isMobile ? "temporary" : "permanent"}
+        open={isMobile ? mobileOpen : true}
+        onClose={() => setMobileOpen(false)}
+        ModalProps={{ keepMounted: true }}
         sx={{
           width: 250,
           flexShrink: 0,
@@ -241,18 +252,39 @@ const AdminOwner = () => {
           },
         }}
       >
-        <Box sx={{ textAlign: "center", py: 3 }}>
+        <Box
+          sx={{
+            textAlign: "center",
+            py: 3,
+            display: "flex",
+            justifyContent: "center",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
           <Typography variant="h5" fontWeight="bold" color="#10b981">
             HGSC² Admin
           </Typography>
+          {isMobile && (
+            <IconButton
+              onClick={() => setMobileOpen(false)}
+              sx={{ color: "white" }}
+            >
+              <CloseIcon />
+            </IconButton>
+          )}
         </Box>
+
         <Divider sx={{ bgcolor: "rgba(255,255,255,0.2)" }} />
         <List>
           {menuItems.map((item) => (
             <ListItemButton
               key={item.key}
               selected={activeTab === item.key}
-              onClick={() => setActiveTab(item.key)}
+              onClick={() => {
+                setActiveTab(item.key);
+                if (isMobile) setMobileOpen(false); // collapse on mobile
+              }}
               sx={{
                 color: "#fff",
                 "&.Mui-selected": {
@@ -273,15 +305,43 @@ const AdminOwner = () => {
         <Divider sx={{ bgcolor: "rgba(255,255,255,0.2)" }} />
         <ListItemButton onClick={handleLogout} sx={{ color: "#fff" }}>
           <ListItemIcon sx={{ color: "#fff" }}>
-            <Logout />
+            <Logout sx={{ color: "#fff" }} />
           </ListItemIcon>
-          <ListItemText primary="Logout" />
+          <ListItemText
+            primary="Logout"
+            primaryTypographyProps={{ sx: { color: "#fff", fontWeight: 500 } }}
+          />
         </ListItemButton>
       </Drawer>
 
+      {/* Toggle Button for Mobile */}
+      {isMobile && !mobileOpen && (
+        <IconButton
+          onClick={() => setMobileOpen(true)}
+          sx={{
+            position: "fixed",
+            top: 16,
+            left: 16,
+            bgcolor: "#10b981",
+            color: "white",
+            zIndex: 1300,
+            "&:hover": { bgcolor: "#047857" },
+          }}
+        >
+          <MenuIcon />
+        </IconButton>
+      )}
+
       {/* Main Content */}
-      <Box sx={{ flexGrow: 1, bgcolor: "#f0fdf4", p: 4 }}>
-        {/* Dashboard */}
+      <Box
+        sx={{
+          flexGrow: 1,
+          bgcolor: "#f0fdf4",
+          p: { xs: 2, md: 4 },
+          width: isMobile && !mobileOpen ? "100%" : "auto",
+        }}
+      >
+        {/* === Dashboard === */}
         {activeTab === "dashboard" && (
           <Container>
             <Paper sx={{ p: 4, borderRadius: 4 }}>
@@ -306,7 +366,7 @@ const AdminOwner = () => {
           </Container>
         )}
 
-        {/* Videos */}
+        {/* === Manage Videos === */}
         {activeTab === "videos" && (
           <Container maxWidth="md">
             <Paper
@@ -349,6 +409,7 @@ const AdminOwner = () => {
                     backgroundColor: "#14532d",
                     fontWeight: "bold",
                     mb: 2,
+                    color: "white",
                     "&:hover": { backgroundColor: "#15803d" },
                   }}
                 >
@@ -370,9 +431,14 @@ const AdminOwner = () => {
                 <Button
                   type="submit"
                   variant="contained"
-                  color="success"
                   fullWidth
                   disabled={loading}
+                  sx={{
+                    bgcolor: "#10b981",
+                    color: "white",
+                    fontWeight: "bold",
+                    "&:hover": { bgcolor: "#047857" },
+                  }}
                 >
                   {loading ? <CircularProgress size={24} /> : "Upload Video"}
                 </Button>
@@ -398,12 +464,11 @@ const AdminOwner = () => {
                           onClick={() => deleteVideo(v._id)}
                           sx={{
                             mt: 1,
-                            backgroundColor: "#fff",
-                            color: "#b91c1c",
+                            bgcolor: "#b91c1c",
+                            color: "white",
                             fontWeight: "bold",
                             "&:hover": {
-                              backgroundColor: "#fee2e2",
-                              color: "#991b1b",
+                              bgcolor: "#991b1b",
                             },
                           }}
                         >
@@ -418,7 +483,7 @@ const AdminOwner = () => {
           </Container>
         )}
 
-        {/* Students Table */}
+        {/* === Students Table === */}
         {activeTab === "students" && (
           <Paper sx={{ p: 3 }}>
             <Typography
@@ -439,7 +504,7 @@ const AdminOwner = () => {
           </Paper>
         )}
 
-        {/* Coaches Table */}
+        {/* === Coaches Table === */}
         {activeTab === "coaches" && (
           <Paper sx={{ p: 3 }}>
             <Typography
@@ -460,7 +525,7 @@ const AdminOwner = () => {
           </Paper>
         )}
 
-        {/* Owner Tools */}
+        {/* === Owner Tools === */}
         {activeTab === "owner" && (
           <Container>
             <Paper sx={{ p: 4, borderRadius: 4 }}>
@@ -473,8 +538,8 @@ const AdminOwner = () => {
                 🧠 Owner Control Panel
               </Typography>
               <Typography sx={{ mb: 3 }}>
-                Manage global notifications, send broadcast emails, or perform
-                system maintenance.
+                Manage notifications, send broadcast emails, or perform
+                maintenance.
               </Typography>
 
               <Grid container spacing={2}>
@@ -482,9 +547,14 @@ const AdminOwner = () => {
                   <Button
                     fullWidth
                     variant="contained"
-                    color="success"
+                    sx={{
+                      bgcolor: "#10b981",
+                      color: "white",
+                      fontWeight: "bold",
+                      py: 2,
+                      "&:hover": { bgcolor: "#047857" },
+                    }}
                     startIcon={<Email />}
-                    sx={{ py: 2, fontWeight: "bold" }}
                     onClick={() => alert("Email broadcast tool coming soon")}
                   >
                     Send Broadcast Email
@@ -494,9 +564,14 @@ const AdminOwner = () => {
                   <Button
                     fullWidth
                     variant="contained"
-                    color="warning"
+                    sx={{
+                      bgcolor: "#f59e0b",
+                      color: "white",
+                      fontWeight: "bold",
+                      py: 2,
+                      "&:hover": { bgcolor: "#d97706" },
+                    }}
                     startIcon={<Notifications />}
-                    sx={{ py: 2, fontWeight: "bold" }}
                     onClick={() =>
                       alert("Push notification feature coming soon")
                     }
