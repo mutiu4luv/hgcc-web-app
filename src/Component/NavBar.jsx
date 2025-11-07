@@ -24,30 +24,56 @@ import logo from "../assets/logo.jpeg";
 const Navbar = () => {
   const [anchorEl, setAnchorEl] = useState(null);
   const [userMenuAnchor, setUserMenuAnchor] = useState(null);
-  const [userName, setUserName] = useState(null);
-  const [userPhoto, setUserPhoto] = useState(null);
+  const [userName, setUserName] = useState("");
+  const [userPhoto, setUserPhoto] = useState("");
   const navigate = useNavigate();
 
+  // ✅ Load user info on mount and after login
   useEffect(() => {
-    const name = localStorage.getItem("userName");
-    const photo = localStorage.getItem("userPhoto");
-    if (name) setUserName(name);
-    if (photo) setUserPhoto(photo);
+    const loadUser = () => {
+      const storedName = localStorage.getItem("userName");
+      const storedPhoto = localStorage.getItem("userPhoto");
+
+      if (storedName) setUserName(storedName);
+      if (storedPhoto) setUserPhoto(storedPhoto);
+    };
+
+    loadUser();
+
+    // ✅ Listen for cross-tab/localStorage updates
+    window.addEventListener("storage", loadUser);
+
+    // ✅ Also listen for custom event after login (for same tab)
+    window.addEventListener("userUpdated", loadUser);
+
+    return () => {
+      window.removeEventListener("storage", loadUser);
+      window.removeEventListener("userUpdated", loadUser);
+    };
   }, []);
+
+  const handleDashboardClick = () => {
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const role = user.role || "student";
+
+    if (role === "owner") navigate("/owner");
+    else if (role === "coach") navigate("/coach");
+    else navigate("/dashboard");
+
+    handleUserMenuClose();
+  };
 
   const handleOpenMenu = (event) => setAnchorEl(event.currentTarget);
   const handleCloseMenu = () => setAnchorEl(null);
-
-  const handleLogoClick = () => navigate("/");
-  const handleLoginNow = () => navigate("/login");
-  // const handleEnrollNow = () => navigate("/register");
   const handleUserMenuOpen = (event) => setUserMenuAnchor(event.currentTarget);
   const handleUserMenuClose = () => setUserMenuAnchor(null);
+  const handleLogoClick = () => navigate("/");
+  const handleLoginNow = () => navigate("/login");
 
   const handleLogout = () => {
     localStorage.clear();
-    setUserName(null);
-    setUserPhoto(null);
+    setUserName("");
+    setUserPhoto("");
     handleUserMenuClose();
     navigate("/");
   };
@@ -80,17 +106,12 @@ const Navbar = () => {
             display: "flex",
             justifyContent: "space-between",
             alignItems: "center",
-            minHeight: "unset",
           }}
         >
           {/* ✅ Logo */}
           <Box
             onClick={handleLogoClick}
-            sx={{
-              display: "flex",
-              alignItems: "center",
-              cursor: "pointer",
-            }}
+            sx={{ display: "flex", alignItems: "center", cursor: "pointer" }}
           >
             <Box
               component="img"
@@ -127,30 +148,27 @@ const Navbar = () => {
               </Button>
             ))}
 
+            {/* ✅ Show name + photo when logged in */}
             {userName ? (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Typography
                   variant="body1"
-                  sx={{
-                    fontWeight: 600,
-                    color: "#065f46",
-                  }}
+                  sx={{ fontWeight: 600, color: "#065f46" }}
                 >
                   Hi, {userName.split(" ")[0]}
                 </Typography>
+
                 <IconButton onClick={handleUserMenuOpen}>
                   <Avatar
                     src={userPhoto || ""}
                     alt={userName || "User"}
-                    sx={{
-                      bgcolor: userPhoto ? "transparent" : "#16a34a",
-                    }}
+                    sx={{ bgcolor: userPhoto ? "transparent" : "#16a34a" }}
                   >
                     {!userPhoto && <AccountCircleIcon />}
                   </Avatar>
                 </IconButton>
 
-                {/* ✅ User Dropdown Menu */}
+                {/* ✅ User Menu */}
                 <Menu
                   anchorEl={userMenuAnchor}
                   open={Boolean(userMenuAnchor)}
@@ -171,7 +189,7 @@ const Navbar = () => {
                     Profile
                   </MenuItem>
 
-                  <MenuItem onClick={() => navigate("/dashboard")}>
+                  <MenuItem onClick={handleDashboardClick}>
                     <ListItemIcon>
                       <DashboardIcon fontSize="small" />
                     </ListItemIcon>
@@ -179,20 +197,6 @@ const Navbar = () => {
                   </MenuItem>
 
                   <Divider />
-
-                  {menuItems.map((item) => (
-                    <MenuItem
-                      key={item.label}
-                      onClick={() => {
-                        handleUserMenuClose();
-                        navigate(item.path);
-                      }}
-                    >
-                      {item.label}
-                    </MenuItem>
-                  ))}
-
-                  <Divider sx={{ my: 1 }} />
 
                   <MenuItem onClick={handleLogout} sx={{ color: "red" }}>
                     <ListItemIcon>
@@ -214,9 +218,7 @@ const Navbar = () => {
                   px: 3,
                   py: 1,
                   borderRadius: "8px",
-                  "&:hover": {
-                    backgroundColor: "#15803d",
-                  },
+                  "&:hover": { backgroundColor: "#15803d" },
                 }}
               >
                 Login Now
@@ -226,12 +228,7 @@ const Navbar = () => {
 
           {/* ✅ Mobile Menu */}
           <Box sx={{ display: { xs: "flex", md: "none" } }}>
-            <IconButton
-              size="large"
-              edge="end"
-              color="inherit"
-              onClick={handleOpenMenu}
-            >
+            <IconButton size="large" edge="end" onClick={handleOpenMenu}>
               <MenuIcon sx={{ color: "#065f46" }} />
             </IconButton>
           </Box>
@@ -263,7 +260,7 @@ const Navbar = () => {
                   </ListItemIcon>
                   Profile
                 </MenuItem>
-                <MenuItem onClick={() => navigate("/dashboard")}>
+                <MenuItem onClick={handleDashboardClick}>
                   <ListItemIcon>
                     <DashboardIcon fontSize="small" />
                   </ListItemIcon>
@@ -290,9 +287,7 @@ const Navbar = () => {
                   borderRadius: "6px",
                   mx: 1,
                   mt: 1,
-                  "&:hover": {
-                    backgroundColor: "#15803d",
-                  },
+                  "&:hover": { backgroundColor: "#15803d" },
                 }}
               >
                 Login Now

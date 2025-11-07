@@ -42,7 +42,7 @@ const LoginForm = () => {
       );
 
       const { token, user } = res.data;
-
+      console.log(res);
       // ✅ Store token and user info
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
@@ -53,6 +53,7 @@ const LoginForm = () => {
       localStorage.setItem("userPhoto", user.photo || "");
 
       alert(res.data.message || "Login successful!");
+      window.dispatchEvent(new Event("userUpdated"));
 
       // ✅ Redirect based on role
       if (user.role === "owner") {
