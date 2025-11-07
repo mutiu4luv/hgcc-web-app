@@ -56,7 +56,9 @@ const AdminOwner = () => {
   const [globalLoading, setGlobalLoading] = useState(true);
   const [message, setMessage] = useState("");
   const [activeTab, setActiveTab] = useState("dashboard");
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileOpen, setMobileOpen] = useState(true);
+  const [editModalOpen, setEditModalOpen] = useState(false);
+  const [editUser, setEditUser] = useState(null);
 
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
@@ -151,7 +153,28 @@ const AdminOwner = () => {
       setMessage("User deleted successfully");
     } catch (err) {
       console.error(err);
-      setMessage("Failed to delete user");
+      setMessage(err.response?.data?.message || "Failed to delete user");
+    }
+  };
+
+  // 🧑‍💼 Edit User
+  const handleEditUser = (user) => {
+    setEditUser(user);
+    setEditModalOpen(true);
+  };
+
+  const handleEditUserSave = async () => {
+    if (!editUser) return;
+    try {
+      await axios.put(`${BASE_URL}/api/users/${editUser._id}`, editUser, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setUsers(users.map((u) => (u._id === editUser._id ? editUser : u)));
+      setMessage("User updated successfully");
+      setEditModalOpen(false);
+      setEditUser(null);
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Failed to update user");
     }
   };
 
@@ -200,7 +223,7 @@ const AdminOwner = () => {
         <>
           <IconButton
             sx={{ color: "white", bgcolor: "#15803d", mr: 1 }}
-            onClick={() => alert("Edit user feature coming soon")}
+            onClick={() => handleEditUser(params.row)}
           >
             <Edit />
           </IconButton>
@@ -341,6 +364,84 @@ const AdminOwner = () => {
           width: isMobile && !mobileOpen ? "100%" : "auto",
         }}
       >
+        {/* Edit Modal */}
+        {editModalOpen && editUser && (
+          <Box
+            sx={{
+              position: "fixed",
+              top: 0,
+              left: 0,
+              width: "100vw",
+              height: "100vh",
+              bgcolor: "rgba(0,0,0,0.3)",
+              zIndex: 2000,
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+            }}
+          >
+            <Paper sx={{ p: 4, minWidth: 320 }}>
+              <Typography variant="h6" gutterBottom>
+                Edit User
+              </Typography>
+              <TextField
+                label="Full Name"
+                fullWidth
+                sx={{ mb: 2 }}
+                value={editUser.fullName}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, fullName: e.target.value })
+                }
+              />
+              <TextField
+                label="Email"
+                fullWidth
+                sx={{ mb: 2 }}
+                value={editUser.email}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, email: e.target.value })
+                }
+              />
+              <TextField
+                label="Phone Number"
+                fullWidth
+                sx={{ mb: 2 }}
+                value={editUser.phoneNumber}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, phoneNumber: e.target.value })
+                }
+              />
+              <TextField
+                label="Role"
+                fullWidth
+                sx={{ mb: 2 }}
+                value={editUser.role}
+                onChange={(e) =>
+                  setEditUser({ ...editUser, role: e.target.value })
+                }
+              />
+              <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
+                <Button
+                  variant="contained"
+                  onClick={handleEditUserSave}
+                  sx={{ bgcolor: "#10b981", color: "white" }}
+                >
+                  Save
+                </Button>
+                <Button
+                  variant="outlined"
+                  onClick={() => {
+                    setEditModalOpen(false);
+                    setEditUser(null);
+                  }}
+                >
+                  Cancel
+                </Button>
+              </Box>
+            </Paper>
+          </Box>
+        )}
+
         {/* === Dashboard === */}
         {activeTab === "dashboard" && (
           <Container>
