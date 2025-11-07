@@ -201,7 +201,7 @@ const Navbar = () => {
                     textOverflow: "ellipsis",
                   }}
                 >
-                  {userName.split(" ")[0]}
+                  Hi, {userName.split(" ")[0]}
                 </Typography>
                 <IconButton onClick={handleUserMenuOpen}>
                   <Avatar
