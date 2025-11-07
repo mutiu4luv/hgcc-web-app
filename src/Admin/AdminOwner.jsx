@@ -59,10 +59,28 @@ const AdminOwner = () => {
   const [mobileOpen, setMobileOpen] = useState(true);
   const [editModalOpen, setEditModalOpen] = useState(false);
   const [editUser, setEditUser] = useState(null);
+  const [analytics, setAnalytics] = useState({
+    studentRegistrations: [],
+    assignmentSubmissions: [],
+    coachingSessions: [],
+  });
 
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+  useEffect(() => {
+    const fetchAnalytics = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/analytics`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setAnalytics(res.data);
+      } catch (err) {
+        setMessage("Failed to load analytics");
+      }
+    };
+    fetchAnalytics();
+  }, []);
 
   // 📥 Fetch Videos
   const fetchVideos = async () => {
@@ -195,12 +213,20 @@ const AdminOwner = () => {
   ];
 
   // 📊 Dummy chart data
-  const chartData = [
-    { name: "Jan", users: 400, videos: 24 },
-    { name: "Feb", users: 300, videos: 18 },
-    { name: "Mar", users: 500, videos: 30 },
-    { name: "Apr", users: 600, videos: 40 },
-  ];
+  // const chartData = [
+  //   { name: "Jan", users: 400, videos: 24 },
+  //   { name: "Feb", users: 300, videos: 18 },
+  //   { name: "Mar", users: 500, videos: 30 },
+  //   { name: "Apr", users: 600, videos: 40 },
+  // ];
+
+  // chart data
+  const chartData = analytics.studentRegistrations.map((item, idx) => ({
+    month: item.month,
+    students: item.count,
+    assignments: analytics.assignmentSubmissions[idx]?.count || 0,
+    coaching: analytics.coachingSessions[idx]?.count || 0,
+  }));
 
   // 🧑‍🎓 Filter users
   const students = Array.isArray(users)
@@ -456,11 +482,24 @@ const AdminOwner = () => {
               </Typography>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart data={chartData}>
-                  <XAxis dataKey="name" />
+                  <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
-                  <Bar dataKey="users" fill="#3b82f6" />
-                  <Bar dataKey="videos" fill="#10b981" />
+                  <Bar
+                    dataKey="students"
+                    fill="#3b82f6"
+                    name="Students Registered"
+                  />
+                  <Bar
+                    dataKey="assignments"
+                    fill="#10b981"
+                    name="Assignments Submitted"
+                  />
+                  <Bar
+                    dataKey="coaching"
+                    fill="#f59e0b"
+                    name="Coaching Sessions"
+                  />
                 </BarChart>
               </ResponsiveContainer>
             </Paper>
