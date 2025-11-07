@@ -28,22 +28,17 @@ const Navbar = () => {
   const [userPhoto, setUserPhoto] = useState("");
   const navigate = useNavigate();
 
-  // ✅ Load user info on mount and after login
+  // ✅ Load user info
   useEffect(() => {
     const loadUser = () => {
       const storedName = localStorage.getItem("userName");
       const storedPhoto = localStorage.getItem("userPhoto");
-
       if (storedName) setUserName(storedName);
       if (storedPhoto) setUserPhoto(storedPhoto);
     };
 
     loadUser();
-
-    // ✅ Listen for cross-tab/localStorage updates
     window.addEventListener("storage", loadUser);
-
-    // ✅ Also listen for custom event after login (for same tab)
     window.addEventListener("userUpdated", loadUser);
 
     return () => {
@@ -148,7 +143,7 @@ const Navbar = () => {
               </Button>
             ))}
 
-            {/* ✅ Show name + photo when logged in */}
+            {/* ✅ User avatar + name */}
             {userName ? (
               <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
                 <Typography
@@ -167,44 +162,6 @@ const Navbar = () => {
                     {!userPhoto && <AccountCircleIcon />}
                   </Avatar>
                 </IconButton>
-
-                {/* ✅ User Menu */}
-                <Menu
-                  anchorEl={userMenuAnchor}
-                  open={Boolean(userMenuAnchor)}
-                  onClose={handleUserMenuClose}
-                  PaperProps={{
-                    sx: {
-                      mt: 1.5,
-                      borderRadius: 2,
-                      minWidth: 220,
-                      boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)",
-                    },
-                  }}
-                >
-                  <MenuItem onClick={() => navigate("/profile")}>
-                    <ListItemIcon>
-                      <PersonIcon fontSize="small" />
-                    </ListItemIcon>
-                    Profile
-                  </MenuItem>
-
-                  <MenuItem onClick={handleDashboardClick}>
-                    <ListItemIcon>
-                      <DashboardIcon fontSize="small" />
-                    </ListItemIcon>
-                    Dashboard
-                  </MenuItem>
-
-                  <Divider />
-
-                  <MenuItem onClick={handleLogout} sx={{ color: "red" }}>
-                    <ListItemIcon>
-                      <LogoutIcon fontSize="small" color="error" />
-                    </ListItemIcon>
-                    Logout
-                  </MenuItem>
-                </Menu>
               </Box>
             ) : (
               <Button
@@ -227,12 +184,83 @@ const Navbar = () => {
           </Box>
 
           {/* ✅ Mobile Menu */}
-          <Box sx={{ display: { xs: "flex", md: "none" } }}>
-            <IconButton size="large" edge="end" onClick={handleOpenMenu}>
-              <MenuIcon sx={{ color: "#065f46" }} />
-            </IconButton>
+          <Box
+            sx={{ display: { xs: "flex", md: "none" }, alignItems: "center" }}
+          >
+            {userName ? (
+              <Box sx={{ display: "flex", alignItems: "center", gap: 1 }}>
+                {/* 👇 User Avatar Replaces Toggle */}
+                <Typography
+                  variant="body2"
+                  sx={{
+                    fontWeight: 600,
+                    color: "#065f46",
+                    maxWidth: 100,
+                    whiteSpace: "nowrap",
+                    overflow: "hidden",
+                    textOverflow: "ellipsis",
+                  }}
+                >
+                  {userName.split(" ")[0]}
+                </Typography>
+                <IconButton onClick={handleUserMenuOpen}>
+                  <Avatar
+                    src={userPhoto || ""}
+                    alt={userName || "User"}
+                    sx={{
+                      width: 36,
+                      height: 36,
+                      bgcolor: userPhoto ? "transparent" : "#16a34a",
+                    }}
+                  >
+                    {!userPhoto && <AccountCircleIcon />}
+                  </Avatar>
+                </IconButton>
+              </Box>
+            ) : (
+              // 👇 If not logged in, show normal toggle
+              <IconButton size="large" edge="end" onClick={handleOpenMenu}>
+                <MenuIcon sx={{ color: "#065f46" }} />
+              </IconButton>
+            )}
           </Box>
 
+          {/* ✅ User Menu (both desktop + mobile) */}
+          <Menu
+            anchorEl={userMenuAnchor}
+            open={Boolean(userMenuAnchor)}
+            onClose={handleUserMenuClose}
+            PaperProps={{
+              sx: {
+                mt: 1.5,
+                borderRadius: 2,
+                minWidth: 220,
+                boxShadow: "0px 4px 20px rgba(0, 0, 0, 0.1)",
+              },
+            }}
+          >
+            <MenuItem onClick={() => navigate("/profile")}>
+              <ListItemIcon>
+                <PersonIcon fontSize="small" />
+              </ListItemIcon>
+              Profile
+            </MenuItem>
+            <MenuItem onClick={handleDashboardClick}>
+              <ListItemIcon>
+                <DashboardIcon fontSize="small" />
+              </ListItemIcon>
+              Dashboard
+            </MenuItem>
+            <Divider />
+            <MenuItem onClick={handleLogout} sx={{ color: "red" }}>
+              <ListItemIcon>
+                <LogoutIcon fontSize="small" color="error" />
+              </ListItemIcon>
+              Logout
+            </MenuItem>
+          </Menu>
+
+          {/* ✅ Mobile dropdown (for guests only) */}
           <Menu
             anchorEl={anchorEl}
             open={Boolean(anchorEl)}
@@ -250,31 +278,7 @@ const Navbar = () => {
                 {item.label}
               </MenuItem>
             ))}
-
-            {userName ? (
-              <>
-                <Divider />
-                <MenuItem onClick={() => navigate("/profile")}>
-                  <ListItemIcon>
-                    <PersonIcon fontSize="small" />
-                  </ListItemIcon>
-                  Profile
-                </MenuItem>
-                <MenuItem onClick={handleDashboardClick}>
-                  <ListItemIcon>
-                    <DashboardIcon fontSize="small" />
-                  </ListItemIcon>
-                  Dashboard
-                </MenuItem>
-                <Divider sx={{ my: 1 }} />
-                <MenuItem onClick={handleLogout} sx={{ color: "red" }}>
-                  <ListItemIcon>
-                    <LogoutIcon fontSize="small" color="error" />
-                  </ListItemIcon>
-                  Logout
-                </MenuItem>
-              </>
-            ) : (
+            {!userName && (
               <MenuItem
                 onClick={() => {
                   handleCloseMenu();
