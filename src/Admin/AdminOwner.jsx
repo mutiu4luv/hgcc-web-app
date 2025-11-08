@@ -64,6 +64,9 @@ const AdminOwner = () => {
     assignmentSubmissions: [],
     coachingSessions: [],
   });
+  const [coachesList, setCoachesList] = useState([]);
+  const [selectedCoach, setSelectedCoach] = useState("");
+  const [coachPerformance, setCoachPerformance] = useState([]);
 
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
@@ -263,6 +266,74 @@ const AdminOwner = () => {
       ),
     },
   ];
+
+  // Fetch all coaches for dropdown
+  useEffect(() => {
+    const fetchCoaches = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/users/coaches`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        // ✅ Only store the array of coaches
+        setCoachesList(res.data.coaches || []);
+      } catch (err) {
+        console.error("Error fetching coaches:", err);
+        setMessage("Failed to load coaches list");
+        setCoachesList([]); // fallback to empty array
+      }
+    };
+    fetchCoaches();
+  }, [BASE_URL, token]);
+
+  // Fetch selected coach performance
+  useEffect(() => {
+    if (!selectedCoach) return;
+    const fetchCoachPerformance = async () => {
+      try {
+        const res = await axios.get(
+          `${BASE_URL}/api/analytics/coach-performance?coachId=${selectedCoach}`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        const feedbacks = res.data.feedbacks || []; // array of feedback objects
+
+        const totalRating = feedbacks.reduce((sum, f) => sum + f.rating, 0);
+        const avgRating =
+          feedbacks.length > 0 ? totalRating / feedbacks.length : 0;
+
+        const formatted = [
+          {
+            metric: "Active Students",
+            value: res.data.activeStudents || 0,
+          },
+          {
+            metric: "Missed Sessions",
+            value: res.data.missedSessions || 0,
+          },
+          {
+            metric: "Assignments Reviewed",
+            value: res.data.assignmentCount || 0,
+          },
+          {
+            metric: "Average Rating",
+            value: avgRating.toFixed(1), // round to 1 decimal
+          },
+        ];
+
+        setCoachPerformance(formatted);
+      } catch (err) {
+        console.error("Error loading coach performance:", err);
+        setMessage("Failed to load coach performance");
+      }
+    };
+
+    fetchCoachPerformance();
+  }, [selectedCoach, BASE_URL, token]);
+
+  // Ensure coachesList is always an array
+  const safeCoachesList = Array.isArray(coachesList) ? coachesList : [];
 
   // 🌀 Global Loader
   if (globalLoading) {
@@ -480,28 +551,69 @@ const AdminOwner = () => {
               >
                 📊 Dashboard Analytics
               </Typography>
+              {/* Coach Dropdown */}
+              <Box sx={{ mb: 3 }}>
+                <TextField
+                  select
+                  label="Select Coach"
+                  value={selectedCoach}
+                  onChange={(e) => setSelectedCoach(e.target.value)}
+                  fullWidth
+                  variant="outlined"
+                  SelectProps={{ native: true }}
+                >
+                  <option value="">-- Select Coach --</option>
+                  {safeCoachesList.map((coach) => (
+                    <option key={coach._id} value={coach._id}>
+                      {coach.fullName}
+                    </option>
+                  ))}
+                </TextField>
+              </Box>
               <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={chartData}>
+                <BarChart
+                  data={Array.isArray(coachPerformance) ? coachPerformance : []}
+                >
+                  <XAxis dataKey="metric" />
+                  <YAxis allowDecimals={false} />
+                  <Tooltip />
+                  <Bar dataKey="value" fill="#10b981" radius={[6, 6, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+
+              {/* <ResponsiveContainer width="100%" height={300}>
+                <BarChart data={coachPerformance}>
                   <XAxis dataKey="month" />
                   <YAxis />
                   <Tooltip />
+
+                  <Bar dataKey="sessions" fill="#f59e0b" name="Sessions" />
                   <Bar
-                    dataKey="students"
+                    dataKey="studentsTaught"
                     fill="#3b82f6"
-                    name="Students Registered"
+                    name="Students Taught"
                   />
                   <Bar
-                    dataKey="assignments"
+                    dataKey="assignmentsReviewed"
                     fill="#10b981"
-                    name="Assignments Submitted"
+                    name="Assignments Reviewed"
                   />
                   <Bar
-                    dataKey="coaching"
-                    fill="#f59e0b"
-                    name="Coaching Sessions"
+                    dataKey="avgRating"
+                    fill="#f43f5e"
+                    name="Average Rating"
                   />
                 </BarChart>
-              </ResponsiveContainer>
+              </ResponsiveContainer> */}
+              {coachPerformance.length > 0 && (
+                <Typography sx={{ mt: 2, textAlign: "center" }}>
+                  ⭐ Average Rating:{" "}
+                  <strong>
+                    {coachPerformance.find((i) => i.metric === "Average Rating")
+                      ?.value || 0}
+                  </strong>
+                </Typography>
+              )}
             </Paper>
           </Container>
         )}
