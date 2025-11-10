@@ -42,8 +42,10 @@ import {
   XAxis,
   YAxis,
   Tooltip,
+  Legend,
   ResponsiveContainer,
 } from "recharts";
+
 import { motion } from "framer-motion";
 import axios from "axios";
 
@@ -287,50 +289,45 @@ const AdminOwner = () => {
 
   // Fetch selected coach performance
   useEffect(() => {
-    if (!selectedCoach) return;
-    const fetchCoachPerformance = async () => {
+    const fetchCoaches = async () => {
       try {
+        const res = await axios.get("/api/coaches"); // your backend route for all coaches
+        setCoachesList(res.data);
+      } catch (err) {
+        console.error("Error fetching coaches:", err);
+      }
+    };
+    fetchCoaches();
+  }, []);
+
+  // 📊 Fetch monthly performance whenever coach changes
+  useEffect(() => {
+    if (!selectedCoach) return;
+    const fetchPerformance = async () => {
+      try {
+        setLoading(true);
         const res = await axios.get(
-          `${BASE_URL}/api/analytics/coach-performance?coachId=${selectedCoach}`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
+          `${BASE_URL}/api/analytics/coach?coachId=${selectedCoach}`,
+          { headers: { Authorization: `Bearer ${token}` } }
         );
 
-        const feedbacks = res.data.feedbacks || []; // array of feedback objects
+        console.log("✅ Coach performance:", res.data);
 
-        const totalRating = feedbacks.reduce((sum, f) => sum + f.rating, 0);
-        const avgRating =
-          feedbacks.length > 0 ? totalRating / feedbacks.length : 0;
+        setCoachPerformance(res.data);
+      } catch (error) {
+        console.error("❌ Error fetching coach performance:", error);
 
-        const formatted = [
-          {
-            metric: "Active Students",
-            value: res.data.activeStudents || 0,
-          },
-          {
-            metric: "Missed Sessions",
-            value: res.data.missedSessions || 0,
-          },
-          {
-            metric: "Assignments Reviewed",
-            value: res.data.assignmentCount || 0,
-          },
-          {
-            metric: "Average Rating",
-            value: avgRating.toFixed(1), // round to 1 decimal
-          },
-        ];
-
-        setCoachPerformance(formatted);
-      } catch (err) {
-        console.error("Error loading coach performance:", err);
-        setMessage("Failed to load coach performance");
+        setCoachPerformance([]);
+      } finally {
+        setLoading(false);
       }
     };
 
-    fetchCoachPerformance();
+    // Add all used variables (BASE_URL, token) to the dependency array
+    fetchPerformance();
   }, [selectedCoach, BASE_URL, token]);
+
+  const barColors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
 
   // Ensure coachesList is always an array
   const safeCoachesList = Array.isArray(coachesList) ? coachesList : [];
@@ -551,69 +548,73 @@ const AdminOwner = () => {
               >
                 📊 Dashboard Analytics
               </Typography>
-              {/* Coach Dropdown */}
-              <Box sx={{ mb: 3 }}>
+
+              <Box sx={{ my: 3 }}>
+                <Typography variant="h6" fontWeight="bold" color="green">
+                  Select Coach to View Monthly Performance
+                </Typography>
+
                 <TextField
                   select
-                  label="Select Coach"
+                  SelectProps={{ native: true }}
+                  fullWidth
                   value={selectedCoach}
                   onChange={(e) => setSelectedCoach(e.target.value)}
-                  fullWidth
-                  variant="outlined"
-                  SelectProps={{ native: true }}
+                  sx={{ mt: 1, mb: 3 }}
                 >
-                  <option value="">-- Select Coach --</option>
-                  {safeCoachesList.map((coach) => (
+                  <option value="">-- Select a Coach --</option>
+                  {coachesList.map((coach) => (
                     <option key={coach._id} value={coach._id}>
                       {coach.fullName}
                     </option>
                   ))}
                 </TextField>
+
+                {loading ? (
+                  <Box
+                    sx={{ display: "flex", justifyContent: "center", my: 4 }}
+                  >
+                    <CircularProgress />
+                  </Box>
+                ) : selectedCoach && coachPerformance.length > 0 ? (
+                  <Box sx={{ width: "100%", height: 400 }}>
+                    <ResponsiveContainer>
+                      <BarChart data={coachPerformance}>
+                        <XAxis dataKey="month" />
+                        <YAxis />
+                        <Tooltip />
+                        <Legend />
+                        <Bar
+                          dataKey="sessions"
+                          fill="#3b82f6"
+                          name="Sessions"
+                        />
+                        <Bar
+                          dataKey="studentsTaught"
+                          fill="#10b981"
+                          name="Students Taught"
+                        />
+                        <Bar
+                          dataKey="assignmentsReviewed"
+                          fill="#f59e0b"
+                          name="Assignments Reviewed"
+                        />
+                        <Bar
+                          dataKey="avgRating"
+                          fill="#ef4444"
+                          name="Avg Rating"
+                        />
+                      </BarChart>
+                    </ResponsiveContainer>
+                  </Box>
+                ) : (
+                  selectedCoach && (
+                    <Typography sx={{ textAlign: "center", color: "gray" }}>
+                      No performance data available for this coach yet.
+                    </Typography>
+                  )
+                )}
               </Box>
-              <ResponsiveContainer width="100%" height={300}>
-                <BarChart
-                  data={Array.isArray(coachPerformance) ? coachPerformance : []}
-                >
-                  <XAxis dataKey="metric" />
-                  <YAxis allowDecimals={false} />
-                  <Tooltip />
-                  <Bar dataKey="value" fill="#10b981" radius={[6, 6, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-
-              {/* <ResponsiveContainer width="100%" height={300}>
-                <BarChart data={coachPerformance}>
-                  <XAxis dataKey="month" />
-                  <YAxis />
-                  <Tooltip />
-
-                  <Bar dataKey="sessions" fill="#f59e0b" name="Sessions" />
-                  <Bar
-                    dataKey="studentsTaught"
-                    fill="#3b82f6"
-                    name="Students Taught"
-                  />
-                  <Bar
-                    dataKey="assignmentsReviewed"
-                    fill="#10b981"
-                    name="Assignments Reviewed"
-                  />
-                  <Bar
-                    dataKey="avgRating"
-                    fill="#f43f5e"
-                    name="Average Rating"
-                  />
-                </BarChart>
-              </ResponsiveContainer> */}
-              {coachPerformance.length > 0 && (
-                <Typography sx={{ mt: 2, textAlign: "center" }}>
-                  ⭐ Average Rating:{" "}
-                  <strong>
-                    {coachPerformance.find((i) => i.metric === "Average Rating")
-                      ?.value || 0}
-                  </strong>
-                </Typography>
-              )}
             </Paper>
           </Container>
         )}
