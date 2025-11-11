@@ -10,6 +10,7 @@ import ConfirmCode from "./Screens/Confirm";
 import LoginForm from "./Screens/Login";
 import ProtectedRoute from "./Component/ProtectedRoute";
 import AdminOwner from "./Admin/AdminOwner";
+import AdminCoach from "./Admin/AdminCoachesScreen";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -27,6 +28,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AdminOwner />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/coach"
+          element={
+            <ProtectedRoute>
+              <AdminCoach />
             </ProtectedRoute>
           }
         />
