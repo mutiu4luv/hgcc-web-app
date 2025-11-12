@@ -25,6 +25,7 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon,
   CheckCircle,
+  LiveTv,
 } from "@mui/icons-material";
 import {
   BarChart,
@@ -63,6 +64,7 @@ const CoachDashboard = () => {
     { text: "Upload Materials", icon: <UploadFile />, key: "upload" },
     { text: "Assignments", icon: <AssignmentTurnedIn />, key: "assignments" },
     { text: "Students", icon: <School />, key: "students" },
+    { text: "Live Mode", icon: <LiveTv />, key: "live" }, // ✅ NEW
   ];
 
   useEffect(() => {
@@ -211,12 +213,14 @@ const CoachDashboard = () => {
         sx={{
           width: drawerWidth,
           flexShrink: 0,
+          zIndex: 1200,
           "& .MuiDrawer-paper": {
             width: drawerWidth,
             boxSizing: "border-box",
             backgroundColor: "#064e3b",
             color: "#fff",
             borderRight: "none",
+            zIndex: 1201,
           },
         }}
       >
@@ -290,6 +294,7 @@ const CoachDashboard = () => {
             bgcolor: "#10b981",
             color: "#fff",
             "&:hover": { bgcolor: "#047857" },
+            zIndex: 1300,
           }}
         >
           <MenuIcon />
@@ -306,6 +311,7 @@ const CoachDashboard = () => {
           height: "100vh",
         }}
       >
+        {/* Dashboard */}
         {activeTab === "dashboard" && (
           <Paper sx={{ p: 4 }}>
             <Typography
@@ -357,7 +363,6 @@ const CoachDashboard = () => {
                 {message}
               </Alert>
             )}
-            {/* Video Upload */}
             <Typography variant="h6" sx={{ mt: 2 }}>
               🎥 Upload Video
             </Typography>
@@ -460,6 +465,32 @@ const CoachDashboard = () => {
                 pageSize={5}
               />
             </div>
+          </Paper>
+        )}
+
+        {/* ✅ Live Mode */}
+        {activeTab === "live" && (
+          <Paper sx={{ p: 4 }}>
+            <Typography
+              variant="h4"
+              color="green"
+              fontWeight="bold"
+              gutterBottom
+            >
+              🔴 Live Mode
+            </Typography>
+            <Typography variant="body1" sx={{ mt: 2 }}>
+              Welcome to <strong>Live Mode</strong>. Here you can host live
+              coaching sessions, interact with students in real time, and manage
+              ongoing sessions.
+            </Typography>
+            <Button
+              variant="contained"
+              sx={{ mt: 3, bgcolor: "#10b981" }}
+              onClick={() => alert("Launching Live Session...")}
+            >
+              Go Live
+            </Button>
           </Paper>
         )}
       </Box>
