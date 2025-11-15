@@ -135,7 +135,7 @@ const CoachDashboard = () => {
       console.log("📡 Fetching ratings...");
 
       try {
-        const res = axios.get(`${BASE_URL}/api/feedbacks/my-ratings`, {
+        const res = await axios.get(`${BASE_URL}/api/feedbacks/my-ratings`, {
           headers: { Authorization: `Bearer ${token}` },
         });
 
