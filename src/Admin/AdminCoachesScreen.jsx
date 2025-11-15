@@ -68,57 +68,6 @@ const CoachDashboard = () => {
     { text: "Live Mode", icon: <LiveTv />, key: "live" }, // ✅ NEW
   ];
 
-  // useEffect(() => {
-  //   const fetchData = async () => {
-  //     try {
-  //       // Fetch assignments, students, and ratings concurrently
-  //       const [assignRes, studentRes, ratingRes] = await Promise.all([
-  //         axios.get(`${BASE_URL}/api/coach/assignments`, {
-  //           headers: { Authorization: `Bearer ${token}` },
-  //         }),
-  //         axios.get(`${BASE_URL}/api/coach/students`, {
-  //           headers: { Authorization: `Bearer ${token}` },
-  //         }),
-  //         axios.get(`${BASE_URL}/api/feedbacks/coaches-ratings`, {
-  //           headers: { Authorization: `Bearer ${token}` },
-  //         }),
-  //       ]);
-  //       setStudents(studentRes.data.students); // FIXED ✔
-
-  //       // Compute monthly average ratings
-  //       const monthlyRatings = ratingRes.data.reduce((acc, item) => {
-  //         const month = new Date(item.createdAt).toLocaleString("default", {
-  //           month: "short",
-  //         });
-  //         if (!acc[month]) acc[month] = [];
-  //         acc[month].push(item.rating);
-  //         return acc;
-  //       }, {});
-
-  //       const avgData = Object.keys(monthlyRatings).map((month) => ({
-  //         month,
-  //         averageRating:
-  //           monthlyRatings[month].reduce((a, b) => a + b, 0) /
-  //           monthlyRatings[month].length,
-  //       }));
-
-  //       setAssignments(assignRes.data);
-
-  //       // Use the deployed BASE_URL response for students
-  //       // The API should return: { totalStudents, students: [ {_id, fullName, email } ] }
-  //       setStudents(studentRes.data.students || []);
-  //       setRatingData(avgData);
-  //     } catch (err) {
-  //       console.error("❌ Error loading coach data:", err);
-  //       setMessage("Failed to load data");
-  //     } finally {
-  //       setGlobalLoading(false);
-  //     }
-  //   };
-
-  //   fetchData();
-  // }, [BASE_URL, token]);
-
   // =========================
   // FETCH ASSIGNMENTS
   // =========================
@@ -186,12 +135,9 @@ const CoachDashboard = () => {
       console.log("📡 Fetching ratings...");
 
       try {
-        const res = await axios.get(
-          `${BASE_URL}/api/feedbacks/coaches-ratings`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-          }
-        );
+        const res = axios.get(`${BASE_URL}/api/feedbacks/my-ratings`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
 
         console.log("✅ Ratings raw:", res.data);
 
