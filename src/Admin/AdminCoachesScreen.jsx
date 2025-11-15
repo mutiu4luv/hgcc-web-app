@@ -54,6 +54,7 @@ const CoachDashboard = () => {
   const [students, setStudents] = useState([]);
   const [ratingData, setRatingData] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [studentsLoading, setStudentsLoading] = useState(true);
 
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -67,25 +68,138 @@ const CoachDashboard = () => {
     { text: "Live Mode", icon: <LiveTv />, key: "live" }, // ✅ NEW
   ];
 
-  useEffect(() => {
-    const fetchData = async () => {
-      try {
-        const [assignRes, studentRes, ratingRes] = await Promise.all([
-          axios.get(`${BASE_URL}/api/coach/assignments`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${BASE_URL}/api/coach/students`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-          axios.get(`${BASE_URL}/api/feedbacks/coaches-ratings`, {
-            headers: { Authorization: `Bearer ${token}` },
-          }),
-        ]);
+  // useEffect(() => {
+  //   const fetchData = async () => {
+  //     try {
+  //       // Fetch assignments, students, and ratings concurrently
+  //       const [assignRes, studentRes, ratingRes] = await Promise.all([
+  //         axios.get(`${BASE_URL}/api/coach/assignments`, {
+  //           headers: { Authorization: `Bearer ${token}` },
+  //         }),
+  //         axios.get(`${BASE_URL}/api/coach/students`, {
+  //           headers: { Authorization: `Bearer ${token}` },
+  //         }),
+  //         axios.get(`${BASE_URL}/api/feedbacks/coaches-ratings`, {
+  //           headers: { Authorization: `Bearer ${token}` },
+  //         }),
+  //       ]);
+  //       setStudents(studentRes.data.students); // FIXED ✔
 
-        const monthlyRatings = ratingRes.data.reduce((acc, item) => {
+  //       // Compute monthly average ratings
+  //       const monthlyRatings = ratingRes.data.reduce((acc, item) => {
+  //         const month = new Date(item.createdAt).toLocaleString("default", {
+  //           month: "short",
+  //         });
+  //         if (!acc[month]) acc[month] = [];
+  //         acc[month].push(item.rating);
+  //         return acc;
+  //       }, {});
+
+  //       const avgData = Object.keys(monthlyRatings).map((month) => ({
+  //         month,
+  //         averageRating:
+  //           monthlyRatings[month].reduce((a, b) => a + b, 0) /
+  //           monthlyRatings[month].length,
+  //       }));
+
+  //       setAssignments(assignRes.data);
+
+  //       // Use the deployed BASE_URL response for students
+  //       // The API should return: { totalStudents, students: [ {_id, fullName, email } ] }
+  //       setStudents(studentRes.data.students || []);
+  //       setRatingData(avgData);
+  //     } catch (err) {
+  //       console.error("❌ Error loading coach data:", err);
+  //       setMessage("Failed to load data");
+  //     } finally {
+  //       setGlobalLoading(false);
+  //     }
+  //   };
+
+  //   fetchData();
+  // }, [BASE_URL, token]);
+
+  // =========================
+  // FETCH ASSIGNMENTS
+  // =========================
+  useEffect(() => {
+    const loadAssignments = async () => {
+      console.log("📡 Fetching assignments...");
+
+      try {
+        const res = await axios.get(`${BASE_URL}/api/coach/assignments`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        console.log("✅ Assignments response:", res.data);
+        setAssignments(res.data);
+      } catch (err) {
+        console.error(
+          "❌ Error fetching assignments:",
+          err?.response?.data || err
+        );
+        setMessage("Failed to load assignments");
+      }
+    };
+
+    loadAssignments();
+  }, [BASE_URL, token]);
+
+  // =========================
+  // FETCH STUDENTS
+  // =========================
+  useEffect(() => {
+    const loadStudents = async () => {
+      console.log("📡 Fetching students...");
+
+      try {
+        const res = await axios.get(`${BASE_URL}/api/coach/students`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        console.log("✅ Students response:", res.data);
+
+        if (res.data.students) {
+          setStudents(res.data.students);
+        } else {
+          console.warn("⚠ No 'students' field found in response");
+        }
+      } catch (err) {
+        console.error(
+          "❌ Error fetching students:",
+          err?.response?.data || err
+        );
+        setMessage("Failed to load students");
+      } finally {
+        setStudentsLoading(false);
+      }
+    };
+
+    loadStudents();
+  }, [BASE_URL, token]);
+
+  // =========================
+  // FETCH RATINGS
+  // =========================
+  useEffect(() => {
+    const loadRatings = async () => {
+      console.log("📡 Fetching ratings...");
+
+      try {
+        const res = await axios.get(
+          `${BASE_URL}/api/feedbacks/coaches-ratings`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+
+        console.log("✅ Ratings raw:", res.data);
+
+        const monthlyRatings = res.data.reduce((acc, item) => {
           const month = new Date(item.createdAt).toLocaleString("default", {
             month: "short",
           });
+
           if (!acc[month]) acc[month] = [];
           acc[month].push(item.rating);
           return acc;
@@ -98,17 +212,18 @@ const CoachDashboard = () => {
             monthlyRatings[month].length,
         }));
 
-        setAssignments(assignRes.data);
-        setStudents(studentRes.data);
+        console.log("📊 Processed rating data:", avgData);
+
         setRatingData(avgData);
       } catch (err) {
-        console.error("❌ Error loading coach data:", err);
-        setMessage("Failed to load data");
+        console.error("❌ Error fetching ratings:", err?.response?.data || err);
+        setMessage("Failed to load ratings");
       } finally {
         setGlobalLoading(false);
       }
     };
-    fetchData();
+
+    loadRatings();
   }, [BASE_URL, token]);
 
   const handleLogout = () => {
@@ -454,17 +569,41 @@ const CoachDashboard = () => {
             >
               👩‍🎓 My Students ({students.length})
             </Typography>
-            <div style={{ height: 500, width: "100%" }}>
-              <DataGrid
-                rows={students.map((s) => ({ id: s._id, ...s }))}
-                columns={[
-                  { field: "fullName", headerName: "Full Name", width: 300 },
-                  { field: "email", headerName: "Email", width: 300 },
-                  { field: "progress", headerName: "Progress", width: 150 },
-                ]}
-                pageSize={5}
-              />
-            </div>
+
+            {/* Loader */}
+            {studentsLoading ? (
+              <Box
+                sx={{
+                  height: 400,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CircularProgress size={60} color="success" />
+              </Box>
+            ) : students.length === 0 ? (
+              <Typography>No students enrolled in your courses yet.</Typography>
+            ) : (
+              <div style={{ height: 500, width: "100%" }}>
+                <DataGrid
+                  rows={students.map((s) => ({
+                    id: s._id,
+                    fullName: s.fullName,
+                    email: s.email,
+                    phoneNumber: s.phoneNumber,
+                    progress: s.progress || "0%", // optional
+                  }))}
+                  columns={[
+                    { field: "fullName", headerName: "Full Name", width: 250 },
+                    { field: "email", headerName: "Email", width: 250 },
+                    { field: "phoneNumber", headerName: "Phone", width: 180 },
+                    { field: "progress", headerName: "Progress", width: 150 },
+                  ]}
+                  pageSize={5}
+                />
+              </div>
+            )}
           </Paper>
         )}
 
