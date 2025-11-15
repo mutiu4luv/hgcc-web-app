@@ -53,7 +53,7 @@ const Navbar = () => {
 
     if (role === "owner") navigate("/owner");
     else if (role === "coach") navigate("/coach");
-    else navigate("/dashboard");
+    else navigate("/student/dashboard");
 
     handleUserMenuClose();
   };

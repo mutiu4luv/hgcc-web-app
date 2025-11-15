@@ -11,6 +11,7 @@ import LoginForm from "./Screens/Login";
 import ProtectedRoute from "./Component/ProtectedRoute";
 import AdminOwner from "./Admin/AdminOwner";
 import AdminCoach from "./Admin/AdminCoachesScreen";
+import AdminStudent from "./Admin/AdminStudent";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -36,6 +37,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AdminCoach />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/student/dashboard"
+          element={
+            <ProtectedRoute>
+              <AdminStudent />
             </ProtectedRoute>
           }
         />

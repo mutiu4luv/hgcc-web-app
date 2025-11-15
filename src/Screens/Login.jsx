@@ -61,7 +61,7 @@ const LoginForm = () => {
       } else if (user.role === "coach") {
         navigate("/coach");
       } else if (user.role === "student") {
-        navigate("/dashboard");
+        navigate("/student/dashboard");
       }
     } catch (error) {
       console.error("❌ Login error:", error.response?.data || error);

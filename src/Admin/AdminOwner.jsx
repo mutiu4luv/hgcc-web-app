@@ -507,13 +507,19 @@ const AdminOwner = () => {
               />
               <TextField
                 label="Role"
+                select
+                SelectProps={{ native: true }}
                 fullWidth
                 sx={{ mb: 2 }}
                 value={editUser.role}
                 onChange={(e) =>
                   setEditUser({ ...editUser, role: e.target.value })
                 }
-              />
+              >
+                <option value="">-- Select Role --</option>
+                <option value="student">Student</option>
+                <option value="coach">Coach</option>
+              </TextField>
               <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
                 <Button
                   variant="contained"
