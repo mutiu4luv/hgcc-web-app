@@ -1,19 +1,30 @@
 // src/admin/ProtectedRoute.jsx
 import React from "react";
 import { Navigate } from "react-router-dom";
+import { jwtDecode } from "jwt-decode";
 
 const ProtectedRoute = ({ children }) => {
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user"));
 
-  // ✅ If no token or user data, redirect to login
   if (!token || !user) {
     return <Navigate to="/login" replace />;
   }
 
-  // ✅ Allow access only to owner, coach, or student
-  const allowedRoles = ["owner", "coach", "student"];
-  if (!allowedRoles.includes(user.role)) {
+  try {
+    const decoded = jwtDecode(token);
+
+    const isExpired = decoded.exp * 1000 < Date.now();
+
+    if (isExpired) {
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      return <Navigate to="/login" replace />;
+    }
+  } catch (err) {
+    console.error("Invalid token:", err);
+    localStorage.removeItem("token");
+    localStorage.removeItem("user");
     return <Navigate to="/login" replace />;
   }
 

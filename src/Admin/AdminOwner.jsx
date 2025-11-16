@@ -70,9 +70,112 @@ const AdminOwner = () => {
   const [selectedCoach, setSelectedCoach] = useState("");
   const [coachPerformance, setCoachPerformance] = useState([]);
 
+  const [courseName, setCourseName] = useState("");
+  const [courseCategory, setCourseCategory] = useState("");
+  const [courseDescription, setCourseDescription] = useState("");
+  const [courseDuration, setCourseDuration] = useState("");
+  const [assignedCoach, setAssignedCoach] = useState(""); // optional
+  const [creatingCourse, setCreatingCourse] = useState(false);
+  const [courses, setCourses] = useState([]);
+
+  const [cohorts, setCohorts] = useState([]);
+  const [cohortName, setCohortName] = useState("");
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [selectedCoachForCohort, setSelectedCoachForCohort] = useState("");
+  const [creatingCohort, setCreatingCohort] = useState(false);
+
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+  useEffect(() => {
+    if (activeTab !== "create-cohort") return;
+
+    const fetchCohorts = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/cohorts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCohorts(res.data);
+      } catch (err) {
+        setMessage("Failed to fetch cohorts");
+      }
+    };
+
+    fetchCohorts();
+  }, [activeTab, BASE_URL, token]);
+
+  // 📤 Create Cohort
+  const handleCreateCohort = async () => {
+    if (!selectedCourse || !selectedCoachForCohort || !cohortName)
+      return alert("Please fill all fields");
+
+    if (!window.confirm("Are you sure you want to create this cohort?")) return;
+
+    try {
+      setCreatingCohort(true);
+      const res = await axios.post(
+        `${BASE_URL}/api/cohorts`,
+        {
+          courseId: selectedCourse,
+          coachId: selectedCoachForCohort,
+          name: cohortName,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setMessage(res.data.message);
+      setCohortName("");
+      setSelectedCourse("");
+      setSelectedCoachForCohort("");
+      setCohorts((prev) => [...prev, res.data.cohort]);
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Failed to create cohort");
+    } finally {
+      setCreatingCohort(false);
+    }
+  };
+  // 📤 Start Cohort
+  const handleStartCohort = async (cohortId) => {
+    if (!window.confirm("Are you sure you want to START this cohort?")) return;
+
+    try {
+      const res = await axios.put(
+        `${BASE_URL}/api/cohorts/start/${cohortId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMessage(res.data.message);
+      setCohorts((prev) =>
+        prev.map((c) =>
+          c._id === cohortId ? { ...c, status: "in_progress" } : c
+        )
+      );
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Failed to start cohort");
+    }
+  };
+
+  const handleEndCohort = async (cohortId) => {
+    if (!window.confirm("Are you sure you want to END this cohort?")) return;
+
+    try {
+      const res = await axios.put(
+        `${BASE_URL}/api/cohorts/end/${cohortId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMessage(res.data.message);
+      setCohorts((prev) =>
+        prev.map((c) =>
+          c._id === cohortId ? { ...c, status: "completed" } : c
+        )
+      );
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Failed to end cohort");
+    }
+  };
+
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
@@ -211,9 +314,13 @@ const AdminOwner = () => {
   // 🧭 Sidebar items
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
+    { text: "Create Course", icon: <ManageAccounts />, key: "create-course" },
+    { text: "All Courses", icon: <School />, key: "courses" },
+
     { text: "Manage Videos", icon: <VideoLibrary />, key: "videos" },
     { text: "Students", icon: <People />, key: "students" },
     { text: "Coaches", icon: <School />, key: "coaches" },
+    { text: "Create Cohort", icon: <School />, key: "create-cohort" },
     { text: "Owner Tools", icon: <ManageAccounts />, key: "owner" },
   ];
 
@@ -268,6 +375,21 @@ const AdminOwner = () => {
       ),
     },
   ];
+
+  useEffect(() => {
+    if (activeTab !== "courses") return;
+
+    const fetchCourses = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/course`);
+        setCourses(res.data);
+      } catch (err) {
+        setMessage("Failed to load courses");
+      }
+    };
+
+    fetchCourses();
+  }, [activeTab, BASE_URL]);
 
   // Fetch all coaches for dropdown
   useEffect(() => {
@@ -625,6 +747,222 @@ const AdminOwner = () => {
           </Container>
         )}
 
+        {/* === Create Course === */}
+        {activeTab === "create-course" && (
+          <Container>
+            <Paper sx={{ p: 4, borderRadius: 4, mb: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                🧠 Owner Control Panel
+              </Typography>
+
+              <Typography sx={{ mb: 3 }}>Create a new course</Typography>
+
+              {message && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  {message}
+                </Alert>
+              )}
+
+              <TextField
+                label="Course Name"
+                fullWidth
+                sx={{ mb: 2 }}
+                value={courseName}
+                onChange={(e) => setCourseName(e.target.value)}
+              />
+              <TextField
+                label="Category"
+                fullWidth
+                sx={{ mb: 2 }}
+                value={courseCategory}
+                onChange={(e) => setCourseCategory(e.target.value)}
+              />
+              <TextField
+                label="Description"
+                fullWidth
+                multiline
+                rows={4}
+                sx={{ mb: 2 }}
+                value={courseDescription}
+                onChange={(e) => setCourseDescription(e.target.value)}
+              />
+              <TextField
+                select
+                SelectProps={{ native: true }}
+                fullWidth
+                sx={{ mb: 2 }}
+                value={courseDuration}
+                required
+                onChange={(e) => setCourseDuration(e.target.value)}
+              >
+                <option value="">-- Select Duration --</option>
+                <option value="1-month">1 Month</option>
+                <option value="3-months">3 Months</option>
+                <option value="6-months">6 Months</option>
+              </TextField>
+              <TextField
+                select
+                SelectProps={{ native: true }}
+                fullWidth
+                sx={{ mb: 2 }}
+                value={assignedCoach}
+                onChange={(e) => setAssignedCoach(e.target.value)}
+                required
+              >
+                <option value="">-- Assign Coach --</option>
+                {safeCoachesList.map((coach) => (
+                  <option key={coach._id} value={coach._id}>
+                    {coach.fullName}
+                  </option>
+                ))}
+              </TextField>
+
+              <Button
+                variant="contained"
+                fullWidth
+                sx={{
+                  bgcolor: "#10b981",
+                  color: "white",
+                  fontWeight: "bold",
+                  "&:hover": { bgcolor: "#047857" },
+                }}
+                onClick={async () => {
+                  if (!courseName || !courseDuration)
+                    return alert("Name and duration are required");
+
+                  setCreatingCourse(true);
+                  try {
+                    const res = await axios.post(
+                      `${BASE_URL}/api/course`,
+                      {
+                        name: courseName,
+                        category: courseCategory,
+                        description: courseDescription,
+                        coachId: assignedCoach,
+                        duration: courseDuration,
+                      },
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+
+                    setMessage(res.data.message);
+                    // Clear form
+                    setCourseName("");
+                    setCourseCategory("");
+                    setCourseDescription("");
+                    setCourseDuration("");
+                    setAssignedCoach("");
+                  } catch (err) {
+                    setMessage(
+                      err.response?.data?.message || "Failed to create course"
+                    );
+                  } finally {
+                    setCreatingCourse(false);
+                  }
+                }}
+              >
+                {creatingCourse ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  "Create Course"
+                )}
+              </Button>
+            </Paper>
+          </Container>
+        )}
+        {/* === All Courses === */}
+        {activeTab === "courses" && (
+          <Container>
+            <Paper sx={{ p: 4, borderRadius: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                📚 All Courses
+              </Typography>
+
+              {message && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  {message}
+                </Alert>
+              )}
+
+              <Grid container spacing={2}>
+                {courses.length === 0 ? (
+                  <Typography
+                    sx={{ textAlign: "center", width: "100%", color: "gray" }}
+                  >
+                    No courses available.
+                  </Typography>
+                ) : (
+                  courses.map((course) => (
+                    <Grid item xs={12} md={6} key={course._id}>
+                      <Card sx={{ p: 2 }}>
+                        <Typography variant="h6" fontWeight="bold">
+                          {course.name}
+                        </Typography>
+                        <Typography color="gray">{course.category}</Typography>
+                        <Typography>{course.description}</Typography>
+                        <Typography sx={{ mt: 1 }}>
+                          Coach: {course.coach?.fullName || "Not assigned"}
+                        </Typography>
+                        <Typography>Duration: {course.duration}</Typography>
+
+                        <Button
+                          variant="contained"
+                          color="error"
+                          sx={{ mt: 2 }}
+                          onClick={async () => {
+                            if (
+                              !window.confirm(
+                                "Are you sure you want to delete this course?"
+                              )
+                            )
+                              return;
+
+                            try {
+                              const res = await axios.delete(
+                                `${BASE_URL}/api/course/${course._id}`,
+                                {
+                                  headers: { Authorization: `Bearer ${token}` },
+                                }
+                              );
+
+                              // Update state safely
+                              setCourses((prevCourses) =>
+                                prevCourses.filter((c) => c._id !== course._id)
+                              );
+
+                              setMessage(
+                                res.data?.message ||
+                                  "Course deleted successfully"
+                              );
+                            } catch (err) {
+                              console.error("Delete course error:", err);
+                              setMessage(
+                                err.response?.data?.message ||
+                                  "Failed to delete course"
+                              );
+                            }
+                          }}
+                        >
+                          Delete
+                        </Button>
+                      </Card>
+                    </Grid>
+                  ))
+                )}
+              </Grid>
+            </Paper>
+          </Container>
+        )}
+
         {/* === Manage Videos === */}
         {activeTab === "videos" && (
           <Container maxWidth="md">
@@ -782,6 +1120,114 @@ const AdminOwner = () => {
               />
             </div>
           </Paper>
+        )}
+        {activeTab === "create-cohort" && (
+          <Container>
+            <Paper sx={{ p: 4, borderRadius: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                🏫 Create Cohort
+              </Typography>
+
+              {message && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  {message}
+                </Alert>
+              )}
+
+              <TextField
+                label="Cohort Name"
+                fullWidth
+                sx={{ mb: 2 }}
+                value={cohortName}
+                onChange={(e) => setCohortName(e.target.value)}
+              />
+              <TextField
+                select
+                SelectProps={{ native: true }}
+                fullWidth
+                sx={{ mb: 2 }}
+                value={selectedCourse}
+                onChange={(e) => setSelectedCourse(e.target.value)}
+              >
+                <option value="">-- Select Course --</option>
+                {courses.map((course) => (
+                  <option key={course._id} value={course._id}>
+                    {course.name}
+                  </option>
+                ))}
+              </TextField>
+              <TextField
+                select
+                SelectProps={{ native: true }}
+                fullWidth
+                sx={{ mb: 2 }}
+                value={selectedCoachForCohort}
+                onChange={(e) => setSelectedCoachForCohort(e.target.value)}
+              >
+                <option value="">-- Select Coach --</option>
+                {safeCoachesList.map((coach) => (
+                  <option key={coach._id} value={coach._id}>
+                    {coach.fullName}
+                  </option>
+                ))}
+              </TextField>
+
+              <Button
+                variant="contained"
+                fullWidth
+                sx={{ bgcolor: "#10b981", color: "white", mb: 4 }}
+                onClick={handleCreateCohort}
+              >
+                {creatingCohort ? (
+                  <CircularProgress size={24} />
+                ) : (
+                  "Create Cohort"
+                )}
+              </Button>
+
+              <Typography variant="h5" sx={{ mb: 2 }}>
+                ⚡ Manage Cohorts
+              </Typography>
+
+              {cohorts.length === 0 ? (
+                <Typography>No cohorts available.</Typography>
+              ) : (
+                cohorts.map((cohort) => (
+                  <Card key={cohort._id} sx={{ p: 2, mb: 2 }}>
+                    <Typography>
+                      <strong>{cohort.name}</strong> - Course:{" "}
+                      {cohort.course?.name || "Unknown"} - Status:{" "}
+                      {cohort.status}
+                    </Typography>
+
+                    <Box sx={{ mt: 1, display: "flex", gap: 2 }}>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        disabled={cohort.status !== "not_started"}
+                        onClick={() => handleStartCohort(cohort._id)}
+                      >
+                        Start Cohort
+                      </Button>
+                      <Button
+                        variant="contained"
+                        color="error"
+                        disabled={cohort.status !== "in_progress"}
+                        onClick={() => handleEndCohort(cohort._id)}
+                      >
+                        End Cohort
+                      </Button>
+                    </Box>
+                  </Card>
+                ))
+              )}
+            </Paper>
+          </Container>
         )}
 
         {/* === Owner Tools === */}
