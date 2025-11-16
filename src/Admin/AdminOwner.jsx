@@ -22,6 +22,15 @@ import {
   useMediaQuery,
 } from "@mui/material";
 import {
+  MenuItem,
+  Select,
+  InputLabel,
+  FormControl,
+  Chip,
+  OutlinedInput,
+} from "@mui/material";
+
+import {
   Dashboard,
   VideoLibrary,
   People,
@@ -80,7 +89,7 @@ const AdminOwner = () => {
 
   const [cohorts, setCohorts] = useState([]);
   const [cohortName, setCohortName] = useState("");
-  const [selectedCourse, setSelectedCourse] = useState("");
+  const [selectedCourses, setSelectedCourses] = useState([]); // multiple courses
   const [selectedCoachForCohort, setSelectedCoachForCohort] = useState("");
   const [creatingCohort, setCreatingCohort] = useState(false);
 
@@ -107,7 +116,7 @@ const AdminOwner = () => {
 
   // 📤 Create Cohort
   const handleCreateCohort = async () => {
-    if (!selectedCourse || !selectedCoachForCohort || !cohortName)
+    if (!selectedCourses.length || !cohortName)
       return alert("Please fill all fields");
 
     if (!window.confirm("Are you sure you want to create this cohort?")) return;
@@ -117,17 +126,15 @@ const AdminOwner = () => {
       const res = await axios.post(
         `${BASE_URL}/api/cohorts`,
         {
-          courseId: selectedCourse,
-          coachId: selectedCoachForCohort,
           name: cohortName,
+          courseIds: selectedCourses, // send array
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
       setMessage(res.data.message);
       setCohortName("");
-      setSelectedCourse("");
-      setSelectedCoachForCohort("");
+      setSelectedCourses([]);
       setCohorts((prev) => [...prev, res.data.cohort]);
     } catch (err) {
       setMessage(err.response?.data?.message || "Failed to create cohort");
@@ -135,6 +142,7 @@ const AdminOwner = () => {
       setCreatingCohort(false);
     }
   };
+
   // 📤 Start Cohort
   const handleStartCohort = async (cohortId) => {
     if (!window.confirm("Are you sure you want to START this cohort?")) return;
@@ -663,7 +671,6 @@ const AdminOwner = () => {
             </Paper>
           </Box>
         )}
-
         {/* === Dashboard === */}
         {activeTab === "dashboard" && (
           <Container>
@@ -746,7 +753,6 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
-
         {/* === Create Course === */}
         {activeTab === "create-course" && (
           <Container>
@@ -962,7 +968,6 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
-
         {/* === Manage Videos === */}
         {activeTab === "videos" && (
           <Container maxWidth="md">
@@ -1079,7 +1084,6 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
-
         {/* === Students Table === */}
         {activeTab === "students" && (
           <Paper sx={{ p: 3 }}>
@@ -1100,7 +1104,6 @@ const AdminOwner = () => {
             </div>
           </Paper>
         )}
-
         {/* === Coaches Table === */}
         {activeTab === "coaches" && (
           <Paper sx={{ p: 3 }}>
@@ -1121,6 +1124,7 @@ const AdminOwner = () => {
             </div>
           </Paper>
         )}
+        // === Create Cohort ===
         {activeTab === "create-cohort" && (
           <Container>
             <Paper sx={{ p: 4, borderRadius: 4 }}>
@@ -1146,21 +1150,32 @@ const AdminOwner = () => {
                 value={cohortName}
                 onChange={(e) => setCohortName(e.target.value)}
               />
-              <TextField
-                select
-                SelectProps={{ native: true }}
-                fullWidth
-                sx={{ mb: 2 }}
-                value={selectedCourse}
-                onChange={(e) => setSelectedCourse(e.target.value)}
-              >
-                <option value="">-- Select Course --</option>
-                {courses.map((course) => (
-                  <option key={course._id} value={course._id}>
-                    {course.name}
-                  </option>
-                ))}
-              </TextField>
+              <FormControl fullWidth sx={{ mb: 2 }}>
+                <InputLabel id="courses-label">Select Courses</InputLabel>
+                <Select
+                  labelId="courses-label"
+                  multiple
+                  value={selectedCourses}
+                  onChange={(e) => setSelectedCourses(e.target.value)}
+                  input={<OutlinedInput label="Select Courses" />}
+                  renderValue={(selected) => (
+                    <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
+                      {selected.map((id) => {
+                        const course = courses.find((c) => c._id === id);
+                        return (
+                          <Chip key={id} label={course?.name || "Unknown"} />
+                        );
+                      })}
+                    </Box>
+                  )}
+                >
+                  {courses.map((course) => (
+                    <MenuItem key={course._id} value={course._id}>
+                      {course.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
               <TextField
                 select
                 SelectProps={{ native: true }}
@@ -1229,7 +1244,6 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
-
         {/* === Owner Tools === */}
         {activeTab === "owner" && (
           <Container>
