@@ -102,7 +102,7 @@ const AdminOwner = () => {
 
     const fetchCohorts = async () => {
       try {
-        const res = await axios.get(`${BASE_URL}/api/cohorts`, {
+        const res = await axios.get(`${BASE_URL}/api/cohort`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCohorts(res.data);
@@ -123,11 +123,29 @@ const AdminOwner = () => {
 
     try {
       setCreatingCohort(true);
+
+      // Map selectedCourses to backend format
+      const coursesPayload = selectedCourses.map((courseId) => {
+        const course = courses.find((c) => c._id === courseId);
+        return {
+          courseId: courseId,
+          coachId: course?.coach?._id || "", // ensure coach is assigned
+          durationInDays:
+            course?.duration === "1-month"
+              ? 30
+              : course?.duration === "3-months"
+              ? 90
+              : course?.duration === "6-months"
+              ? 180
+              : 0,
+        };
+      });
+
       const res = await axios.post(
-        `${BASE_URL}/api/cohorts`,
+        `${BASE_URL}/api/cohort`,
         {
           name: cohortName,
-          courseIds: selectedCourses, // send array
+          courses: coursesPayload,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -142,43 +160,34 @@ const AdminOwner = () => {
       setCreatingCohort(false);
     }
   };
-
   // 📤 Start Cohort
-  const handleStartCohort = async (cohortId) => {
+  const handleStartCohort = async (courseId) => {
     if (!window.confirm("Are you sure you want to START this cohort?")) return;
 
     try {
       const res = await axios.put(
-        `${BASE_URL}/api/cohorts/start/${cohortId}`,
+        `${BASE_URL}/api/cohort/start/course/${courseId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
       setMessage(res.data.message);
-      setCohorts((prev) =>
-        prev.map((c) =>
-          c._id === cohortId ? { ...c, status: "in_progress" } : c
-        )
-      );
     } catch (err) {
       setMessage(err.response?.data?.message || "Failed to start cohort");
     }
   };
 
-  const handleEndCohort = async (cohortId) => {
+  const handleEndCohort = async (courseId) => {
     if (!window.confirm("Are you sure you want to END this cohort?")) return;
 
     try {
       const res = await axios.put(
-        `${BASE_URL}/api/cohorts/end/${cohortId}`,
+        `${BASE_URL}/api/cohort/end/course/${courseId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
       setMessage(res.data.message);
-      setCohorts((prev) =>
-        prev.map((c) =>
-          c._id === cohortId ? { ...c, status: "completed" } : c
-        )
-      );
     } catch (err) {
       setMessage(err.response?.data?.message || "Failed to end cohort");
     }
@@ -385,8 +394,7 @@ const AdminOwner = () => {
   ];
 
   useEffect(() => {
-    if (activeTab !== "courses") return;
-
+    if (activeTab !== "courses" && activeTab !== "create-cohort") return;
     const fetchCourses = async () => {
       try {
         const res = await axios.get(`${BASE_URL}/api/course`);
@@ -1124,7 +1132,7 @@ const AdminOwner = () => {
             </div>
           </Paper>
         )}
-        // === Create Cohort ===
+        {/* === Create Cohort === */}
         {activeTab === "create-cohort" && (
           <Container>
             <Paper sx={{ p: 4, borderRadius: 4 }}>
@@ -1136,13 +1144,11 @@ const AdminOwner = () => {
               >
                 🏫 Create Cohort
               </Typography>
-
               {message && (
                 <Alert severity="info" sx={{ mb: 2 }}>
                   {message}
                 </Alert>
               )}
-
               <TextField
                 label="Cohort Name"
                 fullWidth
@@ -1156,42 +1162,49 @@ const AdminOwner = () => {
                   labelId="courses-label"
                   multiple
                   value={selectedCourses}
-                  onChange={(e) => setSelectedCourses(e.target.value)}
+                  onChange={(e) => {
+                    let value = e.target.value;
+
+                    // Remove "ALL" from normal selection if present
+                    value = value.filter((v) => v !== "ALL");
+
+                    setSelectedCourses(value);
+                  }}
                   input={<OutlinedInput label="Select Courses" />}
                   renderValue={(selected) => (
                     <Box sx={{ display: "flex", flexWrap: "wrap", gap: 0.5 }}>
                       {selected.map((id) => {
                         const course = courses.find((c) => c._id === id);
                         return (
-                          <Chip key={id} label={course?.name || "Unknown"} />
+                          <Chip
+                            key={id}
+                            label={course?.name || "Unknown"}
+                            onDelete={() => {
+                              setSelectedCourses((prev) =>
+                                prev.filter((cId) => cId !== id)
+                              );
+                            }}
+                          />
                         );
                       })}
                     </Box>
                   )}
                 >
+                  <MenuItem
+                    value="ALL"
+                    onClick={() =>
+                      setSelectedCourses(courses.map((c) => c._id))
+                    }
+                  >
+                    <em>Select All Courses</em>
+                  </MenuItem>
                   {courses.map((course) => (
                     <MenuItem key={course._id} value={course._id}>
-                      {course.name}
+                      {course.name} ({course.duration})
                     </MenuItem>
                   ))}
                 </Select>
               </FormControl>
-              <TextField
-                select
-                SelectProps={{ native: true }}
-                fullWidth
-                sx={{ mb: 2 }}
-                value={selectedCoachForCohort}
-                onChange={(e) => setSelectedCoachForCohort(e.target.value)}
-              >
-                <option value="">-- Select Coach --</option>
-                {safeCoachesList.map((coach) => (
-                  <option key={coach._id} value={coach._id}>
-                    {coach.fullName}
-                  </option>
-                ))}
-              </TextField>
-
               <Button
                 variant="contained"
                 fullWidth
@@ -1204,11 +1217,9 @@ const AdminOwner = () => {
                   "Create Cohort"
                 )}
               </Button>
-
               <Typography variant="h5" sx={{ mb: 2 }}>
                 ⚡ Manage Cohorts
               </Typography>
-
               {cohorts.length === 0 ? (
                 <Typography>No cohorts available.</Typography>
               ) : (
@@ -1216,7 +1227,8 @@ const AdminOwner = () => {
                   <Card key={cohort._id} sx={{ p: 2, mb: 2 }}>
                     <Typography>
                       <strong>{cohort.name}</strong> - Course:{" "}
-                      {cohort.course?.name || "Unknown"} - Status:{" "}
+                      {cohort.courseId?.name || "Unknown"} (
+                      {cohort.courseId?.duration || "N/A"}) - Status:{" "}
                       {cohort.status}
                     </Typography>
 
