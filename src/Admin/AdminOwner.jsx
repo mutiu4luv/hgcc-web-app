@@ -115,49 +115,63 @@ const AdminOwner = () => {
   }, [activeTab, BASE_URL, token]);
 
   // 📤 Create Cohort
-  const handleCreateCohort = async () => {
-    if (!selectedCourses.length || !cohortName)
-      return alert("Please fill all fields");
+  const createCohort = async (req, res) => {
+    const { name, courses } = req.body;
+    const ownerId = req.user.id;
 
-    if (!window.confirm("Are you sure you want to create this cohort?")) return;
+    if (!name)
+      return res.status(400).json({ message: "Cohort name is required" });
+    if (!courses || !Array.isArray(courses) || courses.length === 0) {
+      return res.status(400).json({ message: "Courses are required" });
+    }
 
     try {
-      setCreatingCohort(true);
+      const durationMap = { "1-month": 30, "3-months": 90, "6-months": 180 };
+      const cohortCourses = [];
+      let totalDuration = 0;
 
-      // Map selectedCourses to backend format
-      const coursesPayload = selectedCourses.map((courseId) => {
-        const course = courses.find((c) => c._id === courseId);
-        return {
-          courseId: courseId,
-          coachId: course?.coach?._id || "", // ensure coach is assigned
-          durationInDays:
-            course?.duration === "1-month"
-              ? 30
-              : course?.duration === "3-months"
-              ? 90
-              : course?.duration === "6-months"
-              ? 180
-              : 0,
-        };
+      for (const courseItem of courses) {
+        const { courseId, duration } = courseItem;
+
+        if (!courseId)
+          return res.status(400).json({ message: "Course ID is required" });
+        if (!duration || !durationMap[duration]) {
+          return res.status(400).json({
+            message: `Invalid or missing duration for course ${courseId}`,
+          });
+        }
+
+        const course = await Course.findById(courseId);
+        if (!course)
+          return res
+            .status(404)
+            .json({ message: `Course not found: ${courseId}` });
+
+        const durationInDays = durationMap[duration];
+
+        cohortCourses.push({
+          courseId: course._id,
+          coachId: course.coach,
+          durationInDays, // ✅ required by schema
+        });
+
+        totalDuration += durationInDays;
+      }
+
+      const newCohort = await Cohort.create({
+        name,
+        ownerId,
+        courses: cohortCourses,
+        studentIds: [],
+        durationInDays: totalDuration, // optional total duration
       });
 
-      const res = await axios.post(
-        `${BASE_URL}/api/cohort`,
-        {
-          name: cohortName,
-          courses: coursesPayload,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setMessage(res.data.message);
-      setCohortName("");
-      setSelectedCourses([]);
-      setCohorts((prev) => [...prev, res.data.cohort]);
+      res
+        .status(201)
+        .json({ message: "Cohort created successfully", cohort: newCohort });
     } catch (err) {
-      setMessage(err.response?.data?.message || "Failed to create cohort");
-    } finally {
-      setCreatingCohort(false);
+      console.error("❌ Cohort creation error:", err);
+      res.status(500).json({ message: "Server error", error: err.message });
     }
   };
   // 📤 Start Cohort
