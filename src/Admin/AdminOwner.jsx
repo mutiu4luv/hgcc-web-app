@@ -115,75 +115,73 @@ const AdminOwner = () => {
   }, [activeTab, BASE_URL, token]);
 
   // 📤 Create Cohort
-  const createCohort = async (req, res) => {
-    const { name, courses } = req.body;
-    const ownerId = req.user.id;
+  const handleCreateCohort = async () => {
+    if (!cohortName.trim()) return alert("Cohort name is required");
+    if (!selectedCourses.length)
+      return alert("Please select at least one course");
 
-    if (!name)
-      return res.status(400).json({ message: "Cohort name is required" });
-    if (!courses || !Array.isArray(courses) || courses.length === 0) {
-      return res.status(400).json({ message: "Courses are required" });
-    }
+    setCreatingCohort(true);
 
     try {
-      const durationMap = { "1-month": 30, "3-months": 90, "6-months": 180 };
-      const cohortCourses = [];
-      let totalDuration = 0;
-
-      for (const courseItem of courses) {
-        const { courseId, duration } = courseItem;
-
-        if (!courseId)
-          return res.status(400).json({ message: "Course ID is required" });
-        if (!duration || !durationMap[duration]) {
-          return res.status(400).json({
-            message: `Invalid or missing duration for course ${courseId}`,
-          });
-        }
-
-        const course = await Course.findById(courseId);
-        if (!course)
-          return res
-            .status(404)
-            .json({ message: `Course not found: ${courseId}` });
-
-        const durationInDays = durationMap[duration];
-
-        cohortCourses.push({
-          courseId: course._id,
-          coachId: course.coach,
-          durationInDays, // ✅ required by schema
-        });
-
-        totalDuration += durationInDays;
-      }
-
-      const newCohort = await Cohort.create({
-        name,
-        ownerId,
-        courses: cohortCourses,
-        studentIds: [],
-        durationInDays: totalDuration, // optional total duration
+      // Prepare correct payload for backend
+      const validCourses = selectedCourses.map((courseId) => {
+        const course = courses.find((c) => c._id === courseId);
+        return {
+          courseId,
+          coachId: course?.coach, // backend will use coachId if needed
+        };
       });
 
-      res
-        .status(201)
-        .json({ message: "Cohort created successfully", cohort: newCohort });
+      const payload = {
+        name: cohortName.trim(),
+        courses: validCourses,
+      };
+
+      const res = await axios.post(`${BASE_URL}/api/cohort`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setMessage(res.data.message || "Cohort created successfully!");
+      setCohortName("");
+      setSelectedCourses([]);
+
+      // reload cohorts
+      const updatedCohorts = await axios.get(`${BASE_URL}/api/cohort`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCohorts(updatedCohorts.data);
     } catch (err) {
-      console.error("❌ Cohort creation error:", err);
-      res.status(500).json({ message: "Server error", error: err.message });
+      console.error("❌ Failed to create cohort:", err);
+      setMessage(err.response?.data?.message || "Failed to create cohort");
+    } finally {
+      setCreatingCohort(false);
     }
   };
+
   // 📤 Start Cohort
-  const handleStartCohort = async (courseId) => {
+  const handleStartCohort = async (cohortCourseId) => {
     if (!window.confirm("Are you sure you want to START this cohort?")) return;
 
     try {
       const res = await axios.put(
-        `${BASE_URL}/api/cohort/start/course/${courseId}`,
+        `${BASE_URL}/api/cohort/start/course/${cohortCourseId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
+      // setMessage(res.data.message);
+      const updatedCourse = res.data.course;
+
+      setCohorts((prev) =>
+        prev.map((cohort) => ({
+          ...cohort,
+          courses: cohort.courses.map((c) =>
+            c._id === cohortCourseId ? { ...c, ...updatedCourse } : c
+          ),
+        }))
+      );
+
+      alert("Course started!");
 
       setMessage(res.data.message);
     } catch (err) {
@@ -191,12 +189,12 @@ const AdminOwner = () => {
     }
   };
 
-  const handleEndCohort = async (courseId) => {
+  const handleEndCohort = async (cohortId) => {
     if (!window.confirm("Are you sure you want to END this cohort?")) return;
 
     try {
       const res = await axios.put(
-        `${BASE_URL}/api/cohort/end/course/${courseId}`,
+        `${BASE_URL}/api/cohort/end/course/${cohortId}`,
         {},
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -204,6 +202,27 @@ const AdminOwner = () => {
       setMessage(res.data.message);
     } catch (err) {
       setMessage(err.response?.data?.message || "Failed to end cohort");
+    }
+  };
+
+  const deleteCohort = async (cohortId) => {
+    if (!window.confirm("Are you sure you want to delete this cohort?")) return;
+
+    try {
+      const res = await axios.delete(`${BASE_URL}/api/cohort/${cohortId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setMessage(res.data.message);
+
+      // Reload cohort list
+      const updatedCohorts = await axios.get(`${BASE_URL}/api/cohort`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setCohorts(updatedCohorts.data);
+    } catch (err) {
+      console.error("❌ Failed to delete cohort:", err);
+      setMessage(err.response?.data?.message || "Failed to delete cohort");
     }
   };
 
@@ -1234,39 +1253,81 @@ const AdminOwner = () => {
               <Typography variant="h5" sx={{ mb: 2 }}>
                 ⚡ Manage Cohorts
               </Typography>
-              {cohorts.length === 0 ? (
-                <Typography>No cohorts available.</Typography>
-              ) : (
-                cohorts.map((cohort) => (
-                  <Card key={cohort._id} sx={{ p: 2, mb: 2 }}>
-                    <Typography>
-                      <strong>{cohort.name}</strong> - Course:{" "}
-                      {cohort.courseId?.name || "Unknown"} (
-                      {cohort.courseId?.duration || "N/A"}) - Status:{" "}
-                      {cohort.status}
-                    </Typography>
+              {cohorts.map((cohort) => (
+                <Card
+                  key={cohort._id}
+                  sx={{ p: 2, mb: 2, position: "relative" }}
+                >
+                  <IconButton
+                    onClick={() => deleteCohort(cohort._id)}
+                    sx={{
+                      position: "absolute",
+                      top: 10,
+                      right: 10,
+                      color: "red",
+                    }}
+                  >
+                    <Delete />
+                  </IconButton>
+                  <Typography fontWeight="bold">{cohort.name}</Typography>
 
-                    <Box sx={{ mt: 1, display: "flex", gap: 2 }}>
-                      <Button
-                        variant="contained"
-                        color="success"
-                        disabled={cohort.status !== "not_started"}
-                        onClick={() => handleStartCohort(cohort._id)}
+                  <Typography sx={{ mt: 1 }}>Courses:</Typography>
+
+                  {/* Render each course entry inside the cohort with its own Start button */}
+                  {Array.isArray(cohort.courses) &&
+                  cohort.courses.length > 0 ? (
+                    cohort.courses.map((c) => (
+                      <Box
+                        key={c._id}
+                        sx={{
+                          display: "flex",
+                          alignItems: "center",
+                          justifyContent: "space-between",
+                          ml: 2,
+                          mt: 1,
+                        }}
                       >
-                        Start Cohort
-                      </Button>
-                      <Button
-                        variant="contained"
-                        color="error"
-                        disabled={cohort.status !== "in_progress"}
-                        onClick={() => handleEndCohort(cohort._id)}
-                      >
-                        End Cohort
-                      </Button>
-                    </Box>
-                  </Card>
-                ))
-              )}
+                        <Typography>
+                          {c.courseId?.name || "Unknown Course"} (
+                          {c.courseId?.duration || "N/A"})
+                        </Typography>
+
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                          {cohort.courses.map((c) => (
+                            <div key={c._id}>
+                              <Button
+                                variant="contained"
+                                color="success"
+                                disabled={c.status === "in_progress"}
+                                onClick={() => handleStartCohort(c._id)}
+                              >
+                                Start
+                              </Button>
+
+                              <Button
+                                variant="contained"
+                                color="error"
+                                disabled={c.status !== "in_progress"}
+                                onClick={() => handleEndCohort(c._id)}
+                              >
+                                End
+                              </Button>
+                            </div>
+                          ))}
+                        </Box>
+                      </Box>
+                    ))
+                  ) : (
+                    <Typography sx={{ ml: 2, color: "gray" }}>
+                      No courses in this cohort
+                    </Typography>
+                  )}
+
+                  <Typography sx={{ mt: 1 }}>
+                    Cohort status: {cohort.status}
+                  </Typography>
+                </Card>
+              ))}
             </Paper>
           </Container>
         )}
