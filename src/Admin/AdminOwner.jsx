@@ -140,7 +140,7 @@ const AdminOwner = () => {
       const res = await axios.post(`${BASE_URL}/api/cohort`, payload, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
+      console.log(res);
       setMessage(res.data.message || "Cohort created successfully!");
       setCohortName("");
       setSelectedCourses([]);
@@ -160,7 +160,7 @@ const AdminOwner = () => {
 
   // 📤 Start Cohort
   const handleStartCohort = async (cohortCourseId) => {
-    if (!window.confirm("Are you sure you want to START this cohort?")) return;
+    if (!window.confirm("Start this course in the cohort?")) return;
 
     try {
       const res = await axios.put(
@@ -169,39 +169,60 @@ const AdminOwner = () => {
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      // setMessage(res.data.message);
+      const updatedCourse = res.data.course;
+      console.log(updatedCourse);
+
+      setCohorts((prev) =>
+        prev.map((cohort) => ({
+          ...cohort,
+          courses: cohort.courses.map((c) =>
+            c._id.toString() === String(cohortCourseId)
+              ? {
+                  ...c,
+                  status: updatedCourse.status,
+                  startDate: updatedCourse.startDate,
+                }
+              : c
+          ),
+        }))
+      );
+
+      alert("Cohort course started successfully!");
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to start cohort");
+    }
+  };
+
+  const handleEndCohort = async (cohortCourseId) => {
+    if (!window.confirm("Are you sure you want to END this course?")) return;
+
+    try {
+      const res = await axios.put(
+        `${BASE_URL}/api/cohort/end/course/${cohortCourseId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      // Update UI
       const updatedCourse = res.data.course;
 
       setCohorts((prev) =>
         prev.map((cohort) => ({
           ...cohort,
           courses: cohort.courses.map((c) =>
-            c._id === cohortCourseId ? { ...c, ...updatedCourse } : c
+            c._id.toString() === cohortCourseId.toString()
+              ? { ...c, ...updatedCourse }
+              : c
           ),
         }))
       );
 
-      alert("Course started!");
-
+      alert("Course ended successfully!");
       setMessage(res.data.message);
     } catch (err) {
-      setMessage(err.response?.data?.message || "Failed to start cohort");
-    }
-  };
-
-  const handleEndCohort = async (cohortId) => {
-    if (!window.confirm("Are you sure you want to END this cohort?")) return;
-
-    try {
-      const res = await axios.put(
-        `${BASE_URL}/api/cohort/end/course/${cohortId}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-
-      setMessage(res.data.message);
-    } catch (err) {
-      setMessage(err.response?.data?.message || "Failed to end cohort");
+      console.error(err);
+      setMessage(err.response?.data?.message || "Failed to end course");
     }
   };
 
@@ -1274,6 +1295,7 @@ const AdminOwner = () => {
                   <Typography sx={{ mt: 1 }}>Courses:</Typography>
 
                   {/* Render each course entry inside the cohort with its own Start button */}
+
                   {Array.isArray(cohort.courses) &&
                   cohort.courses.length > 0 ? (
                     cohort.courses.map((c) => (
@@ -1293,27 +1315,26 @@ const AdminOwner = () => {
                         </Typography>
 
                         <Box sx={{ display: "flex", gap: 1 }}>
-                          {cohort.courses.map((c) => (
-                            <div key={c._id}>
-                              <Button
-                                variant="contained"
-                                color="success"
-                                disabled={c.status === "in_progress"}
-                                onClick={() => handleStartCohort(c._id)}
-                              >
-                                Start
-                              </Button>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            disabled={
+                              c.status === "in_progress" ||
+                              c.status === "completed"
+                            }
+                            onClick={() => handleStartCohort(c._id)}
+                          >
+                            Start
+                          </Button>
 
-                              <Button
-                                variant="contained"
-                                color="error"
-                                disabled={c.status !== "in_progress"}
-                                onClick={() => handleEndCohort(c._id)}
-                              >
-                                End
-                              </Button>
-                            </div>
-                          ))}
+                          <Button
+                            variant="contained"
+                            color="error"
+                            disabled={c.status !== "in_progress"}
+                            onClick={() => handleEndCohort(c._id)}
+                          >
+                            {c.status === "completed" ? "Completed" : "End"}
+                          </Button>
                         </Box>
                       </Box>
                     ))
@@ -1323,9 +1344,9 @@ const AdminOwner = () => {
                     </Typography>
                   )}
 
-                  <Typography sx={{ mt: 1 }}>
+                  {/* <Typography sx={{ mt: 1 }}>
                     Cohort status: {cohort.status}
-                  </Typography>
+                  </Typography> */}
                 </Card>
               ))}
             </Paper>
