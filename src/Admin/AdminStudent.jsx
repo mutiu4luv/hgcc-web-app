@@ -236,7 +236,7 @@ const StudentDashboard = () => {
   useEffect(() => {
     const loadActiveCohort = async () => {
       try {
-        const res = await axios.get(`${BASE_URL}/api/cohort/active`, {
+        const res = await axios.get(`${BASE_URL}/api/cohort/cohort/active`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setActiveCohort(res.data.cohort);
