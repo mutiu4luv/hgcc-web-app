@@ -906,11 +906,14 @@ const AdminOwner = () => {
                 required
                 onChange={(e) => setCourseDuration(e.target.value)}
               >
-                <option value="">-- Select Duration --</option>
-                <option value="1-month">1 Month</option>
-                <option value="3-months">3 Months</option>
-                <option value="6-months">6 Months</option>
+                <option value="" disabled>
+                  -- Select Duration --
+                </option>
+                <option value="1-month">1-month</option>
+                <option value="3-months">3-months</option>
+                <option value="6-months">6-months</option>
               </TextField>
+
               <TextField
                 select
                 SelectProps={{ native: true }}
