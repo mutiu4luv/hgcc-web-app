@@ -14,7 +14,6 @@ import {
   Divider,
   IconButton,
   useMediaQuery,
-  Grid,
   Rating,
   Alert,
   MenuItem,
@@ -30,6 +29,7 @@ import {
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 const drawerWidth = 250;
 
@@ -41,7 +41,9 @@ const StudentDashboard = () => {
   const [assignments, setAssignments] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
   const [coaches, setCoaches] = useState([]);
-  const [mobileOpen, setMobileOpen] = useState(false);
+  const [courses, setCourses] = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [registerLoading, setRegisterLoading] = useState(false);
 
   const [submissionTitle, setSubmissionTitle] = useState("");
   const [submissionFile, setSubmissionFile] = useState(null);
@@ -50,9 +52,16 @@ const StudentDashboard = () => {
   const [comment, setComment] = useState("");
   const [selectedCoach, setSelectedCoach] = useState("");
 
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [studentName, setStudentName] = useState("");
+  const [activeCohort, setActiveCohort] = useState(null);
+  const [cohortLoading, setCohortLoading] = useState(true);
+
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
   const isMobile = useMediaQuery("(max-width:900px)");
+
+  const navigate = useNavigate();
 
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
@@ -63,6 +72,11 @@ const StudentDashboard = () => {
     },
     { text: "Upload Submission", icon: <UploadFile />, key: "upload" },
     { text: "Rate Coach", icon: <StarRate />, key: "rate-coach" },
+    {
+      text: "Register Course",
+      icon: <AssignmentTurnedIn />,
+      key: "register-course",
+    },
   ];
 
   // =========================
@@ -83,18 +97,21 @@ const StudentDashboard = () => {
   // =========================
   // FETCH SUBMISSIONS
   // =========================
-  const loadSubmissions = async () => {
-    try {
-      const res = await axios.get(`${BASE_URL}/api/student/submissions`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setMySubmissions(res.data);
-    } catch (err) {
-      console.error(err);
-      setMessage("Failed to load submissions");
-    }
-  };
+  useEffect(() => {
+    const loadSubmissions = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/student/submissions`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setMySubmissions(res.data);
+      } catch (err) {
+        console.error(err);
+        setMessage("Failed to load submissions");
+      }
+    };
 
+    loadSubmissions();
+  }, []);
   // =========================
   // FETCH COACHES
   // =========================
@@ -103,19 +120,32 @@ const StudentDashboard = () => {
       const res = await axios.get(`${BASE_URL}/api/student/coaches`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setCoaches(res.data); // assume [{ _id, fullName }]
+      setCoaches(res.data);
     } catch (err) {
       console.error(err);
       setMessage("Failed to load coaches");
-    } finally {
-      setGlobalLoading(false);
     }
   };
 
+  // =========================
+  // FETCH COURSES
+  // =========================
   useEffect(() => {
-    loadAssignments();
-    loadSubmissions();
-    loadCoaches();
+    const loadCourses = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/course`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setCourses(res.data);
+      } catch (err) {
+        console.error(err);
+        setMessage("Failed to load courses");
+      } finally {
+        setGlobalLoading(false);
+      }
+    };
+
+    loadCourses();
   }, []);
 
   // =========================
@@ -179,12 +209,54 @@ const StudentDashboard = () => {
   };
 
   // =========================
+  // REGISTER COURSE
+  // =========================
+  const handleRegisterCourse = async () => {
+    if (!selectedCourse) return;
+    try {
+      setRegisterLoading(true);
+      const res = await axios.post(
+        `${BASE_URL}/api/student/register-course/${selectedCourse}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMessage(res.data.message);
+      setSelectedCourse("");
+      loadCourses(); // refresh courses if needed
+    } catch (err) {
+      console.error(err);
+      setMessage(err.response?.data?.message || "Failed to register course");
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
+
+  //laod active cohort
+
+  useEffect(() => {
+    const loadActiveCohort = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/cohort/active`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setActiveCohort(res.data.cohort);
+      } catch (err) {
+        setActiveCohort(null); // no active cohort
+      } finally {
+        setCohortLoading(false);
+      }
+    };
+
+    loadActiveCohort();
+  }, [activeTab]);
+
+  // =========================
   // LOGOUT
   // =========================
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
-    window.location.href = "/login";
+    navigate("/login");
   };
 
   if (globalLoading) {
@@ -303,8 +375,8 @@ const StudentDashboard = () => {
               📊 Welcome to your Dashboard
             </Typography>
             <Typography sx={{ mt: 2 }}>
-              Here you can view assignments, manage submissions, and rate
-              coaches.
+              Here you can view assignments, manage submissions, register
+              courses, and rate coaches.
             </Typography>
           </Paper>
         )}
@@ -418,6 +490,44 @@ const StudentDashboard = () => {
               </Button>
             </form>
             {message && <Alert sx={{ mt: 2 }}>{message}</Alert>}
+          </Paper>
+        )}
+
+        {/* Register Course */}
+        {activeTab === "register-course" && (
+          <Paper sx={{ p: 4 }}>
+            {cohortLoading ? (
+              <CircularProgress />
+            ) : !activeCohort ? (
+              <Typography variant="h5" color="red">
+                ❌ No active cohort available
+              </Typography>
+            ) : (
+              <>
+                <Typography variant="h4" color="green" fontWeight="bold">
+                  📝 Register to {activeCohort.name}
+                </Typography>
+
+                {registerLoading && (
+                  <Box
+                    sx={{ display: "flex", justifyContent: "center", my: 2 }}
+                  >
+                    <CircularProgress />
+                  </Box>
+                )}
+
+                <Button
+                  variant="contained"
+                  color="success"
+                  disabled={registerLoading}
+                  onClick={() => handleRegisterStudent(activeCohort._id)}
+                >
+                  Register
+                </Button>
+
+                {message && <Alert sx={{ mt: 2 }}>{message}</Alert>}
+              </>
+            )}
           </Paper>
         )}
       </Box>
