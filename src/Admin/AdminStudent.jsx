@@ -17,6 +17,7 @@ import {
   Rating,
   Alert,
   MenuItem,
+  Modal,
 } from "@mui/material";
 import {
   Dashboard,
@@ -56,6 +57,7 @@ const StudentDashboard = () => {
   const [studentName, setStudentName] = useState("");
   const [activeCohort, setActiveCohort] = useState(null);
   const [cohortLoading, setCohortLoading] = useState(true);
+  const [successModalOpen, setSuccessModalOpen] = useState(false);
 
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
@@ -112,6 +114,7 @@ const StudentDashboard = () => {
 
     loadSubmissions();
   }, []);
+
   // =========================
   // FETCH COACHES
   // =========================
@@ -146,6 +149,8 @@ const StudentDashboard = () => {
     };
 
     loadCourses();
+    loadCoaches();
+    loadAssignments();
   }, []);
 
   // =========================
@@ -168,7 +173,7 @@ const StudentDashboard = () => {
       setMessage("✅ Submission uploaded successfully");
       setSubmissionTitle("");
       setSubmissionFile(null);
-      loadSubmissions();
+      loadAssignments();
     } catch {
       setMessage("❌ Submission failed");
     } finally {
@@ -209,30 +214,8 @@ const StudentDashboard = () => {
   };
 
   // =========================
-  // REGISTER COURSE
+  // ACTIVE COHORT
   // =========================
-  const handleRegisterCourse = async () => {
-    if (!selectedCourse) return;
-    try {
-      setRegisterLoading(true);
-      const res = await axios.post(
-        `${BASE_URL}/api/student/register-course/${selectedCourse}`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setMessage(res.data.message);
-      setSelectedCourse("");
-      loadCourses(); // refresh courses if needed
-    } catch (err) {
-      console.error(err);
-      setMessage(err.response?.data?.message || "Failed to register course");
-    } finally {
-      setRegisterLoading(false);
-    }
-  };
-
-  //laod active cohort
-
   useEffect(() => {
     const loadActiveCohort = async () => {
       try {
@@ -241,7 +224,7 @@ const StudentDashboard = () => {
         });
         setActiveCohort(res.data.cohort);
       } catch (err) {
-        setActiveCohort(null); // no active cohort
+        setActiveCohort(null);
       } finally {
         setCohortLoading(false);
       }
@@ -249,6 +232,32 @@ const StudentDashboard = () => {
 
     loadActiveCohort();
   }, [activeTab]);
+
+  // =========================
+  // REGISTER STUDENT
+  // =========================
+  const handleRegisterStudent = async (cohortId, courseId) => {
+    try {
+      setRegisterLoading(true);
+      const res = await axios.post(
+        `${BASE_URL}/api/cohort/student/register-cohort/${cohortId}`,
+        { courseId },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMessage(res.data.message);
+      setSuccessModalOpen(true);
+
+      // Redirect to payment screen after 5s
+      setTimeout(() => {
+        navigate("/payment");
+      }, 5000);
+    } catch (err) {
+      console.error(err);
+      setMessage(err.response?.data?.message || "Failed to register");
+    } finally {
+      setRegisterLoading(false);
+    }
+  };
 
   // =========================
   // LOGOUT
@@ -505,24 +514,43 @@ const StudentDashboard = () => {
             ) : (
               <>
                 <Typography variant="h4" color="green" fontWeight="bold">
-                  📝 Register to {activeCohort.name}
+                  📝 Register to {activeCohort.cohortName}
                 </Typography>
 
-                {registerLoading && (
-                  <Box
-                    sx={{ display: "flex", justifyContent: "center", my: 2 }}
+                <Typography sx={{ mt: 3, mb: 1 }} fontWeight="bold">
+                  Select a Course
+                </Typography>
+
+                {activeCohort?.notStartedCourses?.length > 0 ? (
+                  <TextField
+                    select
+                    label="Choose Course"
+                    fullWidth
+                    value={selectedCourse}
+                    onChange={(e) => setSelectedCourse(e.target.value)}
+                    sx={{ mb: 2 }}
                   >
-                    <CircularProgress />
-                  </Box>
+                    <MenuItem value="">-- Select Course --</MenuItem>
+                    {activeCohort.notStartedCourses.map((course) => (
+                      <MenuItem key={course._id} value={course.courseId._id}>
+                        {course.courseId.name} ({course.courseId.category}) -{" "}
+                        {course.courseId.duration}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                ) : (
+                  <Typography>No courses available</Typography>
                 )}
 
                 <Button
                   variant="contained"
                   color="success"
-                  disabled={registerLoading}
-                  onClick={() => handleRegisterStudent(activeCohort._id)}
+                  disabled={registerLoading || !selectedCourse}
+                  onClick={() =>
+                    handleRegisterStudent(activeCohort.cohortId, selectedCourse)
+                  }
                 >
-                  Register
+                  {registerLoading ? "Registering..." : "Register"}
                 </Button>
 
                 {message && <Alert sx={{ mt: 2 }}>{message}</Alert>}
@@ -531,6 +559,27 @@ const StudentDashboard = () => {
           </Paper>
         )}
       </Box>
+
+      {/* Success Modal */}
+      <Modal open={successModalOpen} onClose={() => setSuccessModalOpen(false)}>
+        <Box
+          sx={{
+            position: "absolute",
+            top: "50%",
+            left: "50%",
+            transform: "translate(-50%, -50%)",
+            bgcolor: "background.paper",
+            p: 4,
+            borderRadius: 2,
+            textAlign: "center",
+          }}
+        >
+          <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
+            ✅ Successfully Registered!
+          </Typography>
+          <Typography>You will be redirected to payment shortly...</Typography>
+        </Box>
+      </Modal>
     </Box>
   );
 };

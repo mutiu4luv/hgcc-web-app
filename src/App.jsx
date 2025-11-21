@@ -12,9 +12,12 @@ import ProtectedRoute from "./Component/ProtectedRoute";
 import AdminOwner from "./Admin/AdminOwner";
 import AdminCoach from "./Admin/AdminCoachesScreen";
 import AdminStudent from "./Admin/AdminStudent";
+import PaymentScreen from "./Screens/Payment";
 
 function App() {
   const [count, setCount] = useState(0);
+  const token = localStorage.getItem("token");
+  console.log("TOKEN:", token);
 
   return (
     <>
@@ -24,6 +27,7 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/confirm" element={<ConfirmCode />} />
         <Route path="/login" element={<LoginForm />} />
+        <Route path="/payment" element={<PaymentScreen token={token} />} />
         <Route
           path="/owner"
           element={
