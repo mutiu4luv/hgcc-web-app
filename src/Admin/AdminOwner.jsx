@@ -100,6 +100,7 @@ const AdminOwner = () => {
   const [creatingCohort, setCreatingCohort] = useState(false);
   const [pendingStudents, setPendingStudents] = useState([]);
   const [error, setError] = useState("");
+  const [imageFile, setImageFile] = useState(null);
 
   const [paidStudents, setPaidStudents] = useState([]);
   // const [loadings, setLoadings] = useState(true);
@@ -873,6 +874,12 @@ const AdminOwner = () => {
                   {message}
                 </Alert>
               )}
+              <input
+                type="file"
+                accept="image/*"
+                onChange={(e) => setImageFile(e.target.files[0])}
+                style={{ marginBottom: "20px" }}
+              />
 
               <TextField
                 label="Course Name"
@@ -946,16 +953,38 @@ const AdminOwner = () => {
 
                   setCreatingCourse(true);
                   try {
+                    // const res = await axios.post(
+                    //   `${BASE_URL}/api/course`,
+                    //   {
+                    //     name: courseName,
+                    //     category: courseCategory,
+                    //     description: courseDescription,
+                    //     coachId: assignedCoach,
+                    //     duration: courseDuration,
+                    //   },
+                    //   { headers: { Authorization: `Bearer ${token}` } }
+                    // );
+
+                    const formData = new FormData();
+                    formData.append("name", courseName);
+                    formData.append("category", courseCategory);
+                    formData.append("description", courseDescription);
+                    formData.append("coachId", assignedCoach);
+                    formData.append("duration", courseDuration);
+
+                    if (imageFile) {
+                      formData.append("image", imageFile);
+                    }
+
                     const res = await axios.post(
                       `${BASE_URL}/api/course`,
+                      formData,
                       {
-                        name: courseName,
-                        category: courseCategory,
-                        description: courseDescription,
-                        coachId: assignedCoach,
-                        duration: courseDuration,
-                      },
-                      { headers: { Authorization: `Bearer ${token}` } }
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                          "Content-Type": "multipart/form-data",
+                        },
+                      }
                     );
 
                     setMessage(res.data.message);
