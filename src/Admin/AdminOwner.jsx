@@ -115,7 +115,7 @@ const AdminOwner = () => {
       const token = localStorage.getItem("token");
 
       const res = await axios.get(
-        "https://digital-skill-benedicta.onrender.com/api/payment/pending-confirmation",
+        `${BASE_URL}/api/payment/pending-confirmation`,
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -141,7 +141,7 @@ const AdminOwner = () => {
       const token = localStorage.getItem("token");
 
       await axios.post(
-        "https://digital-skill-benedicta.onrender.com/api/payment/confirm",
+        `${BASE_URL}/api/payment/confirm`,
         { studentId, courseId },
         {
           headers: { Authorization: `Bearer ${token}` },
@@ -524,7 +524,7 @@ const AdminOwner = () => {
       ),
     },
   ];
-
+  // Fetch courses for the selected cohort
   useEffect(() => {
     if (activeTab !== "courses" && activeTab !== "create-cohort") return;
     const fetchCourses = async () => {
@@ -1506,38 +1506,50 @@ const AdminOwner = () => {
 
                       <TableBody>
                         {currentStudents.map((student) => {
-                          const courseId = student.registeredCohort?.courseId;
-                          const paid = student.paymentConfirmed || student.paid;
+                          const registeredCohort =
+                            student.registeredCohort || {};
+                          const paymentPending = !student.paymentConfirmed;
 
                           return (
                             <TableRow key={student._id}>
                               <TableCell>{student.fullName}</TableCell>
                               <TableCell>{student.email}</TableCell>
                               <TableCell>{student.phoneNumber}</TableCell>
-                              <TableCell>{courseId || "-"}</TableCell>
                               <TableCell>
-                                {student.registeredCohort?.registeredAt
+                                {registeredCohort.courseName || "-"}
+                              </TableCell>
+                              <TableCell>
+                                {registeredCohort.registeredAt
                                   ? new Date(
-                                      student.registeredCohort.registeredAt
+                                      registeredCohort.registeredAt
                                     ).toLocaleDateString()
                                   : "-"}
                               </TableCell>
-
                               <TableCell>
                                 <Chip
-                                  label={paid ? "Paid" : "Pending"}
-                                  color={paid ? "success" : "error"}
+                                  label={
+                                    student.paymentConfirmed
+                                      ? "Paid"
+                                      : "Pending"
+                                  }
+                                  color={
+                                    student.paymentConfirmed
+                                      ? "success"
+                                      : "error"
+                                  }
                                   variant="outlined"
                                 />
                               </TableCell>
-
                               <TableCell>
-                                {!paid && (
+                                {paymentPending && (
                                   <Button
                                     variant="contained"
                                     size="small"
                                     onClick={() =>
-                                      confirmPayment(student._id, courseId)
+                                      confirmPayment(
+                                        student._id,
+                                        registeredCohort.courseId
+                                      )
                                     }
                                   >
                                     Confirm Payment
@@ -1589,6 +1601,7 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
+
         {/* === Owner Tools === */}
         {activeTab === "owner" && (
           <Container>

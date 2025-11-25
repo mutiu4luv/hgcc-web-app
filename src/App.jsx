@@ -17,7 +17,6 @@ import PaymentScreen from "./Screens/Payment";
 function App() {
   const [count, setCount] = useState(0);
   const token = localStorage.getItem("token");
-  console.log("TOKEN:", token);
 
   return (
     <>
