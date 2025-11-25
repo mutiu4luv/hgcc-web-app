@@ -54,8 +54,8 @@ const StudentDashboard = () => {
   const [selectedCoach, setSelectedCoach] = useState("");
 
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [studentName, setStudentName] = useState("");
-  const [activeCohort, setActiveCohort] = useState(null);
+  const [activeCohorts, setActiveCohorts] = useState([]);
+  const [selectedCohort, setSelectedCohort] = useState("");
   const [cohortLoading, setCohortLoading] = useState(true);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
 
@@ -111,7 +111,6 @@ const StudentDashboard = () => {
         setMessage("Failed to load submissions");
       }
     };
-
     loadSubmissions();
   }, []);
 
@@ -217,21 +216,22 @@ const StudentDashboard = () => {
   // ACTIVE COHORT
   // =========================
   useEffect(() => {
-    const loadActiveCohort = async () => {
+    const loadActiveCohorts = async () => {
       try {
-        const res = await axios.get(`${BASE_URL}/api/cohort/cohort/active`, {
+        setCohortLoading(true);
+        const res = await axios.get(`${BASE_URL}/api/cohort/active-cohorts`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setActiveCohort(res.data.cohort);
+        setActiveCohorts(res.data.cohorts || []);
       } catch (err) {
-        setActiveCohort(null);
+        console.error(err);
+        setActiveCohorts([]);
       } finally {
         setCohortLoading(false);
       }
     };
-
-    loadActiveCohort();
-  }, [activeTab]);
+    loadActiveCohorts();
+  }, []);
 
   // =========================
   // REGISTER STUDENT
@@ -246,11 +246,7 @@ const StudentDashboard = () => {
       );
       setMessage(res.data.message);
       setSuccessModalOpen(true);
-
-      // Redirect to payment screen after 5s
-      setTimeout(() => {
-        navigate(`/payment/${cohortId}/${courseId}`);
-      }, 5000);
+      setTimeout(() => navigate(`/payment/${cohortId}/${courseId}`), 5000);
     } catch (err) {
       console.error(err);
       setMessage(err.response?.data?.message || "Failed to register");
@@ -468,7 +464,7 @@ const StudentDashboard = () => {
               <TextField
                 select
                 label="Select Coach"
-                value={selectedCoach}
+                value={selectedCoach || ""}
                 onChange={(e) => setSelectedCoach(e.target.value)}
                 fullWidth
                 sx={{ mb: 2 }}
@@ -503,57 +499,97 @@ const StudentDashboard = () => {
         )}
 
         {/* Register Course */}
+        {/* Register Course */}
         {activeTab === "register-course" && (
           <Paper sx={{ p: 4 }}>
             {cohortLoading ? (
               <CircularProgress />
-            ) : !activeCohort ? (
+            ) : !Array.isArray(activeCohorts) || activeCohorts.length === 0 ? (
               <Typography variant="h5" color="red">
-                ❌ No active cohort available
+                ❌ No active cohorts available
               </Typography>
             ) : (
               <>
                 <Typography variant="h4" color="green" fontWeight="bold">
-                  📝 Register to {activeCohort.cohortName}
+                  📝 Register to a Cohort
                 </Typography>
 
-                <Typography sx={{ mt: 3, mb: 1 }} fontWeight="bold">
-                  Select a Course
-                </Typography>
-
-                {activeCohort?.notStartedCourses?.length > 0 ? (
-                  <TextField
-                    select
-                    label="Choose Course"
-                    fullWidth
-                    value={selectedCourse}
-                    onChange={(e) => setSelectedCourse(e.target.value)}
-                    sx={{ mb: 2 }}
-                  >
-                    <MenuItem value="">-- Select Course --</MenuItem>
-                    {activeCohort.notStartedCourses.map((course) => (
-                      <MenuItem key={course._id} value={course.courseId._id}>
-                        {course.courseId.name} ({course.courseId.category}) -{" "}
-                        {course.courseId.duration}
-                      </MenuItem>
-                    ))}
-                  </TextField>
-                ) : (
-                  <Typography>No courses available</Typography>
-                )}
-
-                <Button
-                  variant="contained"
-                  color="success"
-                  disabled={registerLoading || !selectedCourse}
-                  onClick={() =>
-                    handleRegisterStudent(activeCohort.cohortId, selectedCourse)
-                  }
+                {/* Cohort dropdown */}
+                <TextField
+                  select
+                  label="Choose Cohort"
+                  fullWidth
+                  value={selectedCohort || ""}
+                  onChange={(e) => {
+                    setSelectedCohort(e.target.value);
+                    setSelectedCourse("");
+                  }}
+                  sx={{ mb: 2 }}
                 >
-                  {registerLoading ? "Registering..." : "Register"}
-                </Button>
+                  <MenuItem value="">-- Select Cohort --</MenuItem>
+                  {activeCohorts.map((cohort) => (
+                    <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                      {cohort.cohortName} ({cohort.startDate || "N/A"} -{" "}
+                      {cohort.endDate || "N/A"})
+                    </MenuItem>
+                  ))}
+                </TextField>
 
-                {message && <Alert sx={{ mt: 2 }}>{message}</Alert>}
+                {/* Courses dropdown */}
+                {selectedCohort &&
+                  (() => {
+                    // ✅ Use cohortId here
+                    const selected = activeCohorts.find(
+                      (c) => c.cohortId === selectedCohort
+                    );
+                    const coursesList =
+                      selected?.notStartedCourses?.filter((c) => c.courseId) ||
+                      [];
+
+                    console.log("Courses for selected cohort:", coursesList);
+
+                    return (
+                      <>
+                        <TextField
+                          select
+                          label="Choose Course"
+                          fullWidth
+                          value={selectedCourse || ""}
+                          onChange={(e) => setSelectedCourse(e.target.value)}
+                          sx={{ mb: 2 }}
+                        >
+                          <MenuItem value="">-- Select Course --</MenuItem>
+                          {coursesList.length === 0 ? (
+                            <MenuItem disabled>No courses available</MenuItem>
+                          ) : (
+                            coursesList.map((courseItem) => {
+                              const course = courseItem.courseId;
+                              return (
+                                <MenuItem key={course._id} value={course._id}>
+                                  {course.name} ({course.category}) -{" "}
+                                  {course.duration}
+                                </MenuItem>
+                              );
+                            })
+                          )}
+                        </TextField>
+
+                        <Button
+                          variant="contained"
+                          color="success"
+                          disabled={!selectedCourse || registerLoading}
+                          onClick={() =>
+                            handleRegisterStudent(
+                              selectedCohort,
+                              selectedCourse
+                            )
+                          }
+                        >
+                          {registerLoading ? "Registering..." : "Register"}
+                        </Button>
+                      </>
+                    );
+                  })()}
               </>
             )}
           </Paper>
