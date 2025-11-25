@@ -134,23 +134,21 @@ const AdminOwner = () => {
   };
 
   // ---------------------------------------------------
-  // CONFIRM PAYMENT
+  //ADMIN CONFIRM PAYMENT
   // ---------------------------------------------------
-  const confirmPayment = async (studentId, courseId) => {
+  const confirmPayment = async (studentId, courseId, cohortId) => {
     try {
       const token = localStorage.getItem("token");
 
-      await axios.post(
-        `${BASE_URL}/api/payment/confirm`,
-        { studentId, courseId },
+      await axios.put(
+        `${BASE_URL}/api/payment/users/${studentId}/confirm-payment`,
+        { cohortId, courseId }, // send cohortId here
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      // Update UI instantly
       setPendingStudents((prev) => prev.filter((s) => s._id !== studentId));
-
       alert("Payment confirmed!");
     } catch (err) {
       console.error("Confirm error:", err);
@@ -1545,10 +1543,12 @@ const AdminOwner = () => {
                                   <Button
                                     variant="contained"
                                     size="small"
+                                    color="success"
                                     onClick={() =>
                                       confirmPayment(
                                         student._id,
-                                        registeredCohort.courseId
+                                        student.registeredCohort?.courseId,
+                                        student.registeredCohort?._id // cohortId
                                       )
                                     }
                                   >
