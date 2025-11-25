@@ -136,13 +136,20 @@ const AdminOwner = () => {
   // ---------------------------------------------------
   //ADMIN CONFIRM PAYMENT
   // ---------------------------------------------------
-  const confirmPayment = async (studentId, courseId, cohortId) => {
+  const confirmPayment = async (studentId, registeredCohort) => {
     try {
       const token = localStorage.getItem("token");
 
+      if (!registeredCohort?.cohortId || !registeredCohort?.courseId) {
+        return alert("Student has no valid cohort or course assigned");
+      }
+
       await axios.put(
         `${BASE_URL}/api/payment/users/${studentId}/confirm-payment`,
-        { cohortId, courseId }, // send cohortId here
+        {
+          cohortId: registeredCohort.cohortId,
+          courseId: registeredCohort.courseId,
+        },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -1542,13 +1549,11 @@ const AdminOwner = () => {
                                 {paymentPending && (
                                   <Button
                                     variant="contained"
-                                    size="small"
                                     color="success"
                                     onClick={() =>
                                       confirmPayment(
                                         student._id,
-                                        student.registeredCohort?.courseId,
-                                        student.registeredCohort?._id // cohortId
+                                        student.registeredCohort
                                       )
                                     }
                                   >
