@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { useParams } from "react-router-dom";
 import {
   Box,
   Button,
@@ -12,6 +13,9 @@ import axios from "axios";
 const PaymentScreen = ({ token }) => {
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
+  // ⭐ Read parameters from the URL
+  const { cohortId, courseId } = useParams();
+
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -21,7 +25,10 @@ const PaymentScreen = ({ token }) => {
 
       const res = await axios.post(
         `${BASE_URL}/api/payment/confirm`,
-        {},
+        {
+          cohortId,
+          courseId,
+        },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
@@ -29,8 +36,8 @@ const PaymentScreen = ({ token }) => {
 
       setMessage(res.data.message);
 
-      // ⭐ Redirect to WhatsApp after confirming payment
-      const phone = "2349071651329"; // WhatsApp number without "+"
+      // ⭐ redirect to WhatsApp
+      const phone = "2349071651329";
       const text = encodeURIComponent(
         "Hello, I have made my payment. Here is my proof of payment."
       );
@@ -53,17 +60,14 @@ const PaymentScreen = ({ token }) => {
         </Typography>
 
         <Typography sx={{ mt: 3, fontSize: 18 }}>
-          <strong>Account Number:</strong> 7031911306
-          <br />
-          <strong>Bank:</strong> Opay
-          <br />
-          <strong>Account Name:</strong> Madu Chibueze Emmeanuel
+          <strong>Account Number:</strong> 7031911306 <br />
+          <strong>Bank:</strong> Opay <br />
+          <strong>Account Name:</strong> Madu Chibueze Emmanuel
         </Typography>
 
         <Typography sx={{ mt: 2, color: "gray" }}>
-          Please make your payment using the details above. After payment, click
-          the button below and you will be redirected to WhatsApp to submit your
-          proof of payment.
+          After payment, click the button below to confirm and send proof via
+          WhatsApp.
         </Typography>
 
         <Button

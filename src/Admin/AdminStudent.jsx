@@ -136,7 +136,7 @@ const StudentDashboard = () => {
   useEffect(() => {
     const loadCourses = async () => {
       try {
-        const res = await axios.get(`${BASE_URL}/api/course`, {
+        const res = await axios.get(`${BASE_URL}/api/course?ts=${Date.now()}`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setCourses(res.data);
@@ -249,7 +249,7 @@ const StudentDashboard = () => {
 
       // Redirect to payment screen after 5s
       setTimeout(() => {
-        navigate("/payment");
+        navigate(`/payment/${cohortId}/${courseId}`);
       }, 5000);
     } catch (err) {
       console.error(err);

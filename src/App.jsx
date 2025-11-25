@@ -27,7 +27,10 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/confirm" element={<ConfirmCode />} />
         <Route path="/login" element={<LoginForm />} />
-        <Route path="/payment" element={<PaymentScreen token={token} />} />
+        <Route
+          path="/payment/:cohortId/:courseId"
+          element={<PaymentScreen token={token} />}
+        />{" "}
         <Route
           path="/owner"
           element={

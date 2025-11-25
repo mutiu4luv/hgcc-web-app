@@ -102,30 +102,29 @@ const AdminOwner = () => {
   const [error, setError] = useState("");
   const [imageFile, setImageFile] = useState(null);
 
-  const [paidStudents, setPaidStudents] = useState([]);
-  // const [loadings, setLoadings] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [currentPage, setCurrentPage] = useState(1);
+  const [studentsPerPage] = useState(10);
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
 
-  // Fetch students who have registered courses
   const fetchPendingStudents = async () => {
+    setLoading(true);
     try {
-      setLoading(true);
       const token = localStorage.getItem("token");
-      console.log("Token:", token);
 
-      const { data } = await axios.get(
+      const res = await axios.get(
         "https://digital-skill-benedicta.onrender.com/api/payment/pending-confirmation",
         {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
+          headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      console.log("Fetched pending students:", data.students);
-      setPendingStudents(data.students || []);
+      console.log("FULL RESPONSE:", res.data);
+
+      const students = res.data?.students ?? [];
+      setPendingStudents(students);
       setLoading(false);
     } catch (err) {
       console.error("Fetch error:", err);
@@ -134,23 +133,63 @@ const AdminOwner = () => {
     }
   };
 
-  // Confirm payment
-  const confirmPayment = async (userId, courseId) => {
+  // ---------------------------------------------------
+  // CONFIRM PAYMENT
+  // ---------------------------------------------------
+  const confirmPayment = async (studentId, courseId) => {
     try {
       const token = localStorage.getItem("token");
-      await axios.put(
-        `https://digital-skill-benedicta.onrender.com/api/payment/users/${userId}/confirm-payment`,
-        { courseId },
-        { headers: { Authorization: `Bearer ${token}` } }
+
+      await axios.post(
+        "https://digital-skill-benedicta.onrender.com/api/payment/confirm",
+        { studentId, courseId },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
-      alert("Payment confirmed successfully!");
-      fetchPendingStudents(); // Refresh after confirmation
+
+      // Update UI instantly
+      setPendingStudents((prev) => prev.filter((s) => s._id !== studentId));
+
+      alert("Payment confirmed!");
     } catch (err) {
-      alert(err.response?.data?.message || err.message);
+      console.error("Confirm error:", err);
+      alert(err.response?.data?.message || "Error confirming payment");
     }
   };
 
-  console.log("Pending Students state:", pendingStudents);
+  // ---------------------------------------------------
+  // USEEFFECT — RUN FETCH WHEN TAB IS ACTIVE
+  // ---------------------------------------------------
+  useEffect(() => {
+    if (activeTab === "confirm-payment") {
+      fetchPendingStudents();
+    }
+  }, [activeTab]);
+
+  // ---------------------------------------------------
+  // SEARCH FILTERING
+  // ---------------------------------------------------
+  const filteredStudents = pendingStudents.filter((student) => {
+    const q = searchQuery.toLowerCase();
+    return (
+      student.fullName.toLowerCase().includes(q) ||
+      student.email.toLowerCase().includes(q) ||
+      student.phoneNumber.includes(q)
+    );
+  });
+
+  // ---------------------------------------------------
+  // PAGINATION
+  // ---------------------------------------------------
+  const indexOfLastStudent = currentPage * studentsPerPage;
+  const indexOfFirstStudent = indexOfLastStudent - studentsPerPage;
+  const currentStudents = filteredStudents.slice(
+    indexOfFirstStudent,
+    indexOfLastStudent
+  );
+
+  const totalPages = Math.ceil(filteredStudents.length / studentsPerPage);
 
   // 📤 Create Cohort
   const handleCreateCohort = async () => {
@@ -877,7 +916,11 @@ const AdminOwner = () => {
               <input
                 type="file"
                 accept="image/*"
-                onChange={(e) => setImageFile(e.target.files[0])}
+                onChange={(e) => {
+                  if (e.target.files && e.target.files[0]) {
+                    setImageFile(e.target.files[0]);
+                  }
+                }}
                 style={{ marginBottom: "20px" }}
               />
 
@@ -971,19 +1014,13 @@ const AdminOwner = () => {
                     formData.append("description", courseDescription);
                     formData.append("coachId", assignedCoach);
                     formData.append("duration", courseDuration);
-
-                    if (imageFile) {
-                      formData.append("image", imageFile);
-                    }
+                    if (imageFile) formData.append("image", imageFile);
 
                     const res = await axios.post(
                       `${BASE_URL}/api/course`,
                       formData,
                       {
-                        headers: {
-                          Authorization: `Bearer ${token}`,
-                          "Content-Type": "multipart/form-data",
-                        },
+                        headers: { Authorization: `Bearer ${token}` }, // <-- no Content-Type here
                       }
                     );
 
@@ -1422,9 +1459,7 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
-
         {/* CONFIRM PAYMENT */}
-
         {activeTab === "confirm-payment" && (
           <Container>
             <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
@@ -1432,84 +1467,128 @@ const AdminOwner = () => {
                 Confirm Student Payments
               </Typography>
 
+              {/* SEARCH BAR */}
+              <TextField
+                label="Search student..."
+                variant="outlined"
+                fullWidth
+                size="small"
+                sx={{ mb: 2 }}
+                value={searchQuery}
+                onChange={(e) => {
+                  setSearchQuery(e.target.value);
+                  setCurrentPage(1);
+                }}
+              />
+
+              {/* LOADING */}
               {loading ? (
-                <Typography variant="body1" color="text.secondary">
-                  Loading...
-                </Typography>
-              ) : pendingStudents.length === 0 ? (
-                <Typography variant="body1" color="text.secondary">
+                <Typography>Loading...</Typography>
+              ) : currentStudents.length === 0 ? (
+                <Typography color="text.secondary">
                   No students found.
                 </Typography>
               ) : (
-                <TableContainer component={Paper}>
-                  <Table>
-                    <TableHead>
-                      <TableRow>
-                        <TableCell>Name</TableCell>
-                        <TableCell>Email</TableCell>
-                        <TableCell>Phone</TableCell>
-                        <TableCell>Course</TableCell>
-                        <TableCell>Registered At</TableCell>
-                        <TableCell>Status</TableCell>
-                        <TableCell>Action</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {pendingStudents.map((student) => {
-                        const courseId = student.registeredCohort?.courseId;
-                        const paid = student.paymentConfirmed || student.paid;
+                <>
+                  <TableContainer component={Paper}>
+                    <Table>
+                      <TableHead>
+                        <TableRow>
+                          <TableCell>Name</TableCell>
+                          <TableCell>Email</TableCell>
+                          <TableCell>Phone</TableCell>
+                          <TableCell>Course</TableCell>
+                          <TableCell>Registered At</TableCell>
+                          <TableCell>Status</TableCell>
+                          <TableCell>Action</TableCell>
+                        </TableRow>
+                      </TableHead>
 
-                        return (
-                          <TableRow key={student._id} hover>
-                            <TableCell>{student.fullName}</TableCell>
-                            <TableCell>{student.email}</TableCell>
-                            <TableCell>{student.phoneNumber}</TableCell>
-                            <TableCell>{courseId || "-"}</TableCell>
-                            <TableCell>
-                              {student.registeredCohort?.registeredAt
-                                ? new Date(
-                                    student.registeredCohort.registeredAt
-                                  ).toLocaleDateString()
-                                : "-"}
-                            </TableCell>
-                            <TableCell>
-                              <Chip
-                                label={paid ? "Paid" : "Pending"}
-                                color={paid ? "success" : "error"}
-                                variant="outlined"
-                              />
-                            </TableCell>
-                            <TableCell>
-                              {!paid && (
-                                <Button
-                                  variant="contained"
-                                  color="primary"
-                                  size="small"
-                                  onClick={() =>
-                                    confirmPayment(student._id, courseId)
-                                  }
-                                >
-                                  Confirm Payment
-                                </Button>
-                              )}
-                            </TableCell>
-                          </TableRow>
-                        );
-                      })}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
+                      <TableBody>
+                        {currentStudents.map((student) => {
+                          const courseId = student.registeredCohort?.courseId;
+                          const paid = student.paymentConfirmed || student.paid;
+
+                          return (
+                            <TableRow key={student._id}>
+                              <TableCell>{student.fullName}</TableCell>
+                              <TableCell>{student.email}</TableCell>
+                              <TableCell>{student.phoneNumber}</TableCell>
+                              <TableCell>{courseId || "-"}</TableCell>
+                              <TableCell>
+                                {student.registeredCohort?.registeredAt
+                                  ? new Date(
+                                      student.registeredCohort.registeredAt
+                                    ).toLocaleDateString()
+                                  : "-"}
+                              </TableCell>
+
+                              <TableCell>
+                                <Chip
+                                  label={paid ? "Paid" : "Pending"}
+                                  color={paid ? "success" : "error"}
+                                  variant="outlined"
+                                />
+                              </TableCell>
+
+                              <TableCell>
+                                {!paid && (
+                                  <Button
+                                    variant="contained"
+                                    size="small"
+                                    onClick={() =>
+                                      confirmPayment(student._id, courseId)
+                                    }
+                                  >
+                                    Confirm Payment
+                                  </Button>
+                                )}
+                              </TableCell>
+                            </TableRow>
+                          );
+                        })}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  {/* PAGINATION CONTROLS */}
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "center",
+                      mt: 2,
+                      gap: 2,
+                    }}
+                  >
+                    <Button
+                      disabled={currentPage === 1}
+                      onClick={() => setCurrentPage(currentPage - 1)}
+                    >
+                      Prev
+                    </Button>
+
+                    <Typography>
+                      Page {currentPage} of {totalPages}
+                    </Typography>
+
+                    <Button
+                      disabled={currentPage === totalPages}
+                      onClick={() => setCurrentPage(currentPage + 1)}
+                    >
+                      Next
+                    </Button>
+                  </Box>
+                </>
               )}
 
               {error && (
-                <Typography variant="body2" color="error" mt={2}>
+                <Typography color="error" mt={2}>
                   {error}
                 </Typography>
               )}
             </Paper>
           </Container>
         )}
-
         {/* === Owner Tools === */}
         {activeTab === "owner" && (
           <Container>
