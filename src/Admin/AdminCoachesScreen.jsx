@@ -16,6 +16,7 @@ import {
   IconButton,
   useMediaQuery,
   Grid,
+  MenuItem,
 } from "@mui/material";
 import {
   Dashboard,
@@ -63,6 +64,13 @@ const CoachDashboard = () => {
   const [ratingData, setRatingData] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [studentsLoading, setStudentsLoading] = useState(true);
+  const [assignmentsLoading, setAssignmentsLoading] = useState(true); // <-- ADD THIS
+  const [newTitle, setNewTitle] = useState("");
+  const [newDescription, setNewDescription] = useState("");
+  const [newDueDate, setNewDueDate] = useState("");
+  const [cohortId, setCohortId] = useState("");
+  const [cohortCourses, setCohortCourses] = useState([]);
+  const [selectedCourseId, setSelectedCourseId] = useState("");
 
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
@@ -81,6 +89,20 @@ const CoachDashboard = () => {
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
 
+  useEffect(() => {
+    // Fetch all cohorts for this coach
+    const fetchCohorts = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/cohort/active-cohorts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data.cohorts.length > 0) setCohortId(res.data.cohorts[0]._id);
+      } catch (err) {
+        console.error(err);
+      }
+    };
+    fetchCohorts();
+  }, []);
   // =========================
   // FETCH VIDEOS & DOCUMENTS
   // =========================
@@ -201,25 +223,50 @@ const CoachDashboard = () => {
 
   // ========================= // FETCH ASSIGNMENTS // =========================
 
-  useEffect(() => {
-    const loadAssignments = async () => {
-      console.log("📡 Fetching assignments...");
-      try {
-        const res = await axios.get(`${BASE_URL}/api/coach/assignments`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        console.log("✅ Assignments response:", res.data);
-        setAssignments(res.data);
-      } catch (err) {
-        console.error(
-          "❌ Error fetching assignments:",
-          err?.response?.data || err
-        );
-        setMessage("Failed to load assignments");
-      }
-    };
-    loadAssignments();
-  }, [BASE_URL, token]);
+  const loadAssignments = async () => {
+    setAssignmentsLoading(true);
+    try {
+      const res = await axios.get(`${BASE_URL}/api/assignment/${cohortId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setAssignments(res.data);
+    } catch (err) {
+      console.error("Error fetching assignments:", err?.response?.data || err);
+      setMessage("Failed to load assignments");
+    } finally {
+      setAssignmentsLoading(false);
+    }
+  };
+
+  // Create new assignment
+  const createAssignment = async () => {
+    if (!newTitle || !selectedCourseId) {
+      setMessage("Title and Course are required");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `${BASE_URL}/api/assignment`,
+        {
+          cohortId,
+          courseId: selectedCourseId,
+          title: newTitle,
+          description: newDescription,
+          dueDate: newDueDate,
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setNewTitle("");
+      setNewDescription("");
+      setNewDueDate("");
+      loadAssignments();
+      setMessage("Assignment created successfully");
+    } catch (err) {
+      console.error("Error creating assignment:", err?.response?.data || err);
+      setMessage("Failed to create assignment");
+    }
+  };
 
   // ========================= // FETCH STUDENTS // =========================
   useEffect(() => {
@@ -282,6 +329,39 @@ const CoachDashboard = () => {
     };
     loadRatings();
   }, [BASE_URL, token]);
+
+  // Fetch courses in cohort
+  const loadCohortCourses = async () => {
+    if (!cohortId) return;
+    try {
+      const res = await axios.get(`${BASE_URL}/api/cohort/${cohortId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (res.data.courses?.length) {
+        setCohortCourses(
+          res.data.courses.map((c) => ({
+            courseId: c.courseId._id,
+            name: c.courseId.name,
+            status: c.status,
+          }))
+        );
+        setSelectedCourseId(res.data.courses[0].courseId._id);
+      } else {
+        setCohortCourses([]);
+      }
+    } catch (err) {
+      console.error(
+        "Error fetching cohort courses:",
+        err?.response?.data || err
+      );
+    }
+  };
+
+  useEffect(() => {
+    loadAssignments();
+    loadCohortCourses();
+  }, [BASE_URL, token, cohortId]);
 
   if (globalLoading) {
     return (
@@ -579,36 +659,124 @@ const CoachDashboard = () => {
             >
               🧾 Student Assignments
             </Typography>
-            <div style={{ height: 500, width: "100%" }}>
-              <DataGrid
-                rows={assignments.map((a) => ({ id: a._id, ...a }))}
-                columns={[
-                  { field: "studentName", headerName: "Student", width: 250 },
-                  { field: "title", headerName: "Assignment", width: 300 },
-                  { field: "status", headerName: "Status", width: 150 },
-                  {
-                    field: "actions",
-                    headerName: "Actions",
-                    width: 180,
-                    renderCell: (params) =>
-                      params.row.status === "pending" ? (
-                        <Button
-                          variant="contained"
-                          size="small"
-                          startIcon={<CheckCircle />}
-                          onClick={() => approveAssignment(params.row._id)}
-                          sx={{ bgcolor: "#10b981" }}
-                        >
-                          Approve
-                        </Button>
-                      ) : (
-                        <Typography color="green">Approved</Typography>
-                      ),
-                  },
-                ]}
-                pageSize={5}
+
+            {/* Create Assignment Form */}
+            <Box
+              sx={{
+                display: "flex",
+                gap: 2,
+                mb: 3,
+                flexWrap: "wrap",
+                alignItems: "center",
+                "> .MuiTextField-root": { minWidth: 200, flex: 1 }, // ensure all fields have min width & expand
+              }}
+            >
+              <TextField
+                label="Title"
+                value={newTitle}
+                onChange={(e) => setNewTitle(e.target.value)}
               />
-            </div>
+              <TextField
+                label="Description"
+                value={newDescription}
+                onChange={(e) => setNewDescription(e.target.value)}
+              />
+              <TextField
+                select
+                label="Select Course"
+                value={selectedCourseId}
+                onChange={(e) => setSelectedCourseId(e.target.value)}
+                fullWidth
+              >
+                {cohortCourses.length === 0 ? (
+                  <MenuItem disabled>No courses available</MenuItem>
+                ) : (
+                  cohortCourses.map((c) => (
+                    <MenuItem key={c.courseId} value={c.courseId}>
+                      {c.name}
+                    </MenuItem>
+                  ))
+                )}
+              </TextField>
+
+              <TextField
+                type="date"
+                label="Due Date"
+                InputLabelProps={{ shrink: true }}
+                value={newDueDate}
+                onChange={(e) => setNewDueDate(e.target.value)}
+              />
+              <Button
+                variant="contained"
+                color="success"
+                onClick={createAssignment}
+              >
+                Create Assignment
+              </Button>
+            </Box>
+
+            {message && <Typography color="red">{message}</Typography>}
+
+            {/* Loader or DataGrid */}
+            {assignmentsLoading ? (
+              <Box
+                sx={{
+                  height: 400,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CircularProgress size={60} color="success" />
+              </Box>
+            ) : assignments.length === 0 ? (
+              <Typography>No assignments available yet.</Typography>
+            ) : (
+              <div style={{ height: 500, width: "100%" }}>
+                <DataGrid
+                  rows={assignments.flatMap((a) =>
+                    a.submissions.map((s) => ({
+                      id: `${a._id}-${s.studentId?._id}`,
+                      assignmentId: a._id,
+                      studentId: s.studentId?._id,
+                      studentName: s.studentId?.fullName || "N/A",
+                      title: a.title,
+                      status: s.grade ? "approved" : "pending",
+                    }))
+                  )}
+                  columns={[
+                    { field: "studentName", headerName: "Student", width: 250 },
+                    { field: "title", headerName: "Assignment", width: 300 },
+                    { field: "status", headerName: "Status", width: 150 },
+                    {
+                      field: "actions",
+                      headerName: "Actions",
+                      width: 180,
+                      renderCell: (params) =>
+                        params.row.status === "pending" ? (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<CheckCircle />}
+                            onClick={() =>
+                              approveAssignment(
+                                params.row.assignmentId,
+                                params.row.studentId
+                              )
+                            }
+                            sx={{ bgcolor: "#10b981" }}
+                          >
+                            Approve
+                          </Button>
+                        ) : (
+                          <Typography color="green">Approved</Typography>
+                        ),
+                    },
+                  ]}
+                  pageSize={5}
+                />
+              </div>
+            )}
           </Paper>
         )}
         {/* Students */}

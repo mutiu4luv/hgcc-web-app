@@ -85,7 +85,7 @@ const RegisterForm = () => {
       console.log("✅ Registration response:", res.data);
       alert(res.data.message || "Registered successfully!");
 
-      navigate("/confirm", { state: { email: formData.email } });
+      navigate("/student/dashboard", { state: { email: formData.email } });
     } catch (error) {
       console.error("❌ Registration failed:", error);
       if (error.response) {
