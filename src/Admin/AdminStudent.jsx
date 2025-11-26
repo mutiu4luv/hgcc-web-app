@@ -61,6 +61,7 @@ const StudentDashboard = () => {
 
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
+
   const isMobile = useMediaQuery("(max-width:900px)");
 
   const navigate = useNavigate();
@@ -122,8 +123,10 @@ const StudentDashboard = () => {
       const res = await axios.get(`${BASE_URL}/api/coach/coaches`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      console.log("Coaches:", res.data);
-      setCoaches(res.data);
+
+      console.log("Coaches:", res.data.coaches);
+
+      setCoaches(res.data.coaches); // FIXED
     } catch (err) {
       console.error(err);
       setMessage("Failed to load coaches");
@@ -186,21 +189,30 @@ const StudentDashboard = () => {
   // =========================
   const handleSubmitFeedback = async (e) => {
     e.preventDefault();
-    if (!selectedCoach || rating === 0)
+
+    if (!selectedCoach || rating === 0) {
       return alert("Select a coach and rating");
+    }
 
     try {
       setGlobalLoading(true);
+
+      // ✅ Get studentId from stored user object
+      const user = JSON.parse(localStorage.getItem("user"));
+      const studentId = user?.id;
+      if (!studentId) throw new Error("User ID not found");
+
       await axios.post(
         `${BASE_URL}/api/feedbacks`,
         {
-          studentId: localStorage.getItem("userId"),
+          studentId,
           coachId: selectedCoach,
           rating,
           comment,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
       setMessage("✅ Feedback submitted successfully");
       setRating(0);
       setComment("");
@@ -376,14 +388,155 @@ const StudentDashboard = () => {
       >
         {/* Dashboard */}
         {activeTab === "dashboard" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography variant="h4" color="green" fontWeight="bold">
+          <Paper sx={{ p: 4, mb: 4 }}>
+            <Typography
+              variant="h4"
+              color="green"
+              fontWeight="bold"
+              gutterBottom
+            >
               📊 Welcome to your Dashboard
             </Typography>
-            <Typography sx={{ mt: 2 }}>
+            <Typography sx={{ mb: 3 }}>
               Here you can view assignments, manage submissions, register
               courses, and rate coaches.
             </Typography>
+
+            {/* Summary Cards */}
+            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 4 }}>
+              <Paper sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#d1fae5" }}>
+                <Typography variant="h6">Assignments</Typography>
+                <Typography variant="h4" fontWeight="bold">
+                  {assignments.length}
+                </Typography>
+              </Paper>
+              <Paper sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#fef9c3" }}>
+                <Typography variant="h6">My Submissions</Typography>
+                <Typography variant="h4" fontWeight="bold">
+                  {mySubmissions.length}
+                </Typography>
+              </Paper>
+              <Paper sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#bfdbfe" }}>
+                <Typography variant="h6">Active Courses</Typography>
+                <Typography variant="h4" fontWeight="bold">
+                  {courses.length}
+                </Typography>
+              </Paper>
+            </Box>
+
+            {/* Bar Chart for assignments */}
+            <Box sx={{ height: 300, mb: 4 }}>
+              <Typography variant="h6" gutterBottom>
+                Assignment Status
+              </Typography>
+              <div style={{ height: 250, width: "100%" }}>
+                <DataGrid
+                  rows={assignments.map((a, idx) => ({
+                    id: idx,
+                    title: a.title,
+                    status: a.status,
+                  }))}
+                  columns={[
+                    { field: "title", headerName: "Assignment", width: 300 },
+                    {
+                      field: "status",
+                      headerName: "Status",
+                      width: 200,
+                      renderCell: (params) => (
+                        <Typography
+                          color={params.value === "pending" ? "red" : "green"}
+                        >
+                          {params.value.charAt(0).toUpperCase() +
+                            params.value.slice(1)}
+                        </Typography>
+                      ),
+                    },
+                  ]}
+                  pageSize={5}
+                  hideFooter
+                />
+              </div>
+            </Box>
+
+            {/* Quick Coach Rating & Upcoming Classes */}
+            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+              {/* Quick Coach Rating */}
+              <Paper sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#fef2f2" }}>
+                <Typography variant="h6">Rate a Coach</Typography>
+                <TextField
+                  select
+                  label="Select Coach"
+                  value={selectedCoach || ""}
+                  onChange={(e) => setSelectedCoach(e.target.value)}
+                  fullWidth
+                  sx={{ my: 2 }}
+                >
+                  <MenuItem value="">-- Select Coach --</MenuItem>
+                  {coaches.map((c) => (
+                    <MenuItem key={c._id} value={c._id}>
+                      {c.fullName}
+                    </MenuItem>
+                  ))}
+                </TextField>
+                {selectedCoach && (
+                  <Rating
+                    value={rating}
+                    onChange={(e, newValue) => setRating(newValue)}
+                  />
+                )}
+                {selectedCoach && (
+                  <TextField
+                    label="Comment"
+                    fullWidth
+                    multiline
+                    rows={3}
+                    sx={{ mb: 2 }}
+                    value={comment}
+                    onChange={(e) => setComment(e.target.value)}
+                    placeholder="Write a comment about the coach..."
+                  />
+                )}
+                <Button
+                  variant="contained"
+                  color="success"
+                  sx={{ mt: 2 }}
+                  onClick={handleSubmitFeedback}
+                  disabled={!selectedCoach || rating === 0}
+                >
+                  Submit Rating
+                </Button>
+              </Paper>
+
+              {/* Upcoming Classes */}
+              <Paper sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#e0f2fe" }}>
+                <Typography variant="h6" gutterBottom>
+                  Upcoming Classes
+                </Typography>
+                {activeCohorts.length === 0 ? (
+                  <Typography>No upcoming classes</Typography>
+                ) : (
+                  activeCohorts.map((cohort) => (
+                    <Box key={cohort.cohortId} sx={{ mb: 2 }}>
+                      <Typography fontWeight="bold">
+                        {cohort.cohortName}
+                      </Typography>
+                      {cohort.notStartedCourses?.length > 0 ? (
+                        cohort.notStartedCourses.map((c) => (
+                          <Typography key={c.courseId._id} variant="body2">
+                            {c.courseId.name} - Starts:{" "}
+                            {c.courseId.startDate || "N/A"}
+                          </Typography>
+                        ))
+                      ) : (
+                        <Typography variant="body2">
+                          No upcoming courses
+                        </Typography>
+                      )}
+                    </Box>
+                  ))
+                )}
+              </Paper>
+            </Box>
           </Paper>
         )}
 
@@ -465,7 +618,7 @@ const StudentDashboard = () => {
               <TextField
                 select
                 label="Select Coach"
-                value={selectedCoach || ""}
+                value={selectedCoach}
                 onChange={(e) => setSelectedCoach(e.target.value)}
                 fullWidth
                 sx={{ mb: 2 }}
@@ -477,6 +630,13 @@ const StudentDashboard = () => {
                   </MenuItem>
                 ))}
               </TextField>
+              {selectedCoach && (
+                <Typography sx={{ mt: 1 }}>
+                  Selected Coach:{" "}
+                  {coaches.find((c) => c._id === selectedCoach)?.fullName}
+                </Typography>
+              )}
+
               <Typography>Rating:</Typography>
               <Rating
                 value={rating}
