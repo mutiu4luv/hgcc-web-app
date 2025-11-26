@@ -119,9 +119,10 @@ const StudentDashboard = () => {
   // =========================
   const loadCoaches = async () => {
     try {
-      const res = await axios.get(`${BASE_URL}/api/student/coaches`, {
+      const res = await axios.get(`${BASE_URL}/api/coach/coaches`, {
         headers: { Authorization: `Bearer ${token}` },
       });
+      console.log("Coaches:", res.data);
       setCoaches(res.data);
     } catch (err) {
       console.error(err);
