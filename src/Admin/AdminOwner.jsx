@@ -105,6 +105,10 @@ const AdminOwner = () => {
   const [searchQuery, setSearchQuery] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [studentsPerPage] = useState(10);
+
+  const [loadingCohorts, setLoadingCohorts] = useState(true);
+  const [searchTerm, setSearchTerm] = useState("");
+
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -132,6 +136,27 @@ const AdminOwner = () => {
       setLoading(false);
     }
   };
+
+  // fetch all cohorts
+
+  useEffect(() => {
+    if (activeTab === "all-cohorts") {
+      const fetchCohorts = async () => {
+        try {
+          setLoadingCohorts(true);
+          const res = await axios.get(`${BASE_URL}/api/cohort`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          setCohorts(res.data || []);
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoadingCohorts(false);
+        }
+      };
+      fetchCohorts();
+    }
+  }, [activeTab]);
 
   // ---------------------------------------------------
   //ADMIN CONFIRM PAYMENT
@@ -468,6 +493,7 @@ const AdminOwner = () => {
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
     { text: "Create Course", icon: <ManageAccounts />, key: "create-course" },
+    { text: "All Cohorts", icon: <School />, key: "all-cohorts" },
     { text: "All Courses", icon: <School />, key: "courses" },
 
     { text: "Manage Videos", icon: <VideoLibrary />, key: "videos" },
@@ -1054,6 +1080,103 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
+        {/* === All Cohorts === */}
+        {activeTab === "all-cohorts" && (
+          <Container>
+            <Paper sx={{ p: 4, borderRadius: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                🎓 All Cohorts
+              </Typography>
+
+              {loadingCohorts ? (
+                <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : cohorts.length === 0 ? (
+                <Typography sx={{ textAlign: "center", color: "gray" }}>
+                  No cohorts available.
+                </Typography>
+              ) : (
+                <>
+                  {/* Filter / Search Bar */}
+                  <Box
+                    sx={{ display: "flex", gap: 2, flexWrap: "wrap", mb: 3 }}
+                  >
+                    <TextField
+                      label="Search Cohort"
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      sx={{ flex: 1, minWidth: 200 }}
+                    />
+                  </Box>
+
+                  {/* Cohorts Table */}
+                  <div style={{ height: 500, width: "100%" }}>
+                    <DataGrid
+                      rows={cohorts
+                        .filter((c) =>
+                          c.name
+                            .toLowerCase()
+                            .includes(searchTerm.toLowerCase())
+                        )
+                        .map((c, idx) => ({
+                          id: idx,
+                          name: c.name,
+                          courses: c.courses
+                            .map((co) => co.courseId?.name)
+                            .join(", "),
+                          startDate: c.startDate || "N/A",
+                          endDate: c.endDate || "N/A",
+                          totalStudents: c.studentIds?.length || 0,
+                        }))}
+                      columns={[
+                        {
+                          field: "name",
+                          headerName: "Cohort Name",
+                          width: 250,
+                        },
+                        { field: "courses", headerName: "Courses", width: 300 },
+                        {
+                          field: "startDate",
+                          headerName: "Start Date",
+                          width: 150,
+                        },
+                        {
+                          field: "endDate",
+                          headerName: "End Date",
+                          width: 150,
+                        },
+                        {
+                          field: "totalStudents",
+                          headerName: "Total Students",
+                          width: 150,
+                        },
+                      ]}
+                      pageSize={5}
+                      rowsPerPageOptions={[5, 10, 20]}
+                      pagination
+                      autoHeight
+                      sx={{
+                        "& .MuiDataGrid-columnHeaders": {
+                          backgroundColor: "#d1fae5",
+                          fontWeight: "bold",
+                        },
+                        "& .MuiDataGrid-cell": {
+                          fontSize: 14,
+                        },
+                      }}
+                    />
+                  </div>
+                </>
+              )}
+            </Paper>
+          </Container>
+        )}
         {/* === All Courses === */}
         {activeTab === "courses" && (
           <Container>
@@ -1606,7 +1729,6 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
-
         {/* === Owner Tools === */}
         {activeTab === "owner" && (
           <Container>
