@@ -232,7 +232,7 @@ const StudentDashboard = () => {
     const loadActiveCohorts = async () => {
       try {
         setCohortLoading(true);
-        const res = await axios.get(`${BASE_URL}/api/cohort/active-cohorts`, {
+        const res = await axios.get(`${BASE_URL}/api/cohort/assigned`, {
           headers: { Authorization: `Bearer ${token}` },
         });
         setActiveCohorts(res.data.cohorts || []);
@@ -667,7 +667,7 @@ const StudentDashboard = () => {
               <CircularProgress />
             ) : !Array.isArray(activeCohorts) || activeCohorts.length === 0 ? (
               <Typography variant="h5" color="red">
-                ❌ No active cohorts available
+                ❌ No available cohorts
               </Typography>
             ) : (
               <>
@@ -699,15 +699,12 @@ const StudentDashboard = () => {
                 {/* Courses dropdown */}
                 {selectedCohort &&
                   (() => {
-                    // ✅ Use cohortId here
                     const selected = activeCohorts.find(
                       (c) => c.cohortId === selectedCohort
                     );
-                    const coursesList =
-                      selected?.notStartedCourses?.filter((c) => c.courseId) ||
-                      [];
 
-                    console.log("Courses for selected cohort:", coursesList);
+                    // ✅ Use courses returned from backend
+                    const coursesList = selected?.courses || [];
 
                     return (
                       <>
@@ -720,18 +717,19 @@ const StudentDashboard = () => {
                           sx={{ mb: 2 }}
                         >
                           <MenuItem value="">-- Select Course --</MenuItem>
+
                           {coursesList.length === 0 ? (
                             <MenuItem disabled>No courses available</MenuItem>
                           ) : (
-                            coursesList.map((courseItem) => {
-                              const course = courseItem.courseId;
-                              return (
-                                <MenuItem key={course._id} value={course._id}>
-                                  {course.name} ({course.category}) -{" "}
-                                  {course.duration}
-                                </MenuItem>
-                              );
-                            })
+                            coursesList.map((courseItem) => (
+                              <MenuItem
+                                key={courseItem.courseId}
+                                value={courseItem.courseId}
+                              >
+                                {courseItem.name} ({courseItem.category}) -{" "}
+                                {courseItem.duration}
+                              </MenuItem>
+                            ))
                           )}
                         </TextField>
 
