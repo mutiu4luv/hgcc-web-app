@@ -958,11 +958,13 @@ const AdminOwner = () => {
                   sx={{ mt: 1, mb: 3 }}
                 >
                   <option value="">-- Select a Coach --</option>
-                  {coachesList.map((coach) => (
-                    <option key={coach._id} value={coach._id}>
-                      {coach.fullName}
-                    </option>
-                  ))}
+                  {(Array.isArray(coachesList) ? coachesList : []).map(
+                    (coach) => (
+                      <option key={coach._id} value={coach._id}>
+                        {coach.fullName}
+                      </option>
+                    )
+                  )}
                 </TextField>
 
                 {loading ? (

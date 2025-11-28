@@ -205,249 +205,147 @@ const Testimonial = () => {
               }}
             >
               {announcements.length > 0 && (
-                <Box
-                  sx={{
-                    position: "relative",
-                    mt: 6,
-                    overflow: "hidden",
-                    minHeight: 350,
-                    borderRadius: 4,
-                    background:
-                      "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                    p: 4,
-                  }}
-                >
-                  {/* Rain animation layer */}
-                  <Box
+                <Box sx={{ mt: 6, px: { xs: 2, sm: 4 } }}>
+                  <Typography
+                    variant="h5"
                     sx={{
-                      position: "absolute",
-                      top: 0,
-                      left: 0,
-                      width: "100%",
-                      height: "100%",
-                      zIndex: 0,
-                      overflow: "hidden",
-                      pointerEvents: "none",
+                      fontWeight: "bold",
+                      mb: 4,
+                      textAlign: "center",
+                      color: "#065f46",
                     }}
                   >
-                    {[...Array(50)].map((_, i) => (
-                      <motion.div
-                        key={i}
-                        initial={{ y: -50 }}
-                        animate={{ y: ["-50%", "100%"] }}
-                        transition={{
-                          repeat: Infinity,
-                          duration: Math.random() * 2 + 2, // random speed
-                          delay: Math.random() * 2,
-                          ease: "linear",
-                        }}
-                        style={{
-                          position: "absolute",
-                          top: 0,
-                          left: `${Math.random() * 100}%`,
-                          width: 2,
-                          height: Math.random() * 15 + 10,
-                          background: "rgba(255,255,255,0.3)",
-                          borderRadius: "50%",
-                        }}
-                      />
-                    ))}
-                  </Box>
+                    📢 Announcements
+                  </Typography>
 
-                  {/* Announcement Cards */}
-                  <Stack
-                    direction={{ xs: "column", sm: "row" }}
-                    spacing={4}
-                    sx={{ overflowX: "auto", position: "relative", zIndex: 1 }}
+                  <Box
+                    sx={{
+                      position: "relative",
+                      "&::before": {
+                        content: '""',
+                        position: "absolute",
+                        left: { xs: 20, sm: 40 },
+                        top: 0,
+                        bottom: 0,
+                        width: "4px",
+                        bgcolor: "success.light",
+                        borderRadius: "2px",
+                      },
+                      pl: { xs: 6, sm: 10 },
+                    }}
                   >
-                    {announcements.length > 0 && (
-                      <Box sx={{ position: "relative", mt: 6 }}>
-                        <motion.div
-                          animate={{ y: [0, -10, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 3,
-                            ease: "easeInOut",
-                          }}
-                          style={{
+                    {announcements.map((a, index) => (
+                      <motion.div
+                        key={a._id}
+                        initial={{ opacity: 0, x: -20 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ duration: 0.5, delay: index * 0.1 }}
+                        whileHover={{ scale: 1.02 }}
+                        style={{
+                          position: "relative",
+                          marginBottom: "32px",
+                          cursor: "default",
+                        }}
+                      >
+                        {/* Timeline Dot */}
+                        <Box
+                          sx={{
                             position: "absolute",
-                            top: -40,
-                            left: -60,
-                            width: 100,
-                            height: 100,
+                            left: { xs: 12, sm: 32 },
+                            top: 0,
+                            width: 16,
+                            height: 16,
                             borderRadius: "50%",
-                            background: "rgba(255,255,255,0.1)",
-                            zIndex: 0,
-                          }}
-                        />
-                        <motion.div
-                          animate={{ x: [0, 15, -15, 0] }}
-                          transition={{
-                            repeat: Infinity,
-                            duration: 5,
-                            ease: "easeInOut",
-                          }}
-                          style={{
-                            position: "absolute",
-                            bottom: -50,
-                            right: -50,
-                            width: 120,
-                            height: 120,
-                            borderRadius: "50%",
-                            background: "rgba(255,255,255,0.15)",
-                            zIndex: 0,
+                            bgcolor: "success.main",
+                            border: "3px solid #fff",
                           }}
                         />
 
-                        <Paper
-                          elevation={12}
+                        {/* Content */}
+                        <Box
                           sx={{
-                            borderRadius: 4,
-                            p: { xs: 3, md: 5 },
-                            background:
-                              "linear-gradient(135deg, #10b981 0%, #059669 100%)",
-                            color: "#fff",
-                            overflow: "hidden",
-                            position: "relative",
+                            ml: { xs: 4, sm: 6 },
+                            p: 2,
+                            borderRadius: 2,
+                            transition: "all 0.2s ease-in-out",
+                            "&:hover": {
+                              backgroundColor: "rgba(16, 185, 129, 0.1)",
+                            },
                           }}
                         >
-                          {announcements.map((a) => (
-                            <motion.div
-                              key={a._id}
-                              initial={{ scale: 0.95, opacity: 0 }}
-                              animate={{ scale: 1, opacity: 1 }}
-                              transition={{ duration: 0.8, ease: "easeOut" }}
-                              whileHover={{
-                                scale: 1.03,
-                                boxShadow: "0px 12px 24px rgba(0,0,0,0.3)",
-                              }}
-                              style={{
-                                marginBottom: "24px",
-                                padding: "20px",
-                                borderRadius: "16px",
-                                background: "rgba(255,255,255,0.1)",
-                                borderLeft: "6px solid #fff",
-                                backdropFilter: "blur(5px)",
-                              }}
-                            >
-                              <Typography
-                                variant="h5"
-                                sx={{
-                                  fontWeight: "bold",
-                                  mb: 1,
-                                  fontSize: "1.7rem",
-                                  letterSpacing: 0.5,
-                                  textShadow: "0 2px 4px rgba(0,0,0,0.3)",
-                                }}
-                              >
-                                📢 {a.title}
-                              </Typography>
+                          <Typography
+                            variant="subtitle1"
+                            sx={{
+                              fontWeight: 600,
+                              fontSize: { xs: "1rem", sm: "1.1rem" },
+                              display: "flex",
+                              alignItems: "center",
+                              gap: "6px",
+                            }}
+                          >
+                            {a.title}
+                          </Typography>
 
-                              <Typography
-                                variant="body1"
-                                sx={{
-                                  mb: 2,
-                                  fontSize: "1.2rem",
-                                  lineHeight: 1.6,
-                                  textShadow: "0 1px 3px rgba(0,0,0,0.2)",
-                                }}
-                              >
-                                {a.message}
-                              </Typography>
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              fontSize: { xs: "0.9rem", sm: "1rem" },
+                              lineHeight: 1.5,
+                              color: "#065f46",
+                            }}
+                          >
+                            {a.message}
+                          </Typography>
 
-                              {/* Animated Buttons */}
-                              <Stack
-                                direction={{ xs: "column", sm: "row" }}
-                                spacing={2}
-                                justifyContent="center"
+                          <Stack
+                            direction={{ xs: "column", sm: "row" }}
+                            spacing={1}
+                            sx={{ mt: 1 }}
+                          >
+                            {a.button === "whatsapp" && (
+                              <Button
+                                variant="outlined"
+                                color="success"
+                                size="small"
+                                href={
+                                  a.whatsappLink ||
+                                  "https://wa.me/2340000000000"
+                                }
+                                target="_blank"
                               >
-                                {a.button === "whatsapp" && (
-                                  <motion.div
-                                    whileHover={{ scale: 1.1 }}
-                                    transition={{
-                                      type: "spring",
-                                      stiffness: 300,
-                                    }}
-                                  >
-                                    <Button
-                                      variant="contained"
-                                      color="success"
-                                      href={
-                                        a.whatsappLink ||
-                                        "https://wa.me/2340000000000"
-                                      }
-                                      target="_blank"
-                                      sx={{
-                                        fontSize: "1rem",
-                                        fontWeight: "bold",
-                                        boxShadow:
-                                          "0px 4px 12px rgba(0,0,0,0.2)",
-                                      }}
-                                    >
-                                      WhatsApp
-                                    </Button>
-                                  </motion.div>
-                                )}
-                                {a.button === "telegram" && (
-                                  <motion.div
-                                    whileHover={{ scale: 1.1 }}
-                                    transition={{
-                                      type: "spring",
-                                      stiffness: 300,
-                                    }}
-                                  >
-                                    <Button
-                                      variant="contained"
-                                      color="secondary"
-                                      href={
-                                        a.telegramLink ||
-                                        "https://t.me/yourTelegramChannel"
-                                      }
-                                      target="_blank"
-                                      sx={{
-                                        fontSize: "1rem",
-                                        fontWeight: "bold",
-                                        boxShadow:
-                                          "0px 4px 12px rgba(0,0,0,0.2)",
-                                      }}
-                                    >
-                                      Telegram
-                                    </Button>
-                                  </motion.div>
-                                )}
-                                {a.button === "youtube" && (
-                                  <motion.div
-                                    whileHover={{ scale: 1.1 }}
-                                    transition={{
-                                      type: "spring",
-                                      stiffness: 300,
-                                    }}
-                                  >
-                                    <Button
-                                      variant="contained"
-                                      color="error"
-                                      href={
-                                        a.youtubeLink || "https://youtube.com"
-                                      }
-                                      target="_blank"
-                                      sx={{
-                                        fontSize: "1rem",
-                                        fontWeight: "bold",
-                                        boxShadow:
-                                          "0px 4px 12px rgba(0,0,0,0.2)",
-                                      }}
-                                    >
-                                      YouTube
-                                    </Button>
-                                  </motion.div>
-                                )}
-                              </Stack>
-                            </motion.div>
-                          ))}
-                        </Paper>
-                      </Box>
-                    )}
-                  </Stack>
+                                WhatsApp
+                              </Button>
+                            )}
+                            {a.button === "telegram" && (
+                              <Button
+                                variant="outlined"
+                                color="secondary"
+                                size="small"
+                                href={
+                                  a.telegramLink ||
+                                  "https://t.me/yourTelegramChannel"
+                                }
+                                target="_blank"
+                              >
+                                Telegram
+                              </Button>
+                            )}
+                            {a.button === "youtube" && (
+                              <Button
+                                variant="outlined"
+                                color="error"
+                                size="small"
+                                href={a.youtubeLink || "https://youtube.com"}
+                                target="_blank"
+                              >
+                                YouTube
+                              </Button>
+                            )}
+                          </Stack>
+                        </Box>
+                      </motion.div>
+                    ))}
+                  </Box>
                 </Box>
               )}
             </Paper>
