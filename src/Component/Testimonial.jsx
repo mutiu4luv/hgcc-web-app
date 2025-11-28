@@ -6,6 +6,8 @@ import {
   Paper,
   CircularProgress,
   Alert,
+  Button,
+  Stack,
 } from "@mui/material";
 import { motion } from "framer-motion";
 import axios from "axios";
@@ -15,9 +17,10 @@ import "slick-carousel/slick/slick-theme.css";
 
 const Testimonial = () => {
   const [videos, setVideos] = useState([]);
+  const [announcements, setAnnouncements] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
-  const sliderRef = useRef(null); // <-- add ref
+  const sliderRef = useRef(null);
 
   useEffect(() => {
     const fetchVideos = async () => {
@@ -25,27 +28,39 @@ const Testimonial = () => {
         const res = await axios.get(
           `${import.meta.env.VITE_BASE_URL}/api/videos`
         );
-        if (res.data.length > 0) {
-          setVideos(res.data);
-        }
+        if (res.data.length > 0) setVideos(res.data);
       } catch (err) {
         console.error("❌ Error fetching videos:", err);
         setError("Failed to load testimonial videos");
-      } finally {
-        setLoading(false);
       }
     };
 
-    fetchVideos();
+    const fetchAnnouncements = async () => {
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_BASE_URL}/api/announcement`
+        );
+        console.log("anouncement", res);
+        if (res.data.announcements?.length > 0) {
+          setAnnouncements(res.data.announcements);
+        }
+      } catch (err) {
+        console.error("❌ Error fetching announcements:", err);
+      }
+    };
+
+    Promise.all([fetchVideos(), fetchAnnouncements()]).finally(() =>
+      setLoading(false)
+    );
   }, []);
 
-  const settings = {
+  const sliderSettings = {
     dots: true,
     infinite: true,
     speed: 700,
     slidesToShow: 1,
     slidesToScroll: 1,
-    autoplay: false, // turn off auto play
+    autoplay: false,
     arrows: true,
     adaptiveHeight: true,
   };
@@ -59,6 +74,7 @@ const Testimonial = () => {
       }}
     >
       <Container maxWidth="md">
+        {/* TESTIMONIALS */}
         <Typography
           variant="h4"
           sx={{
@@ -87,8 +103,8 @@ const Testimonial = () => {
           ) : error ? (
             <Alert severity="error">{error}</Alert>
           ) : videos.length > 0 ? (
-            <Slider ref={sliderRef} {...settings}>
-              {videos.map((video, index) => (
+            <Slider ref={sliderRef} {...sliderSettings}>
+              {videos.map((video) => (
                 <motion.div
                   key={video._id}
                   initial={{ scale: 0.95, opacity: 0 }}
@@ -100,7 +116,7 @@ const Testimonial = () => {
                     sx={{
                       position: "relative",
                       width: "100%",
-                      paddingTop: "56.25%", // 16:9
+                      paddingTop: "56.25%",
                       overflow: "hidden",
                       borderRadius: 2,
                       boxShadow: "0px 4px 20px rgba(0,0,0,0.2)",
@@ -109,9 +125,9 @@ const Testimonial = () => {
                     <video
                       src={video.videoUrl}
                       controls
-                      onEnded={() => {
-                        if (sliderRef.current) sliderRef.current.slickNext();
-                      }}
+                      onEnded={() =>
+                        sliderRef.current && sliderRef.current.slickNext()
+                      }
                       style={{
                         position: "absolute",
                         top: 0,
@@ -125,11 +141,7 @@ const Testimonial = () => {
                   </Box>
                   <Typography
                     variant="h6"
-                    sx={{
-                      mt: 2,
-                      color: "green",
-                      fontWeight: "bold",
-                    }}
+                    sx={{ mt: 2, color: "green", fontWeight: "bold" }}
                   >
                     {video.title || "Student Testimonial"}
                   </Typography>
@@ -142,6 +154,61 @@ const Testimonial = () => {
             </Typography>
           )}
         </Paper>
+
+        {/* ANNOUNCEMENTS */}
+        {announcements.length > 0 && (
+          <Paper
+            elevation={6}
+            sx={{
+              borderRadius: 3,
+              p: { xs: 3, md: 4 },
+              mt: 6,
+              background: "linear-gradient(135deg, #10b981 0%, #3b82f6 100%)",
+              color: "#fff",
+            }}
+          >
+            {announcements.map((a) => (
+              <Box key={a._id} sx={{ mb: 3 }}>
+                <Typography variant="h5" sx={{ fontWeight: "bold", mb: 1 }}>
+                  📢 {a.title}
+                </Typography>
+                <Typography variant="body1" sx={{ mb: 2 }}>
+                  {a.message}
+                </Typography>
+                <Stack
+                  direction={{ xs: "column", sm: "row" }}
+                  spacing={2}
+                  justifyContent="center"
+                >
+                  <Button
+                    variant="contained"
+                    color="secondary"
+                    href="https://t.me/YourTelegramLink"
+                    target="_blank"
+                  >
+                    Telegram
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="error"
+                    href="https://www.youtube.com/YourYouTubeChannel"
+                    target="_blank"
+                  >
+                    YouTube
+                  </Button>
+                  <Button
+                    variant="contained"
+                    color="success"
+                    href="https://wa.me/YourWhatsAppNumber"
+                    target="_blank"
+                  >
+                    WhatsApp
+                  </Button>
+                </Stack>
+              </Box>
+            ))}
+          </Paper>
+        )}
       </Container>
     </Box>
   );

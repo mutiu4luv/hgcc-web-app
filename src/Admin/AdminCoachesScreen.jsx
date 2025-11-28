@@ -71,6 +71,12 @@ const CoachDashboard = () => {
   const [cohortId, setCohortId] = useState("");
   const [cohortCourses, setCohortCourses] = useState([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
+  const [coachTitle, setCoachTitle] = useState("");
+
+  const [coachDescription, setCoachDescription] = useState("");
+  const [coachCourseId, setCoachCourseId] = useState("");
+  const [coachDueDate, setCoachDueDate] = useState("");
+  const [coachMessage, setCoachMessage] = useState("");
 
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
@@ -89,6 +95,50 @@ const CoachDashboard = () => {
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
 
+  // create cohort assignment
+  const createCohortAssignmentUI = async () => {
+    try {
+      setCoachMessage("");
+
+      if (!coachTitle || !coachCourseId) {
+        setCoachMessage("Please enter a title and select a course.");
+        return;
+      }
+
+      const payload = {
+        cohortId,
+        courseId: coachCourseId,
+        title: coachTitle,
+        description: coachDescription,
+        dueDate: coachDueDate,
+      };
+
+      const res = await axios.post(`${BASE_URL}/api/assignment`, payload, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setCoachMessage("Assignment created successfully!");
+
+      // clear UI
+      setCoachTitle("");
+      setCoachDescription("");
+      setCoachCourseId("");
+      setCoachDueDate("");
+
+      loadAssignments();
+    } catch (err) {
+      setCoachMessage(
+        err.response?.data?.message || "Error creating assignment"
+      );
+    }
+  };
+
+  useEffect(() => {
+    if (!cohortId) return;
+    loadAssignments();
+    loadCohortCourses();
+  }, [cohortId]);
+
   useEffect(() => {
     // Fetch all cohorts for this coach
     const fetchCohorts = async () => {
@@ -103,6 +153,11 @@ const CoachDashboard = () => {
     };
     fetchCohorts();
   }, []);
+  useEffect(() => {
+    if (!cohortId) return; // Prevent blank calls
+    loadAssignments();
+    loadCohortCourses();
+  }, [cohortId]);
   // =========================
   // FETCH VIDEOS & DOCUMENTS
   // =========================
@@ -332,29 +387,17 @@ const CoachDashboard = () => {
 
   // Fetch courses in cohort
   const loadCohortCourses = async () => {
-    if (!cohortId) return;
     try {
-      const res = await axios.get(`${BASE_URL}/api/cohort/${cohortId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-
-      if (res.data.courses?.length) {
-        setCohortCourses(
-          res.data.courses.map((c) => ({
-            courseId: c.courseId._id,
-            name: c.courseId.name,
-            status: c.status,
-          }))
-        );
-        setSelectedCourseId(res.data.courses[0].courseId._id);
-      } else {
-        setCohortCourses([]);
-      }
-    } catch (err) {
-      console.error(
-        "Error fetching cohort courses:",
-        err?.response?.data || err
+      const res = await axios.get(
+        `${BASE_URL}/api/cohort/${cohortId}/courses`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
       );
+
+      setCohortCourses(res.data.courses || []);
+    } catch (err) {
+      console.error("Failed loading cohort courses:", err);
     }
   };
 
@@ -683,20 +726,18 @@ const CoachDashboard = () => {
               />
               <TextField
                 select
-                label="Select Course"
-                value={selectedCourseId}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
+                label="Select Your Course"
+                value={coachCourseId}
+                onChange={(e) => setCoachCourseId(e.target.value)}
                 fullWidth
               >
-                {cohortCourses.length === 0 ? (
-                  <MenuItem disabled>No courses available</MenuItem>
-                ) : (
-                  cohortCourses.map((c) => (
-                    <MenuItem key={c.courseId} value={c.courseId}>
-                      {c.name}
+                {cohortCourses
+                  ?.filter((c) => c.coachId?._id === user.id) // FIXED — compares ID to ID
+                  .map((c) => (
+                    <MenuItem key={c.courseId?._id} value={c.courseId?._id}>
+                      {c.courseId?.name}
                     </MenuItem>
-                  ))
-                )}
+                  ))}
               </TextField>
 
               <TextField
@@ -713,6 +754,78 @@ const CoachDashboard = () => {
               >
                 Create Assignment
               </Button>
+            </Box>
+
+            <Box sx={{ mb: 5 }}>
+              <Typography
+                variant="h4"
+                color="primary"
+                fontWeight="bold"
+                gutterBottom
+              >
+                ✏️ Create Assignment (Coach)
+              </Typography>
+
+              <Box
+                sx={{
+                  display: "flex",
+                  gap: 2,
+                  mb: 3,
+                  flexWrap: "wrap",
+                  alignItems: "center",
+                  "> .MuiTextField-root": { minWidth: 200, flex: 1 },
+                }}
+              >
+                <TextField
+                  label="Title"
+                  value={coachTitle}
+                  onChange={(e) => setCoachTitle(e.target.value)}
+                />
+
+                <TextField
+                  label="Description"
+                  value={coachDescription}
+                  onChange={(e) => setCoachDescription(e.target.value)}
+                />
+
+                <TextField
+                  select
+                  label="Select Your Course"
+                  value={coachCourseId}
+                  onChange={(e) => setCoachCourseId(e.target.value)}
+                  fullWidth
+                >
+                  {cohortCourses
+                    ?.filter((c) => c.coachId === user.id) // 🔥 only courses coached by logged-in coach
+                    .map((c) => (
+                      <MenuItem key={c.courseId} value={c.courseId}>
+                        {c.name}
+                      </MenuItem>
+                    ))}
+                </TextField>
+
+                <TextField
+                  type="date"
+                  label="Due Date"
+                  InputLabelProps={{ shrink: true }}
+                  value={coachDueDate}
+                  onChange={(e) => setCoachDueDate(e.target.value)}
+                />
+
+                <Button
+                  variant="contained"
+                  color="primary"
+                  onClick={createCohortAssignmentUI}
+                >
+                  Create Assignment
+                </Button>
+              </Box>
+
+              {coachMessage && (
+                <Typography color="green" sx={{ mb: 3 }}>
+                  {coachMessage}
+                </Typography>
+              )}
             </Box>
 
             {message && <Typography color="red">{message}</Typography>}
