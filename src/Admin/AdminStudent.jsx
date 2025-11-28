@@ -58,6 +58,9 @@ const StudentDashboard = () => {
   const [selectedCohort, setSelectedCohort] = useState("");
   const [cohortLoading, setCohortLoading] = useState(true);
   const [successModalOpen, setSuccessModalOpen] = useState(false);
+  const [openAssignmentModal, setOpenAssignmentModal] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [submittedFile, setSubmittedFile] = useState(null);
 
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
@@ -82,20 +85,68 @@ const StudentDashboard = () => {
     },
   ];
 
+  // Function to handle viewing or submitting assignment
+  const handleViewAssignment = (assignments) => {
+    setSelectedAssignment(assignments);
+    setSubmittedFile(null);
+    setOpenAssignmentModal(true);
+    // console.log(assignments);
+    // navigate(`/assignments/${assignments.id}`);
+  };
+
+  // submit assignment
+  const handleSubmitAssignment = async () => {
+    if (!submittedFile) {
+      alert("Please upload a file before submitting.");
+      return;
+    }
+
+    const formData = new FormData();
+    formData.append("file", submittedFile);
+
+    try {
+      const res = await axios.post(
+        `${BASE_URL}/api/assignment/${selectedAssignment.id}/submit`,
+        formData,
+        {
+          headers: {
+            "Content-Type": "multipart/form-data",
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert("Assignment submitted successfully!");
+      navigate("/student/dashboard");
+      setOpenAssignmentModal(false);
+    } catch (err) {
+      console.error(err);
+      alert("Error submitting assignment");
+    }
+  };
+
   // =========================
   // FETCH ASSIGNMENTS
   // =========================
-  const loadAssignments = async () => {
-    try {
-      const res = await axios.get(`${BASE_URL}/api/student/assignments`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAssignments(res.data);
-    } catch (err) {
-      console.error(err);
-      setMessage("Failed to load assignments");
-    }
-  };
+
+  // Loading assignments (ensure correct endpoint)
+  useEffect(() => {
+    const loadAssignments = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/assignment/student`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setAssignments(res.data.assignments || []);
+        console.log(res.data.assignments);
+      } catch (err) {
+        console.error(err);
+        setMessage("Failed to load assignments");
+        setAssignments([]);
+      }
+    };
+
+    loadAssignments();
+  }, [token]);
 
   // =========================
   // FETCH SUBMISSIONS
@@ -153,36 +204,12 @@ const StudentDashboard = () => {
 
     loadCourses();
     loadCoaches();
-    loadAssignments();
+    // loadAssignments();
   }, []);
 
   // =========================
   // SUBMIT ASSIGNMENT
   // =========================
-  const handleSubmitAssignment = async (e) => {
-    e.preventDefault();
-    if (!submissionTitle || !submissionFile)
-      return alert("Provide title and file");
-
-    const formData = new FormData();
-    formData.append("title", submissionTitle);
-    formData.append("file", submissionFile);
-
-    try {
-      setGlobalLoading(true);
-      await axios.post(`${BASE_URL}/api/student/upload-submission`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setMessage("✅ Submission uploaded successfully");
-      setSubmissionTitle("");
-      setSubmissionFile(null);
-      loadAssignments();
-    } catch {
-      setMessage("❌ Submission failed");
-    } finally {
-      setGlobalLoading(false);
-    }
-  };
 
   // =========================
   // SUBMIT FEEDBACK
@@ -425,6 +452,7 @@ const StudentDashboard = () => {
             </Box>
 
             {/* Bar Chart for assignments */}
+            {/* Bar Chart for assignments */}
             <Box sx={{ height: 300, mb: 4 }}>
               <Typography variant="h6" gutterBottom>
                 Assignment Status
@@ -433,8 +461,12 @@ const StudentDashboard = () => {
                 <DataGrid
                   rows={assignments.map((a, idx) => ({
                     id: idx,
-                    title: a.title,
-                    status: a.status,
+                    title: a.title || "Untitled",
+                    // normalize status safely
+                    status:
+                      a.status?.toLowerCase() === "submitted"
+                        ? "Submitted"
+                        : "Pending",
                   }))}
                   columns={[
                     { field: "title", headerName: "Assignment", width: 300 },
@@ -442,14 +474,22 @@ const StudentDashboard = () => {
                       field: "status",
                       headerName: "Status",
                       width: 200,
-                      renderCell: (params) => (
-                        <Typography
-                          color={params.value === "pending" ? "red" : "green"}
-                        >
-                          {params.value.charAt(0).toUpperCase() +
-                            params.value.slice(1)}
-                        </Typography>
-                      ),
+                      renderCell: (params) => {
+                        // fallback to "Pending" if value is undefined or null
+                        const value = params.value || "Pending";
+                        // render text directly without charAt
+                        return (
+                          <Typography
+                            color={
+                              value.toLowerCase() === "pending"
+                                ? "red"
+                                : "green"
+                            }
+                          >
+                            {value}
+                          </Typography>
+                        );
+                      },
                     },
                   ]}
                   pageSize={5}
@@ -569,7 +609,7 @@ const StudentDashboard = () => {
           </Paper>
         )}
 
-        {/* Assignments */}
+        {/* ASSIGNMENTS TAB */}
         {activeTab === "assignments" && (
           <Paper sx={{ p: 4 }}>
             <Typography
@@ -580,31 +620,161 @@ const StudentDashboard = () => {
             >
               🧾 My Assignments
             </Typography>
-            <div style={{ height: 500, width: "100%" }}>
-              <DataGrid
-                rows={assignments.map((a) => ({ id: a._id, ...a }))}
-                columns={[
-                  { field: "title", headerName: "Assignment", width: 300 },
-                  { field: "dueDate", headerName: "Due Date", width: 200 },
-                  {
-                    field: "status",
-                    headerName: "Status",
-                    width: 150,
-                    renderCell: (params) => (
-                      <Typography
-                        color={
-                          params.row.status === "pending" ? "red" : "green"
-                        }
-                      >
-                        {params.row.status.charAt(0).toUpperCase() +
-                          params.row.status.slice(1)}
-                      </Typography>
-                    ),
-                  },
-                ]}
-                pageSize={5}
-              />
-            </div>
+
+            {/* ==================== VIEW / SUBMIT MODAL ==================== */}
+            <Modal
+              open={openAssignmentModal}
+              onClose={() => setOpenAssignmentModal(false)}
+            >
+              <Box
+                sx={{
+                  width: "90%",
+                  maxWidth: 500,
+                  background: "#fff",
+                  p: 4,
+                  borderRadius: 4,
+                  mx: "auto",
+                  mt: 10,
+                  boxShadow: 4,
+                }}
+              >
+                {selectedAssignment ? (
+                  <>
+                    <Typography variant="h5" fontWeight="bold" color="green">
+                      {selectedAssignment.title}
+                    </Typography>
+
+                    <Typography sx={{ mt: 2 }}>
+                      <strong>Description:</strong>{" "}
+                      {selectedAssignment.description}
+                    </Typography>
+
+                    <Typography sx={{ mt: 1 }}>
+                      <strong>Course:</strong> {selectedAssignment.courseName}
+                    </Typography>
+
+                    <Typography sx={{ mt: 1 }}>
+                      <strong>Due Date:</strong>{" "}
+                      {selectedAssignment.dueDate
+                        ? new Date(
+                            selectedAssignment.dueDate
+                          ).toLocaleDateString()
+                        : "N/A"}
+                    </Typography>
+
+                    {/* Already Submitted */}
+                    {selectedAssignment.submittedFile ? (
+                      <Box sx={{ mt: 3 }}>
+                        <Typography color="green" fontWeight="bold">
+                          ✔ You already submitted this assignment
+                        </Typography>
+
+                        <Button
+                          sx={{ mt: 2 }}
+                          variant="contained"
+                          color="success"
+                          href={selectedAssignment.submittedFile}
+                          target="_blank"
+                        >
+                          View Submitted File
+                        </Button>
+                      </Box>
+                    ) : (
+                      <>
+                        {/* Upload File */}
+                        <Box sx={{ mt: 3 }}>
+                          <Typography fontWeight="bold">Upload File</Typography>
+                          <input
+                            type="file"
+                            style={{ marginTop: 10 }}
+                            onChange={(e) =>
+                              setSubmittedFile(e.target.files[0])
+                            }
+                          />
+                        </Box>
+
+                        <Button
+                          sx={{ mt: 3 }}
+                          variant="contained"
+                          color="success"
+                          fullWidth
+                          onClick={handleSubmitAssignment}
+                        >
+                          Submit Assignment
+                        </Button>
+                      </>
+                    )}
+
+                    <Button
+                      sx={{ mt: 2 }}
+                      fullWidth
+                      variant="outlined"
+                      color="error"
+                      onClick={() => setOpenAssignmentModal(false)}
+                    >
+                      Close
+                    </Button>
+                  </>
+                ) : (
+                  <Typography>Loading...</Typography>
+                )}
+              </Box>
+            </Modal>
+
+            {/* ==================== LIST OF ASSIGNMENTS ==================== */}
+            {!assignments || assignments.length === 0 ? (
+              <Typography sx={{ mt: 3, color: "gray", textAlign: "center" }}>
+                {message || "No assignments available."}
+              </Typography>
+            ) : (
+              <div style={{ width: "100%", overflowX: "auto" }}>
+                <DataGrid
+                  rows={assignments.map((a) => ({
+                    id: a._id,
+                    title: a.title,
+                    courseName: a.courseId?.name || "N/A",
+                    description: a.description,
+                    dueDate: a.dueDate
+                      ? new Date(a.dueDate).toLocaleDateString()
+                      : "N/A",
+                    submittedFile: a.submissions?.[0]?.fileUrl || null,
+                    status: a.submissions?.length > 0 ? "Submitted" : "Pending",
+                  }))}
+                  columns={[
+                    { field: "title", headerName: "Assignment", width: 250 },
+                    { field: "courseName", headerName: "Course", width: 180 },
+                    { field: "dueDate", headerName: "Due Date", width: 160 },
+                    {
+                      field: "status",
+                      headerName: "Status",
+                      width: 150,
+                      renderCell: (params) => (
+                        <Typography
+                          color={params.value === "Pending" ? "red" : "green"}
+                        >
+                          {params.value}
+                        </Typography>
+                      ),
+                    },
+                    {
+                      field: "actions",
+                      headerName: "Actions",
+                      width: 220,
+                      renderCell: (params) => (
+                        <Button
+                          variant="contained"
+                          color="success"
+                          size="small"
+                          onClick={() => handleViewAssignment(params.row)}
+                        >
+                          View Details / Submit
+                        </Button>
+                      ),
+                    },
+                  ]}
+                />
+              </div>
+            )}
           </Paper>
         )}
 
@@ -660,7 +830,7 @@ const StudentDashboard = () => {
         )}
 
         {/* Register Course */}
-        {/* Register Course */}
+
         {activeTab === "register-course" && (
           <Paper sx={{ p: 4 }}>
             {cohortLoading ? (
