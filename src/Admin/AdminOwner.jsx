@@ -49,6 +49,7 @@ import {
   ManageAccounts,
   Menu as MenuIcon,
   Close as CloseIcon,
+  Announcement,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -108,10 +109,93 @@ const AdminOwner = () => {
 
   const [loadingCohorts, setLoadingCohorts] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
+  const [buttonType, setButtonType] = useState(""); // whatsapp / telegram / youtube
+  const [buttonLink, setButtonLink] = useState("");
+  const [success, setSuccess] = useState("");
+
+  const [announcements, setAnnouncements] = useState([]);
+  const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
 
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+  // fetch announcements
+  useEffect(() => {
+    const fetchAnnouncements = async () => {
+      setLoadingAnnouncements(true);
+      try {
+        const res = await axios.get(
+          `${import.meta.env.VITE_BASE_URL}/api/announcement`
+        );
+        setAnnouncements(res.data.announcements || []);
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setLoadingAnnouncements(false);
+      }
+    };
+
+    fetchAnnouncements();
+  }, []);
+
+  // DELETE announcement
+  const handleDelete = async (id) => {
+    if (!window.confirm("Are you sure you want to delete this announcement?"))
+      return;
+
+    try {
+      await axios.delete(
+        `${import.meta.env.VITE_BASE_URL}/api/announcement/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` }, // CEO token
+        }
+      );
+      setAnnouncements(announcements.filter((a) => a._id !== id));
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to delete announcement");
+    }
+  };
+
+  // handle submit announcement
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError("");
+    setSuccess("");
+
+    try {
+      const res = await axios.post(
+        `${import.meta.env.VITE_BASE_URL}/api/announcement`,
+        {
+          title,
+          message,
+          button: buttonType,
+          whatsappLink: buttonType === "whatsapp" ? buttonLink : undefined,
+          telegramLink: buttonType === "telegram" ? buttonLink : undefined,
+          youtubeLink: buttonType === "youtube" ? buttonLink : undefined,
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`, // CEO token required
+          },
+        }
+      );
+
+      setSuccess("Announcement created successfully!");
+      setTitle("");
+      setMessage("");
+      setButtonType("");
+      setButtonLink("");
+    } catch (err) {
+      console.error(err);
+      setError(err.response?.data?.message || "Failed to create announcement");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchPendingStudents = async () => {
     setLoading(true);
@@ -501,6 +585,11 @@ const AdminOwner = () => {
     { text: "Coaches", icon: <School />, key: "coaches" },
     { text: "Create Cohort", icon: <School />, key: "create-cohort" },
     { text: "Confirm Payment", icon: <School />, key: "confirm-payment" },
+    {
+      text: "Create Announcement",
+      icon: <Announcement />,
+      key: "create-announcement",
+    },
     { text: "Owner Tools", icon: <ManageAccounts />, key: "owner" },
   ];
 
@@ -1729,6 +1818,152 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
+
+        {/* {/* === Create Announcement === */}
+        {activeTab === "create-announcement" && (
+          <Container>
+            <Paper sx={{ p: 4, borderRadius: 4, mb: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                📢 Create Announcement
+              </Typography>
+
+              {/* Form */}
+              <Box
+                component="form"
+                sx={{ display: "flex", flexDirection: "column", gap: 3 }}
+                onSubmit={handleSubmit}
+              >
+                {/* Title */}
+                <TextField
+                  label="Announcement Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+
+                {/* Message */}
+                <TextField
+                  label="Message"
+                  value={message}
+                  onChange={(e) => setMessage(e.target.value)}
+                  required
+                  multiline
+                  rows={4}
+                />
+
+                {/* Select Button Type */}
+                <TextField
+                  select
+                  label="Button Type (Optional)"
+                  value={buttonType}
+                  onChange={(e) => setButtonType(e.target.value)}
+                >
+                  <MenuItem value="">None</MenuItem>
+                  <MenuItem value="whatsapp">WhatsApp</MenuItem>
+                  <MenuItem value="telegram">Telegram</MenuItem>
+                  <MenuItem value="youtube">YouTube</MenuItem>
+                </TextField>
+                {/* Link Input (conditional) */}
+                {buttonType && (
+                  <TextField
+                    label="Button Link"
+                    value={buttonLink}
+                    onChange={(e) => setButtonLink(e.target.value)}
+                    required
+                  />
+                )}
+
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="success"
+                  sx={{ width: "200px", alignSelf: "flex-start" }}
+                  disabled={loading}
+                >
+                  {loading ? "Creating..." : "Create Announcement"}
+                </Button>
+
+                {/* Feedback */}
+                {success && <Alert severity="success">{success}</Alert>}
+                {error && <Alert severity="error">{error}</Alert>}
+              </Box>
+            </Paper>
+
+            {/* Existing Announcements */}
+            <Paper sx={{ p: 4, borderRadius: 4 }}>
+              <Typography
+                variant="h5"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                📰 Existing Announcements
+              </Typography>
+
+              {loadingAnnouncements ? (
+                <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : announcements.length === 0 ? (
+                <Typography sx={{ textAlign: "center", color: "gray" }}>
+                  No announcements yet.
+                </Typography>
+              ) : (
+                announcements.map((a) => (
+                  <Box
+                    key={a._id}
+                    sx={{
+                      mb: 3,
+                      p: 2,
+                      border: "1px solid #d1fae5",
+                      borderRadius: 2,
+                      position: "relative",
+                    }}
+                  >
+                    <Typography variant="h6" fontWeight="bold">
+                      {a.title}
+                    </Typography>
+                    <Typography variant="body1" sx={{ mb: 1 }}>
+                      {a.message}
+                    </Typography>
+                    {a.button && (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        href={
+                          a.button === "whatsapp"
+                            ? a.whatsappLink
+                            : a.button === "telegram"
+                            ? a.telegramLink
+                            : a.youtubeLink
+                        }
+                        target="_blank"
+                      >
+                        {a.button.charAt(0).toUpperCase() + a.button.slice(1)}
+                      </Button>
+                    )}
+                    {/* Delete Icon */}
+                    <Button
+                      variant="text"
+                      color="error"
+                      sx={{ position: "absolute", top: 8, right: 8 }}
+                      onClick={() => handleDelete(a._id)}
+                    >
+                      Delete
+                    </Button>
+                  </Box>
+                ))
+              )}
+            </Paper>
+          </Container>
+        )}
+
         {/* === Owner Tools === */}
         {activeTab === "owner" && (
           <Container>
