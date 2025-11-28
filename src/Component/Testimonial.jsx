@@ -40,7 +40,7 @@ const Testimonial = () => {
         const res = await axios.get(
           `${import.meta.env.VITE_BASE_URL}/api/announcement`
         );
-        console.log("anouncement", res);
+        console.log("announcement", res);
         if (res.data.announcements?.length > 0) {
           setAnnouncements(res.data.announcements);
         }
