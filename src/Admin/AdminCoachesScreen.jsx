@@ -295,8 +295,8 @@ const CoachDashboard = () => {
 
   // Create new assignment
   const createAssignment = async () => {
-    if (!newTitle || !selectedCourseId) {
-      setMessage("Title and Course are required");
+    if (!newTitle) {
+      setMessage("Title is required");
       return;
     }
 
@@ -305,13 +305,13 @@ const CoachDashboard = () => {
         `${BASE_URL}/api/assignment`,
         {
           cohortId,
-          courseId: selectedCourseId,
           title: newTitle,
           description: newDescription,
           dueDate: newDueDate,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+      console.log("Assignment created successfully");
       setNewTitle("");
       setNewDescription("");
       setNewDueDate("");
@@ -711,7 +711,7 @@ const CoachDashboard = () => {
                 mb: 3,
                 flexWrap: "wrap",
                 alignItems: "center",
-                "> .MuiTextField-root": { minWidth: 200, flex: 1 }, // ensure all fields have min width & expand
+                "> .MuiTextField-root": { minWidth: 200, flex: 1 },
               }}
             >
               <TextField
@@ -725,38 +725,31 @@ const CoachDashboard = () => {
                 onChange={(e) => setNewDescription(e.target.value)}
               />
               <TextField
-                select
-                label="Select Your Course"
-                value={coachCourseId}
-                onChange={(e) => setCoachCourseId(e.target.value)}
-                fullWidth
-              >
-                {cohortCourses
-                  ?.filter((c) => c.coachId?._id === user.id) // FIXED — compares ID to ID
-                  .map((c) => (
-                    <MenuItem key={c.courseId?._id} value={c.courseId?._id}>
-                      {c.courseId?.name}
-                    </MenuItem>
-                  ))}
-              </TextField>
-
-              <TextField
                 type="date"
                 label="Due Date"
                 InputLabelProps={{ shrink: true }}
                 value={newDueDate}
                 onChange={(e) => setNewDueDate(e.target.value)}
               />
+
               <Button
                 variant="contained"
                 color="success"
                 onClick={createAssignment}
+                disabled={!newTitle || !newDueDate} // course removed
               >
                 Create Assignment
               </Button>
             </Box>
 
-            {message && <Typography color="red">{message}</Typography>}
+            {message && (
+              <Typography
+                color={message.includes("success") ? "green" : "red"}
+                sx={{ mb: 2 }}
+              >
+                {message}
+              </Typography>
+            )}
 
             {/* Loader or DataGrid */}
             {assignmentsLoading ? (
@@ -776,18 +769,36 @@ const CoachDashboard = () => {
               <div style={{ height: 500, width: "100%" }}>
                 <DataGrid
                   rows={assignments.flatMap((a) =>
-                    a.submissions.map((s) => ({
-                      id: `${a._id}-${s.studentId?._id}`,
-                      assignmentId: a._id,
-                      studentId: s.studentId?._id,
-                      studentName: s.studentId?.fullName || "N/A",
-                      title: a.title,
-                      status: s.grade ? "approved" : "pending",
-                    }))
+                    (a.submissions || []).length > 0
+                      ? a.submissions.map((s) => ({
+                          id: `${a._id}-${s.student?._id || Math.random()}`,
+                          assignmentId: a._id,
+                          studentId: s.student?._id || null,
+                          studentName: s.student?.fullName || "N/A",
+                          title: a.title,
+                          status: s.grade ? "approved" : "pending",
+                          dueDate: a.dueDate
+                            ? new Date(a.dueDate).toLocaleDateString()
+                            : "N/A",
+                        }))
+                      : [
+                          {
+                            id: `${a._id}-no-submission`,
+                            assignmentId: a._id,
+                            studentId: null,
+                            studentName: "-",
+                            title: a.title,
+                            status: "pending",
+                            dueDate: a.dueDate
+                              ? new Date(a.dueDate).toLocaleDateString()
+                              : "N/A",
+                          },
+                        ]
                   )}
                   columns={[
                     { field: "studentName", headerName: "Student", width: 250 },
                     { field: "title", headerName: "Assignment", width: 300 },
+                    { field: "dueDate", headerName: "Due Date", width: 150 },
                     { field: "status", headerName: "Status", width: 150 },
                     {
                       field: "actions",
@@ -815,11 +826,13 @@ const CoachDashboard = () => {
                     },
                   ]}
                   pageSize={5}
+                  rowsPerPageOptions={[5]}
                 />
               </div>
             )}
           </Paper>
         )}
+
         {/* Students */}
         {activeTab === "students" && (
           <Paper sx={{ p: 4 }}>

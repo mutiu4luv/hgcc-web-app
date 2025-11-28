@@ -117,8 +117,28 @@ const StudentDashboard = () => {
       );
 
       alert("Assignment submitted successfully!");
-      navigate("/student/dashboard");
+
+      // Update state so dashboard reflects submission
+      setMySubmissions((prev) => [
+        ...prev,
+        {
+          assignmentId: selectedAssignment.id,
+          fileUrl: res.data.fileUrl,
+          submittedAt: new Date(),
+        },
+      ]);
+
+      // Update assignments state so table shows "Submitted"
+      setAssignments((prev) =>
+        prev.map((a) =>
+          a._id === selectedAssignment.id
+            ? { ...a, submissions: [{ fileUrl: res.data.fileUrl }] }
+            : a
+        )
+      );
+
       setOpenAssignmentModal(false);
+      setSubmittedFile(null);
     } catch (err) {
       console.error(err);
       alert("Error submitting assignment");
@@ -206,10 +226,6 @@ const StudentDashboard = () => {
     loadCoaches();
     // loadAssignments();
   }, []);
-
-  // =========================
-  // SUBMIT ASSIGNMENT
-  // =========================
 
   // =========================
   // SUBMIT FEEDBACK
@@ -451,7 +467,6 @@ const StudentDashboard = () => {
               </Paper>
             </Box>
 
-            {/* Bar Chart for assignments */}
             {/* Bar Chart for assignments */}
             <Box sx={{ height: 300, mb: 4 }}>
               <Typography variant="h6" gutterBottom>
@@ -739,6 +754,9 @@ const StudentDashboard = () => {
                       : "N/A",
                     submittedFile: a.submissions?.[0]?.fileUrl || null,
                     status: a.submissions?.length > 0 ? "Submitted" : "Pending",
+                    isExpired: a.dueDate
+                      ? new Date(a.dueDate) < new Date()
+                      : false, // flag for expired
                   }))}
                   columns={[
                     { field: "title", headerName: "Assignment", width: 250 },
@@ -760,16 +778,25 @@ const StudentDashboard = () => {
                       field: "actions",
                       headerName: "Actions",
                       width: 220,
-                      renderCell: (params) => (
-                        <Button
-                          variant="contained"
-                          color="success"
-                          size="small"
-                          onClick={() => handleViewAssignment(params.row)}
-                        >
-                          View Details / Submit
-                        </Button>
-                      ),
+                      renderCell: (params) => {
+                        const disabled =
+                          params.row.status === "Submitted" ||
+                          params.row.isExpired;
+
+                        return (
+                          <Button
+                            variant="contained"
+                            color="success"
+                            size="small"
+                            disabled={disabled}
+                            onClick={() => handleViewAssignment(params.row)}
+                          >
+                            {disabled
+                              ? "Not Available"
+                              : "View Details / Submit"}
+                          </Button>
+                        );
+                      },
                     },
                   ]}
                 />
