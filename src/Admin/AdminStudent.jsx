@@ -94,7 +94,7 @@ const StudentDashboard = () => {
     // navigate(`/assignments/${assignments.id}`);
   };
 
-  // submit assignment
+  // submit assignment by student
   const handleSubmitAssignment = async () => {
     if (!submittedFile) {
       alert("Please upload a file before submitting.");
@@ -118,21 +118,26 @@ const StudentDashboard = () => {
 
       alert("Assignment submitted successfully!");
 
-      // Update state so dashboard reflects submission
+      // Update user submissions
       setMySubmissions((prev) => [
         ...prev,
         {
           assignmentId: selectedAssignment.id,
           fileUrl: res.data.fileUrl,
-          submittedAt: new Date(),
+          submittedAt: res.data.submittedAt,
         },
       ]);
 
-      // Update assignments state so table shows "Submitted"
+      // Update assignment list so UI shows 'Submitted'
       setAssignments((prev) =>
         prev.map((a) =>
           a._id === selectedAssignment.id
-            ? { ...a, submissions: [{ fileUrl: res.data.fileUrl }] }
+            ? {
+                ...a,
+                submissions: [{ fileUrl: res.data.fileUrl }],
+                submittedFile: res.data.fileUrl,
+                status: "Submitted",
+              }
             : a
         )
       );
@@ -141,7 +146,7 @@ const StudentDashboard = () => {
       setSubmittedFile(null);
     } catch (err) {
       console.error(err);
-      alert("Error submitting assignment");
+      alert(err?.response?.data?.message || "Error submitting assignment");
     }
   };
 

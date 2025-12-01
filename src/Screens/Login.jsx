@@ -42,8 +42,8 @@ const LoginForm = () => {
       );
 
       const { token, user } = res.data;
-      console.log(res);
-      // ✅ Store token and user info
+
+      // Save token and basic user info
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem(
@@ -52,17 +52,28 @@ const LoginForm = () => {
       );
       localStorage.setItem("userPhoto", user.photo || "");
 
-      alert(res.data.message || "Login successful!");
-      window.dispatchEvent(new Event("userUpdated"));
+      if (user.role === "coach") {
+        const cohorts = user.cohorts || [];
+        localStorage.setItem("userCohorts", JSON.stringify(cohorts));
 
-      // ✅ Redirect based on role
-      if (user.role === "owner") {
+        // ✅ Pick the first available cohort as default
+        const availableCohort = cohorts.find((c) => c._id) || null;
+
+        if (availableCohort) {
+          localStorage.setItem("selectedCohortId", availableCohort._id);
+          navigate(`/coach/${availableCohort._id}`);
+        } else {
+          // fallback if no cohort exists
+          navigate("/coach");
+        }
+      } else if (user.role === "owner") {
         navigate("/owner");
-      } else if (user.role === "coach") {
-        navigate("/coach");
-      } else if (user.role === "student") {
+      } else {
         navigate("/student/dashboard");
       }
+
+      window.dispatchEvent(new Event("userUpdated"));
+      alert(res.data.message || "Login successful!");
     } catch (error) {
       console.error("❌ Login error:", error.response?.data || error);
       alert(error.response?.data?.message || "Login failed!");
