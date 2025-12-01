@@ -42,6 +42,7 @@ import {
 } from "recharts";
 import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
+import { useParams } from "react-router-dom";
 
 const drawerWidth = 250;
 
@@ -72,12 +73,20 @@ const CoachDashboard = () => {
   const [cohortCourses, setCohortCourses] = useState([]);
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [coachTitle, setCoachTitle] = useState("");
+  const [cohorts, setCohorts] = useState([]);
+  const [selectedCohortId, setSelectedCohortId] = useState("");
+
+  const [studentAssignments, setStudentAssignments] = useState([]);
+  const [studentAssignmentsLoading, setStudentAssignmentsLoading] =
+    useState(true);
 
   const [coachDescription, setCoachDescription] = useState("");
   const [coachCourseId, setCoachCourseId] = useState("");
   const [coachDueDate, setCoachDueDate] = useState("");
   const [coachMessage, setCoachMessage] = useState("");
 
+  const { cohortIds } = useParams();
+  console.log("COHORT ID FROM URL:", cohortId);
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
   const isMobile = useMediaQuery("(max-width:900px)");
@@ -95,69 +104,51 @@ const CoachDashboard = () => {
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
 
-  // create cohort assignment
-  const createCohortAssignmentUI = async () => {
+  // ========================= // FETCH  ASSIGNMENT DONE BY STUDENT // =========================
+  const loadStudentAssignments = async () => {
+    setStudentAssignmentsLoading(true);
     try {
-      setCoachMessage("");
-
-      if (!coachTitle || !coachCourseId) {
-        setCoachMessage("Please enter a title and select a course.");
-        return;
-      }
-
-      const payload = {
-        cohortId,
-        courseId: coachCourseId,
-        title: coachTitle,
-        description: coachDescription,
-        dueDate: coachDueDate,
-      };
-
-      const res = await axios.post(`${BASE_URL}/api/assignment`, payload, {
+      const res = await axios.get(`${BASE_URL}/api/assignment/student/`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-
-      setCoachMessage("Assignment created successfully!");
-
-      // clear UI
-      setCoachTitle("");
-      setCoachDescription("");
-      setCoachCourseId("");
-      setCoachDueDate("");
-
-      loadAssignments();
+      setStudentAssignments(res.data.assignments || []);
+      console.log(res.data.assignments);
     } catch (err) {
-      setCoachMessage(
-        err.response?.data?.message || "Error creating assignment"
+      console.error(
+        "Error fetching student assignments:",
+        err?.response?.data || err
       );
+      setMessage("Failed to load student assignments");
+    } finally {
+      setStudentAssignmentsLoading(false);
     }
   };
+  useEffect(() => {
+    loadStudentAssignments();
+  }, []);
 
   useEffect(() => {
-    if (!cohortId) return;
-    loadAssignments();
-    loadCohortCourses();
-  }, [cohortId]);
-
-  useEffect(() => {
-    // Fetch all cohorts for this coach
     const fetchCohorts = async () => {
       try {
-        const res = await axios.get(`${BASE_URL}/api/cohort/active-cohorts`, {
+        const res = await axios.get(`${BASE_URL}/api/cohort/available`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        if (res.data.cohorts.length > 0) setCohortId(res.data.cohorts[0]._id);
+        if (res.data?.cohorts?.length > 0) {
+          setCohorts(res.data.cohorts);
+          setSelectedCohortId(res.data.cohorts[0].cohortId); // correct field
+          setCohortId(res.data.cohorts[0].cohortId); // correct field
+          console.log("Fetched cohorts:", res.data.cohorts);
+        } else {
+          console.warn("No cohorts found in response", res.data);
+        }
       } catch (err) {
-        console.error(err);
+        console.error("Failed to fetch cohorts:", err);
       }
     };
+
     fetchCohorts();
   }, []);
-  useEffect(() => {
-    if (!cohortId) return; // Prevent blank calls
-    loadAssignments();
-    loadCohortCourses();
-  }, [cohortId]);
+
   // =========================
   // FETCH VIDEOS & DOCUMENTS
   // =========================
@@ -295,8 +286,8 @@ const CoachDashboard = () => {
 
   // Create new assignment
   const createAssignment = async () => {
-    if (!newTitle) {
-      setMessage("Title is required");
+    if (!newTitle || !selectedCohortId) {
+      setMessage("Title and cohort are required");
       return;
     }
 
@@ -304,14 +295,14 @@ const CoachDashboard = () => {
       await axios.post(
         `${BASE_URL}/api/assignment`,
         {
-          cohortId,
+          cohortId: selectedCohortId, // singular key
           title: newTitle,
           description: newDescription,
           dueDate: newDueDate,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
-      console.log("Assignment created successfully");
+
       setNewTitle("");
       setNewDescription("");
       setNewDueDate("");
@@ -323,7 +314,7 @@ const CoachDashboard = () => {
     }
   };
 
-  // ========================= // FETCH STUDENTS // =========================
+  // ========================= // FETCH COACH STUDENTS // =========================
   useEffect(() => {
     const loadStudents = async () => {
       console.log("📡 Fetching students...");
@@ -714,6 +705,28 @@ const CoachDashboard = () => {
                 "> .MuiTextField-root": { minWidth: 200, flex: 1 },
               }}
             >
+              {/* ✅ Cohort Dropdown */}
+              <TextField
+                select
+                label="Select Cohort"
+                value={selectedCohortId}
+                onChange={(e) => {
+                  setSelectedCohortId(e.target.value);
+                  setCohortId(e.target.value);
+                }}
+                fullWidth
+              >
+                {cohorts.length === 0 ? (
+                  <MenuItem disabled>No cohorts available</MenuItem>
+                ) : (
+                  cohorts.map((c) => (
+                    <MenuItem key={c.cohortId} value={c.cohortId}>
+                      {c.cohortName}
+                    </MenuItem>
+                  ))
+                )}
+              </TextField>
+
               <TextField
                 label="Title"
                 value={newTitle}
@@ -736,20 +749,59 @@ const CoachDashboard = () => {
                 variant="contained"
                 color="success"
                 onClick={createAssignment}
-                disabled={!newTitle || !newDueDate} // course removed
+                disabled={!newTitle || !newDueDate || !selectedCohortId} // disable if no cohort
               >
                 Create Assignment
               </Button>
             </Box>
+            <Typography
+              variant="h4"
+              color="green"
+              fontWeight="bold"
+              gutterBottom
+            >
+              🧾 My Assignments
+            </Typography>
 
-            {message && (
+            {studentAssignmentsLoading ? (
+              <CircularProgress size={60} color="success" />
+            ) : studentAssignments.length === 0 ? (
+              <Typography>No assignments assigned yet.</Typography>
+            ) : (
+              <div style={{ height: 500, width: "100%" }}>
+                <DataGrid
+                  rows={studentAssignments.map((a) => ({
+                    id: a._id,
+                    title: a.title,
+                    description: a.description,
+                    dueDate: a.dueDate
+                      ? new Date(a.dueDate).toLocaleDateString()
+                      : "N/A",
+                    status: a.grade ? "Completed" : "Pending",
+                  }))}
+                  columns={[
+                    { field: "title", headerName: "Title", width: 300 },
+                    {
+                      field: "description",
+                      headerName: "Description",
+                      width: 400,
+                    },
+                    { field: "dueDate", headerName: "Due Date", width: 150 },
+                    { field: "status", headerName: "Status", width: 150 },
+                  ]}
+                  pageSize={5}
+                />
+              </div>
+            )}
+
+            {/* {message && (
               <Typography
                 color={message.includes("success") ? "green" : "red"}
                 sx={{ mb: 2 }}
               >
                 {message}
               </Typography>
-            )}
+            )} */}
 
             {/* Loader or DataGrid */}
             {assignmentsLoading ? (
