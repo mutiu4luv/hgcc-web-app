@@ -52,7 +52,7 @@ const ConfirmCode = () => {
         localStorage.setItem("userPhoto", user.profilePhoto);
 
       alert(res.data.message || "Account verified successfully!");
-      navigate("/dashboard");
+      navigate("/student/dashboard");
     } catch (error) {
       console.error("❌ Verification failed:", error.response?.data || error);
       alert(error.response?.data?.message || "Invalid or expired code!");

@@ -80,10 +80,10 @@ const CoachDashboard = () => {
   const [studentAssignmentsLoading, setStudentAssignmentsLoading] =
     useState(true);
 
-  const [coachDescription, setCoachDescription] = useState("");
-  const [coachCourseId, setCoachCourseId] = useState("");
-  const [coachDueDate, setCoachDueDate] = useState("");
-  const [coachMessage, setCoachMessage] = useState("");
+  const [openAssignmentModal, setOpenAssignmentModal] = useState(false);
+  const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [gradeInput, setGradeInput] = useState("");
+  const [gradingLoading, setGradingLoading] = useState(false);
 
   const { cohortIds } = useParams();
   console.log("COHORT ID FROM URL:", cohortId);
@@ -103,6 +103,41 @@ const CoachDashboard = () => {
     { text: "Students", icon: <School />, key: "students" },
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
+  //open assignment modal
+
+  const handleOpenAssignmentModal = (assignment, submission) => {
+    setSelectedAssignment({ ...assignment, submission });
+    setGradeInput(submission?.grade || "");
+    setOpenAssignmentModal(true);
+  };
+  // close assignment modal
+  const handleCloseAssignmentModal = () => {
+    setSelectedAssignment(null);
+    setGradeInput("");
+    setOpenAssignmentModal(false);
+  };
+
+  // submit grade
+  const submitGrade = async () => {
+    if (!gradeInput || !selectedAssignment) return;
+
+    try {
+      setGradingLoading(true);
+      await axios.put(
+        `${BASE_URL}/api/assignment/grade/${selectedAssignment.assignmentId}/${selectedAssignment.submission.studentId}`,
+        { grade: gradeInput },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setMessage("✅ Grade submitted successfully");
+      handleCloseAssignmentModal();
+      loadAssignments(); // refresh assignments list
+    } catch (err) {
+      console.error("Failed to submit grade:", err?.response?.data || err);
+      setMessage("❌ Failed to submit grade");
+    } finally {
+      setGradingLoading(false);
+    }
+  };
 
   // ========================= // FETCH  ASSIGNMENT DONE BY STUDENT // =========================
   const loadStudentAssignments = async () => {
@@ -401,6 +436,53 @@ const CoachDashboard = () => {
     loadCohortCourses();
   }, [BASE_URL, token, cohortId]);
 
+  if (globalLoading) {
+    return (
+      <Box
+        sx={{
+          height: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          bgcolor: "#f0fdf4",
+        }}
+      >
+        <CircularProgress size={80} color="success" />
+      </Box>
+    );
+  }
+
+  // ========================= // ASSIGNMENTS TAB =========================
+
+  const assignmentRows = assignments.flatMap((a) =>
+    (a.submissions || []).length > 0
+      ? a.submissions.map((s) => ({
+          id: `${a._id}-${s.student?._id}`,
+          assignmentId: a._id,
+          studentId: s.student?._id,
+          studentName: s.student?.fullName || "N/A",
+          title: a.title,
+          dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
+          status: s.grade ? "approved" : "pending",
+          submission: s,
+        }))
+      : [
+          {
+            id: `${a._id}-no-submission`,
+            assignmentId: a._id,
+            studentId: null,
+            studentName: "-",
+            title: a.title,
+            dueDate: a.dueDate
+              ? new Date(a.dueDate).toLocaleDateString()
+              : "N/A",
+            status: "pending",
+            submission: null,
+          },
+        ]
+  );
+
+  // ========================= RENDER =========================
   if (globalLoading) {
     return (
       <Box
@@ -758,6 +840,7 @@ const CoachDashboard = () => {
                 Create Assignment
               </Button>
             </Box>
+
             <Typography
               variant="h4"
               color="green"
@@ -799,13 +882,13 @@ const CoachDashboard = () => {
             )}
 
             {/* {message && (
-              <Typography
-                color={message.includes("success") ? "green" : "red"}
-                sx={{ mb: 2 }}
-              >
-                {message}
-              </Typography>
-            )} */}
+      <Typography
+        color={message.includes("success") ? "green" : "red"}
+        sx={{ mb: 2 }}
+      >
+        {message}
+      </Typography>
+    )} */}
 
             {/* Loader or DataGrid */}
             {assignmentsLoading ? (
@@ -836,6 +919,7 @@ const CoachDashboard = () => {
                           dueDate: a.dueDate
                             ? new Date(a.dueDate).toLocaleDateString()
                             : "N/A",
+                          submission: s,
                         }))
                       : [
                           {
@@ -848,6 +932,7 @@ const CoachDashboard = () => {
                             dueDate: a.dueDate
                               ? new Date(a.dueDate).toLocaleDateString()
                               : "N/A",
+                            submission: null,
                           },
                         ]
                   )}
@@ -860,25 +945,23 @@ const CoachDashboard = () => {
                       field: "actions",
                       headerName: "Actions",
                       width: 180,
-                      renderCell: (params) =>
-                        params.row.status === "pending" ? (
-                          <Button
-                            variant="contained"
-                            size="small"
-                            startIcon={<CheckCircle />}
-                            onClick={() =>
-                              approveAssignment(
-                                params.row.assignmentId,
-                                params.row.studentId
-                              )
-                            }
-                            sx={{ bgcolor: "#10b981" }}
-                          >
-                            Approve
-                          </Button>
-                        ) : (
-                          <Typography color="green">Approved</Typography>
-                        ),
+                      renderCell: (params) => (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          sx={{ bgcolor: "#10b981" }}
+                          onClick={() =>
+                            handleOpenAssignmentModal(
+                              assignments.find(
+                                (a) => a._id === params.row.assignmentId
+                              ),
+                              params.row.submission
+                            )
+                          }
+                        >
+                          View & Grade
+                        </Button>
+                      ),
                     },
                   ]}
                   pageSize={5}
@@ -886,6 +969,71 @@ const CoachDashboard = () => {
                 />
               </div>
             )}
+
+            {/* ==================== Assignment Modal ==================== */}
+            <Drawer
+              anchor="right"
+              open={openAssignmentModal}
+              onClose={handleCloseAssignmentModal}
+              PaperProps={{ sx: { width: { xs: "90%", md: 500 }, p: 3 } }}
+            >
+              {selectedAssignment && (
+                <>
+                  <Box
+                    sx={{
+                      display: "flex",
+                      justifyContent: "space-between",
+                      mb: 2,
+                    }}
+                  >
+                    <Typography variant="h6">Grade Assignment</Typography>
+                    <IconButton onClick={handleCloseAssignmentModal}>
+                      <CloseIcon />
+                    </IconButton>
+                  </Box>
+
+                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                    {selectedAssignment.title}
+                  </Typography>
+
+                  <Typography variant="body2" sx={{ mb: 2 }}>
+                    {selectedAssignment.submission?.file ? (
+                      <a
+                        href={selectedAssignment.submission.file}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                      >
+                        View Submitted Document
+                      </a>
+                    ) : (
+                      "No submission available"
+                    )}
+                  </Typography>
+
+                  <TextField
+                    label="Grade"
+                    fullWidth
+                    value={gradeInput}
+                    onChange={(e) => setGradeInput(e.target.value)}
+                    sx={{ mb: 2 }}
+                  />
+
+                  <Button
+                    variant="contained"
+                    color="success"
+                    fullWidth
+                    onClick={submitGrade}
+                    disabled={gradingLoading}
+                  >
+                    {gradingLoading ? (
+                      <CircularProgress size={24} />
+                    ) : (
+                      "Submit Grade"
+                    )}
+                  </Button>
+                </>
+              )}
+            </Drawer>
           </Paper>
         )}
 
