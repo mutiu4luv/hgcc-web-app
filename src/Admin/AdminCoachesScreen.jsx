@@ -272,10 +272,14 @@ const CoachDashboard = () => {
   const loadAssignments = async () => {
     setAssignmentsLoading(true);
     try {
-      const res = await axios.get(`${BASE_URL}/api/assignment/${cohortId}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setAssignments(res.data);
+      const res = await axios.get(
+        `${BASE_URL}/api/assignment/coach-assignments`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setAssignments(res.data.assignments);
+      console.log("Fetched assignments:", res.data.assignments);
     } catch (err) {
       console.error("Error fetching assignments:", err?.response?.data || err);
       setMessage("Failed to load assignments");
