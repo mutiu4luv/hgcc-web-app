@@ -118,13 +118,13 @@ const CoachDashboard = () => {
   };
 
   // submit grade
-  const submitGrade = async () => {
-    if (!gradeInput || !selectedAssignment) return;
+  const submitGrade = async (studentId) => {
+    if (!gradeInput || !selectedAssignment || !studentId) return;
 
     try {
       setGradingLoading(true);
       await axios.put(
-        `${BASE_URL}/api/assignment/grade/${selectedAssignment.assignmentId}/${selectedAssignment.submission.studentId}`,
+        `${BASE_URL}/api/assignment/grade/${selectedAssignment.assignmentId}/${studentId}`,
         { grade: gradeInput },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -910,12 +910,13 @@ const CoachDashboard = () => {
                   rows={assignments.flatMap((a) =>
                     (a.submissions || []).length > 0
                       ? a.submissions.map((s) => ({
-                          id: `${a._id}-${s.student?._id || Math.random()}`,
+                          id: `${a._id}-${s.studentId}`,
                           assignmentId: a._id,
-                          studentId: s.student?._id || null,
-                          studentName: s.student?.fullName || "N/A",
+                          studentId: s.studentId,
+                          studentName: s.studentName || "Unknown Student",
                           title: a.title,
-                          status: s.grade ? "approved" : "pending",
+                          status: s.grade !== null ? `${s.grade}%` : "Pending",
+                          isGraded: s.grade !== null,
                           dueDate: a.dueDate
                             ? new Date(a.dueDate).toLocaleDateString()
                             : "N/A",
@@ -928,7 +929,8 @@ const CoachDashboard = () => {
                             studentId: null,
                             studentName: "-",
                             title: a.title,
-                            status: "pending",
+                            status: "Pending",
+                            isGraded: false,
                             dueDate: a.dueDate
                               ? new Date(a.dueDate).toLocaleDateString()
                               : "N/A",
@@ -949,7 +951,12 @@ const CoachDashboard = () => {
                         <Button
                           variant="contained"
                           size="small"
-                          sx={{ bgcolor: "#10b981" }}
+                          sx={{
+                            bgcolor: params.row.isGraded
+                              ? "#94a3b8"
+                              : "#10b981",
+                          }}
+                          disabled={params.row.isGraded} // 👉 LOCK BUTTON IF GRADED
                           onClick={() =>
                             handleOpenAssignmentModal(
                               assignments.find(
@@ -959,7 +966,7 @@ const CoachDashboard = () => {
                             )
                           }
                         >
-                          View & Grade
+                          {params.row.isGraded ? "Graded" : "View & Grade"}
                         </Button>
                       ),
                     },
@@ -1010,20 +1017,34 @@ const CoachDashboard = () => {
                     )}
                   </Typography>
 
-                  <TextField
-                    label="Grade"
-                    fullWidth
-                    value={gradeInput}
-                    onChange={(e) => setGradeInput(e.target.value)}
-                    sx={{ mb: 2 }}
-                  />
+                  {selectedAssignment.submission?.grade !== null ? (
+                    <Alert severity="success" sx={{ mb: 2 }}>
+                      Grade: <b>{selectedAssignment.submission.grade}%</b>
+                    </Alert>
+                  ) : (
+                    <TextField
+                      label="Grade"
+                      fullWidth
+                      type="number"
+                      value={gradeInput}
+                      onChange={(e) => setGradeInput(e.target.value)}
+                      sx={{ mb: 2 }}
+                    />
+                  )}
 
                   <Button
                     variant="contained"
                     color="success"
                     fullWidth
-                    onClick={submitGrade}
-                    disabled={gradingLoading}
+                    disabled={
+                      gradingLoading ||
+                      selectedAssignment.submission?.grade !== null // 👉 LOCK IF GRADED
+                    }
+                    onClick={() =>
+                      submitGrade(
+                        submitGrade(selectedAssignment.submission?.studentId)
+                      )
+                    }
                   >
                     {gradingLoading ? (
                       <CircularProgress size={24} />

@@ -161,8 +161,15 @@ const StudentDashboard = () => {
         const res = await axios.get(`${BASE_URL}/api/assignment/student`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        setAssignments(res.data.assignments || []);
-        console.log(res.data.assignments);
+
+        // Sort most recent first
+        const sortedAssignments = res.data.assignments.sort((a, b) => {
+          const dateA = a.dueDate ? new Date(a.dueDate) : new Date(0);
+          const dateB = b.dueDate ? new Date(b.dueDate) : new Date(0);
+          return dateB - dateA; // most recent first
+        });
+
+        setAssignments(sortedAssignments);
       } catch (err) {
         console.error(err);
         setMessage("Failed to load assignments");
@@ -749,19 +756,26 @@ const StudentDashboard = () => {
             ) : (
               <div style={{ width: "100%", overflowX: "auto" }}>
                 <DataGrid
+                  getRowId={(row) =>
+                    row.assignmentId || row.title + Math.random()
+                  } // ensures unique id
                   rows={assignments.map((a) => ({
-                    id: a._id,
+                    assignmentId: a.assignmentId,
                     title: a.title,
-                    courseName: a.courseId?.name || "N/A",
+                    courseName: a.courseName || "N/A",
                     description: a.description,
                     dueDate: a.dueDate
                       ? new Date(a.dueDate).toLocaleDateString()
                       : "N/A",
-                    submittedFile: a.submissions?.[0]?.fileUrl || null,
-                    status: a.submissions?.length > 0 ? "Submitted" : "Pending",
+                    submittedFile: a.file || null,
+                    status:
+                      a.status?.toLowerCase() === "submitted"
+                        ? "Submitted"
+                        : "Pending",
+                    grade: a.grade || "-",
                     isExpired: a.dueDate
                       ? new Date(a.dueDate) < new Date()
-                      : false, // flag for expired
+                      : false,
                   }))}
                   columns={[
                     { field: "title", headerName: "Assignment", width: 250 },
@@ -770,10 +784,22 @@ const StudentDashboard = () => {
                     {
                       field: "status",
                       headerName: "Status",
-                      width: 150,
+                      width: 120,
                       renderCell: (params) => (
                         <Typography
                           color={params.value === "Pending" ? "red" : "green"}
+                        >
+                          {params.value}
+                        </Typography>
+                      ),
+                    },
+                    {
+                      field: "grade",
+                      headerName: "Grade",
+                      width: 100,
+                      renderCell: (params) => (
+                        <Typography
+                          color={params.value === "-" ? "gray" : "blue"}
                         >
                           {params.value}
                         </Typography>
@@ -804,6 +830,8 @@ const StudentDashboard = () => {
                       },
                     },
                   ]}
+                  pageSize={5}
+                  hideFooter
                 />
               </div>
             )}
