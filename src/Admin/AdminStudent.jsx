@@ -106,7 +106,7 @@ const StudentDashboard = () => {
 
     try {
       const res = await axios.post(
-        `${BASE_URL}/api/assignment/${selectedAssignment.id}/submit`,
+        `${BASE_URL}/api/assignment/${selectedAssignment.assignmentId}/submit`,
         formData,
         {
           headers: {
@@ -756,10 +756,9 @@ const StudentDashboard = () => {
             ) : (
               <div style={{ width: "100%", overflowX: "auto" }}>
                 <DataGrid
-                  getRowId={(row) =>
-                    row.assignmentId || row.title + Math.random()
-                  } // ensures unique id
+                  getRowId={(row) => row.assignmentId}
                   rows={assignments.map((a) => ({
+                    id: a.assignmentId,
                     assignmentId: a.assignmentId,
                     title: a.title,
                     courseName: a.courseName || "N/A",
@@ -781,6 +780,7 @@ const StudentDashboard = () => {
                     { field: "title", headerName: "Assignment", width: 250 },
                     { field: "courseName", headerName: "Course", width: 180 },
                     { field: "dueDate", headerName: "Due Date", width: 160 },
+
                     {
                       field: "status",
                       headerName: "Status",
@@ -793,6 +793,7 @@ const StudentDashboard = () => {
                         </Typography>
                       ),
                     },
+
                     {
                       field: "grade",
                       headerName: "Grade",
@@ -805,6 +806,7 @@ const StudentDashboard = () => {
                         </Typography>
                       ),
                     },
+
                     {
                       field: "actions",
                       headerName: "Actions",
