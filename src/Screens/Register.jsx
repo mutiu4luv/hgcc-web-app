@@ -77,8 +77,8 @@ const RegisterForm = () => {
     try {
       setLoading(true);
       const res = await axios.post(
-        alert("registration coming soon"),
-        // `${import.meta.env.VITE_BASE_URL}/api/users/register`,
+        // alert("registration coming soon"),
+        `${import.meta.env.VITE_BASE_URL}/api/users/register`,
         data,
         { headers: { "Content-Type": "multipart/form-data" } }
       );
