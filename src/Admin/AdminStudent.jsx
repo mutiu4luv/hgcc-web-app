@@ -60,6 +60,7 @@ const StudentDashboard = () => {
   const [successModalOpen, setSuccessModalOpen] = useState(false);
   const [openAssignmentModal, setOpenAssignmentModal] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
+  const [submittingAssignment, setSubmittingAssignment] = useState(false);
   const [submittedFile, setSubmittedFile] = useState(null);
 
   const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -100,6 +101,8 @@ const StudentDashboard = () => {
       alert("Please upload a file before submitting.");
       return;
     }
+
+    setSubmittingAssignment(true); // start submitting
 
     const formData = new FormData();
     formData.append("file", submittedFile);
@@ -147,6 +150,8 @@ const StudentDashboard = () => {
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.message || "Error submitting assignment");
+    } finally {
+      setSubmittingAssignment(false); // finished submitting
     }
   };
 
