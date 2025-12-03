@@ -733,8 +733,13 @@ const StudentDashboard = () => {
                           color="success"
                           fullWidth
                           onClick={handleSubmitAssignment}
+                          disabled={submittingAssignment} // disable during submission
                         >
-                          Submit Assignment
+                          {submittingAssignment ? (
+                            <CircularProgress size={24} color="inherit" />
+                          ) : (
+                            "Submit Assignment"
+                          )}
                         </Button>
                       </>
                     )}
@@ -784,6 +789,7 @@ const StudentDashboard = () => {
                           : "Pending",
                       grade: a.grade || "-",
                       isExpired,
+                      justSubmitted: a.justSubmitted || false, // flag after submission
                     };
                   })}
                   columns={[
@@ -830,7 +836,8 @@ const StudentDashboard = () => {
                       renderCell: (params) => {
                         const disabled =
                           params.row.status === "Submitted" ||
-                          params.row.isExpired;
+                          params.row.isExpired ||
+                          params.row.justSubmitted;
 
                         return (
                           <Button
@@ -841,7 +848,10 @@ const StudentDashboard = () => {
                             onClick={() => handleViewAssignment(params.row)}
                           >
                             {disabled
-                              ? params.row.isExpired
+                              ? params.row.justSubmitted ||
+                                params.row.status === "Submitted"
+                                ? "Submitted"
+                                : params.row.isExpired
                                 ? "Expired"
                                 : "Not Available"
                               : "View Details / Submit"}
