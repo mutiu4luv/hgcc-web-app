@@ -706,6 +706,13 @@ const StudentDashboard = () => {
                           View Submitted File
                         </Button>
                       </Box>
+                    ) : selectedAssignment.isExpired ? (
+                      <Typography
+                        color="red"
+                        sx={{ mt: 3, fontWeight: "bold" }}
+                      >
+                        ⚠ Assignment Expired
+                      </Typography>
                     ) : (
                       <>
                         {/* Upload File */}
@@ -757,25 +764,28 @@ const StudentDashboard = () => {
               <div style={{ width: "100%", overflowX: "auto" }}>
                 <DataGrid
                   getRowId={(row) => row.assignmentId}
-                  rows={assignments.map((a) => ({
-                    id: a.assignmentId,
-                    assignmentId: a.assignmentId,
-                    title: a.title,
-                    courseName: a.courseName || "N/A",
-                    description: a.description,
-                    dueDate: a.dueDate
-                      ? new Date(a.dueDate).toLocaleDateString()
-                      : "N/A",
-                    submittedFile: a.file || null,
-                    status:
-                      a.status?.toLowerCase() === "submitted"
-                        ? "Submitted"
-                        : "Pending",
-                    grade: a.grade || "-",
-                    isExpired: a.dueDate
-                      ? new Date(a.dueDate) < new Date()
-                      : false,
-                  }))}
+                  rows={assignments.map((a) => {
+                    const dueDate = a.dueDate ? new Date(a.dueDate) : null;
+                    const isExpired = dueDate ? dueDate < new Date() : false;
+
+                    return {
+                      id: a.assignmentId,
+                      assignmentId: a.assignmentId,
+                      title: a.title,
+                      courseName: a.courseName || "N/A",
+                      description: a.description,
+                      dueDate: dueDate ? dueDate.toLocaleDateString() : "N/A",
+                      submittedFile: a.file || null,
+                      status:
+                        a.status?.toLowerCase() === "submitted"
+                          ? "Submitted"
+                          : isExpired
+                          ? "Expired"
+                          : "Pending",
+                      grade: a.grade || "-",
+                      isExpired,
+                    };
+                  })}
                   columns={[
                     { field: "title", headerName: "Assignment", width: 250 },
                     { field: "courseName", headerName: "Course", width: 180 },
@@ -787,7 +797,13 @@ const StudentDashboard = () => {
                       width: 120,
                       renderCell: (params) => (
                         <Typography
-                          color={params.value === "Pending" ? "red" : "green"}
+                          color={
+                            params.value === "Pending"
+                              ? "red"
+                              : params.value === "Expired"
+                              ? "gray"
+                              : "green"
+                          }
                         >
                           {params.value}
                         </Typography>
@@ -825,7 +841,9 @@ const StudentDashboard = () => {
                             onClick={() => handleViewAssignment(params.row)}
                           >
                             {disabled
-                              ? "Not Available"
+                              ? params.row.isExpired
+                                ? "Expired"
+                                : "Not Available"
                               : "View Details / Submit"}
                           </Button>
                         );
