@@ -119,7 +119,10 @@ const CoachDashboard = () => {
 
   // submit grade
   const submitGrade = async (studentId) => {
-    if (!gradeInput || !selectedAssignment || !studentId) return;
+    if (!gradeInput || !selectedAssignment || !studentId) {
+      setMessage("❌ Missing grade or student ID");
+      return;
+    }
 
     try {
       setGradingLoading(true);
@@ -130,7 +133,7 @@ const CoachDashboard = () => {
       );
       setMessage("✅ Grade submitted successfully");
       handleCloseAssignmentModal();
-      loadAssignments(); // refresh assignments list
+      loadAssignments();
     } catch (err) {
       console.error("Failed to submit grade:", err?.response?.data || err);
       setMessage("❌ Failed to submit grade");
@@ -780,7 +783,7 @@ const CoachDashboard = () => {
               🧾 Student Assignments
             </Typography>
 
-            {/* Create Assignment Form */}
+            {/* ================= Create Assignment Form ================= */}
             <Box
               sx={{
                 display: "flex",
@@ -791,7 +794,6 @@ const CoachDashboard = () => {
                 "> .MuiTextField-root": { minWidth: 200, flex: 1 },
               }}
             >
-              {/* ✅ Cohort Dropdown */}
               <TextField
                 select
                 label="Select Cohort"
@@ -835,12 +837,13 @@ const CoachDashboard = () => {
                 variant="contained"
                 color="success"
                 onClick={createAssignment}
-                disabled={!newTitle || !newDueDate || !selectedCohortId} // disable if no cohort
+                disabled={!newTitle || !newDueDate || !selectedCohortId}
               >
                 Create Assignment
               </Button>
             </Box>
 
+            {/* ================= My Assignments DataGrid ================= */}
             <Typography
               variant="h4"
               color="green"
@@ -850,48 +853,7 @@ const CoachDashboard = () => {
               🧾 My Assignments
             </Typography>
 
-            {studentAssignmentsLoading ? (
-              <CircularProgress size={60} color="success" />
-            ) : studentAssignments.length === 0 ? (
-              <Typography>No assignments assigned yet.</Typography>
-            ) : (
-              <div style={{ height: 500, width: "100%" }}>
-                <DataGrid
-                  rows={studentAssignments.map((a) => ({
-                    id: a._id,
-                    title: a.title,
-                    description: a.description,
-                    dueDate: a.dueDate
-                      ? new Date(a.dueDate).toLocaleDateString()
-                      : "N/A",
-                    status: a.grade ? "Completed" : "Pending",
-                  }))}
-                  columns={[
-                    { field: "title", headerName: "Title", width: 300 },
-                    {
-                      field: "description",
-                      headerName: "Description",
-                      width: 400,
-                    },
-                    { field: "dueDate", headerName: "Due Date", width: 150 },
-                    { field: "status", headerName: "Status", width: 150 },
-                  ]}
-                  pageSize={5}
-                />
-              </div>
-            )}
-
-            {/* {message && (
-      <Typography
-        color={message.includes("success") ? "green" : "red"}
-        sx={{ mb: 2 }}
-      >
-        {message}
-      </Typography>
-    )} */}
-
-            {/* Loader or DataGrid */}
-            {assignmentsLoading ? (
+            {studentAssignmentsLoading || assignmentsLoading ? (
               <Box
                 sx={{
                   height: 400,
@@ -902,20 +864,22 @@ const CoachDashboard = () => {
               >
                 <CircularProgress size={60} color="success" />
               </Box>
-            ) : assignments.length === 0 ? (
+            ) : studentAssignments.length === 0 && assignments.length === 0 ? (
               <Typography>No assignments available yet.</Typography>
             ) : (
               <div style={{ height: 500, width: "100%" }}>
                 <DataGrid
                   rows={assignments.flatMap((a) =>
                     (a.submissions || []).length > 0
-                      ? a.submissions.map((s) => ({
-                          id: `${a._id}-${s.studentId}`,
+                      ? a.submissions.map((s, index) => ({
+                          id: `${a._id}-${s.studentId || index}`,
                           assignmentId: a._id,
-                          studentId: s.studentId,
-                          studentName: s.studentName || "Unknown Student",
+                          studentId: s.studentId || null,
+                          studentName: s.student?.fullName || "Unknown Student",
                           title: a.title,
-                          status: s.grade !== null ? `${s.grade}%` : "Pending",
+                          description: a.description,
+                          grade: s.grade !== null ? s.grade : "Not Graded",
+                          status: s.grade !== null ? "Completed" : "Pending",
                           isGraded: s.grade !== null,
                           dueDate: a.dueDate
                             ? new Date(a.dueDate).toLocaleDateString()
@@ -929,6 +893,8 @@ const CoachDashboard = () => {
                             studentId: null,
                             studentName: "-",
                             title: a.title,
+                            description: a.description,
+                            grade: "No submission",
                             status: "Pending",
                             isGraded: false,
                             dueDate: a.dueDate
@@ -939,9 +905,15 @@ const CoachDashboard = () => {
                         ]
                   )}
                   columns={[
-                    { field: "studentName", headerName: "Student", width: 250 },
-                    { field: "title", headerName: "Assignment", width: 300 },
+                    { field: "studentName", headerName: "Student", width: 200 },
+                    { field: "title", headerName: "Assignment", width: 250 },
+                    {
+                      field: "description",
+                      headerName: "Description",
+                      width: 300,
+                    },
                     { field: "dueDate", headerName: "Due Date", width: 150 },
+                    { field: "grade", headerName: "Grade", width: 120 },
                     { field: "status", headerName: "Status", width: 150 },
                     {
                       field: "actions",
@@ -956,7 +928,7 @@ const CoachDashboard = () => {
                               ? "#94a3b8"
                               : "#10b981",
                           }}
-                          disabled={params.row.isGraded} // 👉 LOCK BUTTON IF GRADED
+                          disabled={params.row.isGraded}
                           onClick={() =>
                             handleOpenAssignmentModal(
                               assignments.find(
@@ -1038,12 +1010,10 @@ const CoachDashboard = () => {
                     fullWidth
                     disabled={
                       gradingLoading ||
-                      selectedAssignment.submission?.grade !== null // 👉 LOCK IF GRADED
+                      selectedAssignment.submission?.grade !== null
                     }
                     onClick={() =>
-                      submitGrade(
-                        submitGrade(selectedAssignment.submission?.studentId)
-                      )
+                      submitGrade(selectedAssignment.submission?.studentId)
                     }
                   >
                     {gradingLoading ? (
