@@ -121,25 +121,28 @@ const StudentDashboard = () => {
 
       alert("Assignment submitted successfully!");
 
-      // Update user submissions
+      // Update mySubmissions with correct assignmentId from backend
       setMySubmissions((prev) => [
         ...prev,
         {
-          assignmentId: selectedAssignment.id,
+          assignmentId: selectedAssignment.assignmentId,
           fileUrl: res.data.fileUrl,
           submittedAt: res.data.submittedAt,
+          grade: null, // grade will come later
         },
       ]);
 
-      // Update assignment list so UI shows 'Submitted'
+      // Update assignments list so UI shows 'Submitted' immediately
       setAssignments((prev) =>
         prev.map((a) =>
-          a._id === selectedAssignment.id
+          a.assignmentId === selectedAssignment.assignmentId
             ? {
                 ...a,
                 submissions: [{ fileUrl: res.data.fileUrl }],
                 submittedFile: res.data.fileUrl,
                 status: "Submitted",
+                justSubmitted: true,
+                grade: "-", // show "-" until graded
               }
             : a
         )
@@ -473,9 +476,14 @@ const StudentDashboard = () => {
               <Paper sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#fef9c3" }}>
                 <Typography variant="h6">My Submissions</Typography>
                 <Typography variant="h4" fontWeight="bold">
-                  {mySubmissions.length}
+                  {
+                    assignments.filter(
+                      (a) => a.status?.toLowerCase() === "submitted"
+                    ).length
+                  }
                 </Typography>
               </Paper>
+
               <Paper sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#bfdbfe" }}>
                 <Typography variant="h6">Active Courses</Typography>
                 <Typography variant="h4" fontWeight="bold">

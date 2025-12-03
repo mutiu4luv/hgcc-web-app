@@ -124,19 +124,39 @@ const CoachDashboard = () => {
       return;
     }
 
+    const studentIdStr =
+      typeof studentId === "string" ? studentId : studentId?._id;
+
+    if (!studentIdStr) {
+      setMessage("❌ Invalid student ID");
+      return;
+    }
+
     try {
       setGradingLoading(true);
-      await axios.put(
-        `${BASE_URL}/api/assignment/grade/${selectedAssignment.assignmentId}/${studentId}`,
-        { grade: gradeInput },
+
+      const gradeValue = Number(gradeInput);
+      if (Number.isNaN(gradeValue)) {
+        setMessage("❌ Grade must be a number");
+        setGradingLoading(false);
+        return;
+      }
+
+      const assignmentId =
+        selectedAssignment.assignmentId || selectedAssignment._id;
+
+      const res = await axios.put(
+        `${BASE_URL}/api/assignment/grade/${assignmentId}/${studentIdStr}`,
+        { grade: gradeValue },
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
       setMessage("✅ Grade submitted successfully");
       handleCloseAssignmentModal();
-      loadAssignments();
+      // ... update state as before
     } catch (err) {
       console.error("Failed to submit grade:", err?.response?.data || err);
-      setMessage("❌ Failed to submit grade");
+      setMessage("❌ Failed to submit grade — check console for details");
     } finally {
       setGradingLoading(false);
     }
@@ -317,7 +337,7 @@ const CoachDashboard = () => {
         }
       );
       setAssignments(res.data.assignments);
-      console.log("Fetched assignments:", res.data.assignments);
+      setFlattenedSubmissions(res.data.submissions);
     } catch (err) {
       console.error("Error fetching assignments:", err?.response?.data || err);
       setMessage("Failed to load assignments");
@@ -457,34 +477,42 @@ const CoachDashboard = () => {
 
   // ========================= // ASSIGNMENTS TAB =========================
 
-  const assignmentRows = assignments.flatMap((a) =>
-    (a.submissions || []).length > 0
-      ? a.submissions.map((s) => ({
-          id: `${a._id}-${s.student?._id}`,
+  const assignmentRows = assignments.flatMap((a) => {
+    if (a.submissions && a.submissions.length > 0) {
+      return a.submissions.map((s, index) => ({
+        id: `${a._id}-${s.studentId || index}`,
+        assignmentId: a._id,
+        studentId: s.studentId || null,
+        studentName: s.student?.fullName || "Unknown Student",
+        title: a.title,
+        description: a.description,
+        grade:
+          s.grade !== undefined && s.grade !== null ? s.grade : "Not Graded",
+        status:
+          s.grade !== undefined && s.grade !== null ? "Completed" : "Pending",
+        isGraded: s.grade !== undefined && s.grade !== null,
+        dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
+        submission: s,
+      }));
+    } else {
+      // No submissions
+      return [
+        {
+          id: `${a._id}-no-submission`,
           assignmentId: a._id,
-          studentId: s.student?._id,
-          studentName: s.student?.fullName || "N/A",
+          studentId: null,
+          studentName: "-",
           title: a.title,
+          description: a.description,
+          grade: "Not Graded",
+          status: "Pending",
+          isGraded: false,
           dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
-          status: s.grade ? "approved" : "pending",
-          submission: s,
-        }))
-      : [
-          {
-            id: `${a._id}-no-submission`,
-            assignmentId: a._id,
-            studentId: null,
-            studentName: "-",
-            title: a.title,
-            dueDate: a.dueDate
-              ? new Date(a.dueDate).toLocaleDateString()
-              : "N/A",
-            status: "pending",
-            submission: null,
-          },
-        ]
-  );
-
+          submission: null,
+        },
+      ];
+    }
+  });
   // ========================= RENDER =========================
   if (globalLoading) {
     return (
@@ -870,22 +898,40 @@ const CoachDashboard = () => {
               <div style={{ height: 500, width: "100%" }}>
                 <DataGrid
                   rows={assignments.flatMap((a) =>
-                    (a.submissions || []).length > 0
-                      ? a.submissions.map((s, index) => ({
-                          id: `${a._id}-${s.studentId || index}`,
-                          assignmentId: a._id,
-                          studentId: s.studentId || null,
-                          studentName: s.student?.fullName || "Unknown Student",
-                          title: a.title,
-                          description: a.description,
-                          grade: s.grade !== null ? s.grade : "Not Graded",
-                          status: s.grade !== null ? "Completed" : "Pending",
-                          isGraded: s.grade !== null,
-                          dueDate: a.dueDate
-                            ? new Date(a.dueDate).toLocaleDateString()
-                            : "N/A",
-                          submission: s,
-                        }))
+                    a.submissions && a.submissions.length > 0
+                      ? a.submissions.map((s, index) => {
+                          const student = s?.studentId ?? {
+                            fullName: "Unknown Student",
+                            _id: null,
+                          };
+                          const studentName = student.fullName;
+                          const gradeValue = s?.grade ?? null;
+
+                          // Determine status
+                          let status = "Pending";
+                          if (gradeValue !== null) status = "Completed";
+                          else if (new Date(a.dueDate) < new Date())
+                            status = "Expired";
+
+                          return {
+                            id: s?._id || `${a._id}-${index}`,
+                            assignmentId: a._id,
+                            studentId: student?._id || null,
+                            studentName,
+                            title: a.title,
+                            description: a.description,
+                            grade:
+                              gradeValue !== null ? gradeValue : "Not Graded",
+                            status,
+                            isGraded:
+                              typeof gradeValue === "number" &&
+                              !Number.isNaN(gradeValue),
+                            dueDate: a.dueDate
+                              ? new Date(a.dueDate).toLocaleDateString()
+                              : "N/A",
+                            submission: s || null,
+                          };
+                        })
                       : [
                           {
                             id: `${a._id}-no-submission`,
@@ -895,7 +941,10 @@ const CoachDashboard = () => {
                             title: a.title,
                             description: a.description,
                             grade: "No submission",
-                            status: "Pending",
+                            status:
+                              new Date(a.dueDate) < new Date()
+                                ? "Expired"
+                                : "Pending",
                             isGraded: false,
                             dueDate: a.dueDate
                               ? new Date(a.dueDate).toLocaleDateString()
@@ -1008,12 +1057,12 @@ const CoachDashboard = () => {
                     variant="contained"
                     color="success"
                     fullWidth
-                    disabled={
-                      gradingLoading ||
-                      selectedAssignment.submission?.grade !== null
-                    }
+                    disabled={gradingLoading}
                     onClick={() =>
-                      submitGrade(selectedAssignment.submission?.studentId)
+                      submitGrade(
+                        selectedAssignment.submission?.studentId?._id ||
+                          selectedAssignment.submission?.studentId
+                      )
                     }
                   >
                     {gradingLoading ? (
