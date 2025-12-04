@@ -95,21 +95,16 @@ const StudentDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (res.data.cohort) {
-          // Wrap in array for mapping
-          setActiveCohorts([
-            {
-              cohortId: res.data.cohort.cohortId,
-              cohortName: res.data.cohort.cohortName,
-              courses: res.data.cohort.notStartedCourses,
-            },
-          ]);
+        // Set activeCohorts from res.data.cohorts (array)
+        if (Array.isArray(res.data.cohorts) && res.data.cohorts.length > 0) {
+          setActiveCohorts(res.data.cohorts);
         } else {
           setActiveCohorts([]);
         }
       } catch (err) {
         console.error("Failed to load cohorts:", err);
         setMessage("Failed to load cohorts");
+        setActiveCohorts([]);
       } finally {
         setCohortLoading(false);
       }
@@ -1000,8 +995,7 @@ const StudentDashboard = () => {
                   <MenuItem value="">-- Select Cohort --</MenuItem>
                   {activeCohorts.map((cohort) => (
                     <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
-                      {cohort.cohortName} ({cohort.startDate || "N/A"} -{" "}
-                      {cohort.endDate || "N/A"})
+                      {cohort.cohortName}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -1016,6 +1010,7 @@ const StudentDashboard = () => {
 
                     return (
                       <>
+                        {/* 🔹 FIX: Dropdown is now “Choose Course” */}
                         <TextField
                           select
                           label="Choose Course"
@@ -1025,24 +1020,15 @@ const StudentDashboard = () => {
                           sx={{ mb: 2 }}
                         >
                           <MenuItem value="">-- Select Course --</MenuItem>
-                          {coursesList.length === 0 ? (
-                            <MenuItem disabled>No courses available</MenuItem>
-                          ) : (
-                            coursesList.map((courseItem) => (
-                              <MenuItem
-                                key={courseItem._id || courseItem.courseId}
-                                value={courseItem._id || courseItem.courseId}
-                              >
-                                {courseItem.courseId?.name || courseItem.name} (
-                                {courseItem.courseId?.category ||
-                                  courseItem.category}
-                                ) -{" "}
-                                {courseItem.durationInDays
-                                  ? courseItem.durationInDays + " days"
-                                  : courseItem.duration || ""}
+                          {coursesList.map((course) => {
+                            const c = course.courseId || {};
+                            return (
+                              <MenuItem key={course._id} value={c._id}>
+                                {c.name || "Unnamed"} ({c.category || "N/A"}) -{" "}
+                                {c.duration || "N/A"}
                               </MenuItem>
-                            ))
-                          )}
+                            );
+                          })}
                         </TextField>
 
                         <Button
