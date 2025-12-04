@@ -86,6 +86,38 @@ const StudentDashboard = () => {
     },
   ];
 
+  // Load not started cohorts
+  useEffect(() => {
+    const loadNotStartedCohorts = async () => {
+      try {
+        setCohortLoading(true);
+        const res = await axios.get(`${BASE_URL}/api/cohort/active`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.data.cohort) {
+          // Wrap in array for mapping
+          setActiveCohorts([
+            {
+              cohortId: res.data.cohort.cohortId,
+              cohortName: res.data.cohort.cohortName,
+              courses: res.data.cohort.notStartedCourses,
+            },
+          ]);
+        } else {
+          setActiveCohorts([]);
+        }
+      } catch (err) {
+        console.error("Failed to load cohorts:", err);
+        setMessage("Failed to load cohorts");
+      } finally {
+        setCohortLoading(false);
+      }
+    };
+
+    loadNotStartedCohorts();
+  }, [BASE_URL, token]);
+
   // Function to handle viewing or submitting assignment
   const handleViewAssignment = (assignments) => {
     setSelectedAssignment(assignments);
@@ -944,7 +976,12 @@ const StudentDashboard = () => {
               </Typography>
             ) : (
               <>
-                <Typography variant="h4" color="green" fontWeight="bold">
+                <Typography
+                  variant="h4"
+                  color="green"
+                  fontWeight="bold"
+                  gutterBottom
+                >
                   📝 Register to a Cohort
                 </Typography>
 
@@ -975,8 +1012,6 @@ const StudentDashboard = () => {
                     const selected = activeCohorts.find(
                       (c) => c.cohortId === selectedCohort
                     );
-
-                    // ✅ Use courses returned from backend
                     const coursesList = selected?.courses || [];
 
                     return (
@@ -990,17 +1025,21 @@ const StudentDashboard = () => {
                           sx={{ mb: 2 }}
                         >
                           <MenuItem value="">-- Select Course --</MenuItem>
-
                           {coursesList.length === 0 ? (
                             <MenuItem disabled>No courses available</MenuItem>
                           ) : (
                             coursesList.map((courseItem) => (
                               <MenuItem
-                                key={courseItem.courseId}
-                                value={courseItem.courseId}
+                                key={courseItem._id || courseItem.courseId}
+                                value={courseItem._id || courseItem.courseId}
                               >
-                                {courseItem.name} ({courseItem.category}) -{" "}
-                                {courseItem.duration}
+                                {courseItem.courseId?.name || courseItem.name} (
+                                {courseItem.courseId?.category ||
+                                  courseItem.category}
+                                ) -{" "}
+                                {courseItem.durationInDays
+                                  ? courseItem.durationInDays + " days"
+                                  : courseItem.duration || ""}
                               </MenuItem>
                             ))
                           )}
