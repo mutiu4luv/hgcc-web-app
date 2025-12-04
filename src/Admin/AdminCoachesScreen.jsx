@@ -75,6 +75,7 @@ const CoachDashboard = () => {
   const [coachTitle, setCoachTitle] = useState("");
   const [cohorts, setCohorts] = useState([]);
   const [selectedCohortId, setSelectedCohortId] = useState("");
+  const [flattenedSubmissions, setFlattenedSubmissions] = useState([]);
 
   const [studentAssignments, setStudentAssignments] = useState([]);
   const [studentAssignmentsLoading, setStudentAssignmentsLoading] =
@@ -327,6 +328,7 @@ const CoachDashboard = () => {
 
   // ========================= // FETCH ASSIGNMENTS // =========================
 
+  // filepath: /home/pc/Desktop/new work/benedicta-digital-skill-new/digital-skill/src/Admin/AdminCoachesScreen.jsx
   const loadAssignments = async () => {
     setAssignmentsLoading(true);
     try {
@@ -336,11 +338,16 @@ const CoachDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-      setAssignments(res.data.assignments);
-      setFlattenedSubmissions(res.data.submissions);
+
+      console.log("Assignments API response:", res.data);
+
+      setAssignments(res.data.assignmentsByCohort || {}); // FIX
+      setFlattenedSubmissions(res.data.submissions || []); // FIX
     } catch (err) {
       console.error("Error fetching assignments:", err?.response?.data || err);
       setMessage("Failed to load assignments");
+      setAssignments({});
+      setFlattenedSubmissions([]);
     } finally {
       setAssignmentsLoading(false);
     }
@@ -459,60 +466,52 @@ const CoachDashboard = () => {
     loadCohortCourses();
   }, [BASE_URL, token, cohortId]);
 
-  if (globalLoading) {
-    return (
-      <Box
-        sx={{
-          height: "100vh",
-          display: "flex",
-          alignItems: "center",
-          justifyContent: "center",
-          bgcolor: "#f0fdf4",
-        }}
-      >
-        <CircularProgress size={80} color="success" />
-      </Box>
-    );
-  }
-
   // ========================= // ASSIGNMENTS TAB =========================
 
-  const assignmentRows = assignments.flatMap((a) => {
-    if (a.submissions && a.submissions.length > 0) {
-      return a.submissions.map((s, index) => ({
-        id: `${a._id}-${s.studentId || index}`,
-        assignmentId: a._id,
-        studentId: s.studentId || null,
-        studentName: s.student?.fullName || "Unknown Student",
-        title: a.title,
-        description: a.description,
-        grade:
-          s.grade !== undefined && s.grade !== null ? s.grade : "Not Graded",
-        status:
-          s.grade !== undefined && s.grade !== null ? "Completed" : "Pending",
-        isGraded: s.grade !== undefined && s.grade !== null,
-        dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
-        submission: s,
-      }));
-    } else {
-      // No submissions
-      return [
-        {
-          id: `${a._id}-no-submission`,
+  const assignmentRows = Object.values(assignments || {}).flatMap((list) =>
+    list.flatMap((a) => {
+      // CASE 1 — assignment has submissions
+      if (Array.isArray(a.submissions) && a.submissions.length > 0) {
+        return a.submissions.map((s, idx) => ({
+          id: `${a._id}-${idx}`,
           assignmentId: a._id,
-          studentId: null,
-          studentName: "-",
           title: a.title,
           description: a.description,
-          grade: "Not Graded",
-          status: "Pending",
-          isGraded: false,
+          cohortId: a.cohortId?._id,
+          cohortName: a.cohortId?.name || "No Cohort", // ✔ FIXED
+          studentId: s.studentId?._id,
+          studentName: s.studentId?.fullName || "Unknown",
+          grade: s.grade ?? "Not Graded",
+          isGraded: s.grade != null,
+          status: s.grade != null ? "Completed" : "Pending",
           dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
-          submission: null,
+        }));
+      }
+
+      // CASE 2 — assignment has no submissions
+      return [
+        {
+          id: `${a._id}-no-sub`,
+          assignmentId: a._id,
+          title: a.title,
+          description: a.description,
+          cohortId: a.cohortId?._id,
+          cohortName: a.cohortId?.name || "No Cohort", // ✔ FIXED
+          studentId: null,
+          studentName: "-",
+          grade: "Not Graded",
+          isGraded: false,
+          status: new Date(a.dueDate) < new Date() ? "Expired" : "Pending",
+          dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
         },
       ];
-    }
-  });
+    })
+  );
+
+  /// MOVE IT HERE (NOT ABOVE)
+  console.log("RAW assignments:", assignments);
+  console.log("assignmentRows:", assignmentRows);
+
   // ========================= RENDER =========================
   if (globalLoading) {
     return (
@@ -529,6 +528,50 @@ const CoachDashboard = () => {
       </Box>
     );
   }
+
+  const getFlattenedAssignments = () => {
+    if (!Array.isArray(assignments)) return [];
+
+    return assignments.flatMap((a) => {
+      if (Array.isArray(a.submissions) && a.submissions.length > 0) {
+        return a.submissions.map((s, i) => ({
+          id: s._id || `${a._id}-${i}`,
+          assignmentId: a._id,
+          studentId: s.studentId?._id || s.studentId || null,
+          studentName: s.student?.fullName || "Unknown Student",
+          title: a.title,
+          description: a.description,
+          grade: s.grade ?? "Not Graded",
+          status: s.grade != null ? "Completed" : "Pending",
+          isGraded: typeof s.grade === "number",
+          dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
+          submission: s,
+          cohortId: a.cohortId?._id || null,
+          cohortName: a.cohortId?.cohortName || "No Cohort",
+        }));
+      } else {
+        return [
+          {
+            id: `${a._id}-no-submission`,
+            assignmentId: a._id,
+            studentId: null,
+            studentName: "-",
+            title: a.title,
+            description: a.description,
+            grade: "No submission",
+            status: new Date(a.dueDate) < new Date() ? "Expired" : "Pending",
+            isGraded: false,
+            dueDate: a.dueDate
+              ? new Date(a.dueDate).toLocaleDateString()
+              : "N/A",
+            submission: null,
+            cohortId: a.cohortId?._id || null,
+            cohortName: a.cohortId?.cohortName || "No Cohort",
+          },
+        ];
+      }
+    });
+  };
 
   return (
     <Box
@@ -674,7 +717,6 @@ const CoachDashboard = () => {
             )}
           </Paper>
         )}
-
         {/* Upload Video */}
         {activeTab === "upload-video" && (
           <Paper sx={{ p: 4 }}>
@@ -704,7 +746,6 @@ const CoachDashboard = () => {
             </form>
           </Paper>
         )}
-
         {/* Upload Document */}
         {activeTab === "upload-doc" && (
           <Paper sx={{ p: 4 }}>
@@ -734,7 +775,6 @@ const CoachDashboard = () => {
             </form>
           </Paper>
         )}
-
         {/* All Videos */}
         {activeTab === "videos" && (
           <Box sx={{ mt: 4 }}>
@@ -765,7 +805,6 @@ const CoachDashboard = () => {
             </Grid>
           </Box>
         )}
-
         {/* All Documents */}
         {activeTab === "documents" && (
           <Box sx={{ mt: 4 }}>
@@ -798,7 +837,6 @@ const CoachDashboard = () => {
             </Grid>
           </Box>
         )}
-
         {/* Assignments */}
         {activeTab === "assignments" && (
           <Paper sx={{ p: 4 }}>
@@ -810,8 +848,7 @@ const CoachDashboard = () => {
             >
               🧾 Student Assignments
             </Typography>
-
-            {/* ================= Create Assignment Form ================= */}
+            {/* Create Assignment Form */}
             <Box
               sx={{
                 display: "flex",
@@ -819,30 +856,31 @@ const CoachDashboard = () => {
                 mb: 3,
                 flexWrap: "wrap",
                 alignItems: "center",
-                "> .MuiTextField-root": { minWidth: 200, flex: 1 },
+                "> .MuiTextField-root": { minWidth: 200 }, // remove flex: 1
               }}
             >
               <TextField
                 select
                 label="Select Cohort"
                 value={selectedCohortId}
-                onChange={(e) => {
-                  setSelectedCohortId(e.target.value);
-                  setCohortId(e.target.value);
-                }}
-                fullWidth
+                onChange={(e) => setSelectedCohortId(e.target.value)}
+                sx={{ minWidth: 250 }}
               >
-                {cohorts.length === 0 ? (
-                  <MenuItem disabled>No cohorts available</MenuItem>
-                ) : (
-                  cohorts.map((c) => (
-                    <MenuItem key={c.cohortId} value={c.cohortId}>
-                      {c.cohortName}
+                {(Array.isArray(cohorts) ? cohorts : []).map((c) => {
+                  const cohortId = (
+                    c._id ||
+                    c.cohortId?._id ||
+                    c.cohortId ||
+                    ""
+                  ).toString();
+                  const cohortName = c.cohortName || "No Cohort";
+                  return (
+                    <MenuItem key={cohortId} value={cohortId}>
+                      {cohortName}
                     </MenuItem>
-                  ))
-                )}
+                  );
+                })}
               </TextField>
-
               <TextField
                 label="Title"
                 value={newTitle}
@@ -871,17 +909,9 @@ const CoachDashboard = () => {
               </Button>
             </Box>
 
-            {/* ================= My Assignments DataGrid ================= */}
-            <Typography
-              variant="h4"
-              color="green"
-              fontWeight="bold"
-              gutterBottom
-            >
-              🧾 My Assignments
-            </Typography>
+            {/* Assignments Table */}
 
-            {studentAssignmentsLoading || assignmentsLoading ? (
+            {/* {assignmentsLoading ? (
               <Box
                 sx={{
                   height: 400,
@@ -892,68 +922,31 @@ const CoachDashboard = () => {
               >
                 <CircularProgress size={60} color="success" />
               </Box>
-            ) : studentAssignments.length === 0 && assignments.length === 0 ? (
+            ) : !Array.isArray(flattenedSubmissions) ||
+              flattenedSubmissions.length === 0 ? (
               <Typography>No assignments available yet.</Typography>
             ) : (
               <div style={{ height: 500, width: "100%" }}>
                 <DataGrid
-                  rows={assignments.flatMap((a) =>
-                    a.submissions && a.submissions.length > 0
-                      ? a.submissions.map((s, index) => {
-                          const student = s?.studentId ?? {
-                            fullName: "Unknown Student",
-                            _id: null,
-                          };
-                          const studentName = student.fullName;
-                          const gradeValue = s?.grade ?? null;
-
-                          // Determine status
-                          let status = "Pending";
-                          if (gradeValue !== null) status = "Completed";
-                          else if (new Date(a.dueDate) < new Date())
-                            status = "Expired";
-
-                          return {
-                            id: s?._id || `${a._id}-${index}`,
-                            assignmentId: a._id,
-                            studentId: student?._id || null,
-                            studentName,
-                            title: a.title,
-                            description: a.description,
-                            grade:
-                              gradeValue !== null ? gradeValue : "Not Graded",
-                            status,
-                            isGraded:
-                              typeof gradeValue === "number" &&
-                              !Number.isNaN(gradeValue),
-                            dueDate: a.dueDate
-                              ? new Date(a.dueDate).toLocaleDateString()
-                              : "N/A",
-                            submission: s || null,
-                          };
-                        })
-                      : [
-                          {
-                            id: `${a._id}-no-submission`,
-                            assignmentId: a._id,
-                            studentId: null,
-                            studentName: "-",
-                            title: a.title,
-                            description: a.description,
-                            grade: "No submission",
-                            status:
-                              new Date(a.dueDate) < new Date()
-                                ? "Expired"
-                                : "Pending",
-                            isGraded: false,
-                            dueDate: a.dueDate
-                              ? new Date(a.dueDate).toLocaleDateString()
-                              : "N/A",
-                            submission: null,
-                          },
-                        ]
-                  )}
+                  rows={flattenedSubmissions
+                    .filter(
+                      (s) =>
+                        !selectedCohortId ||
+                        (s.cohortId && String(s.cohortId) === selectedCohortId)
+                    )
+                    .map((s, idx) => ({
+                      id: s.submissionId || `${s.assignmentId}-${idx}`,
+                      cohort: s.cohort || "No Cohort",
+                      cohortId: s.cohortId || null,
+                      studentName: s.student?.fullName || "Unknown Student",
+                      title: s.title,
+                      description: s.description,
+                      grade: s.grade ?? "Not Graded",
+                      status: s.grade != null ? "Completed" : "Pending",
+                      submission: s,
+                    }))}
                   columns={[
+                    { field: "cohort", headerName: "Cohort", width: 180 },
                     { field: "studentName", headerName: "Student", width: 200 },
                     { field: "title", headerName: "Assignment", width: 250 },
                     {
@@ -980,9 +973,7 @@ const CoachDashboard = () => {
                           disabled={params.row.isGraded}
                           onClick={() =>
                             handleOpenAssignmentModal(
-                              assignments.find(
-                                (a) => a._id === params.row.assignmentId
-                              ),
+                              params.row.submission,
                               params.row.submission
                             )
                           }
@@ -994,11 +985,223 @@ const CoachDashboard = () => {
                   ]}
                   pageSize={5}
                   rowsPerPageOptions={[5]}
+                /> */}
+
+            {assignmentsLoading ? (
+              <Box
+                sx={{
+                  height: 400,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CircularProgress size={60} color="success" />
+              </Box>
+            ) : assignmentRows.length === 0 ? (
+              <Typography>No assignments available yet.</Typography>
+            ) : (
+              <div style={{ height: 500, width: "100%" }}>
+                <DataGrid
+                  rows={
+                    selectedCohortId
+                      ? assignmentRows.filter(
+                          (r) => r.cohortId === selectedCohortId
+                        )
+                      : assignmentRows
+                  }
+                  columns={[
+                    { field: "cohortName", headerName: "Cohort", width: 180 },
+                    { field: "studentName", headerName: "Student", width: 200 },
+                    { field: "title", headerName: "Assignment", width: 250 },
+                    {
+                      field: "description",
+                      headerName: "Description",
+                      width: 300,
+                    },
+                    { field: "dueDate", headerName: "Due Date", width: 150 },
+                    { field: "grade", headerName: "Grade", width: 120 },
+                    { field: "status", headerName: "Status", width: 150 },
+                    {
+                      field: "actions",
+                      headerName: "Actions",
+                      width: 180,
+                      renderCell: (params) => (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          sx={{
+                            bgcolor: params.row.isGraded
+                              ? "#94a3b8"
+                              : "#10b981",
+                          }}
+                          disabled={params.row.isGraded}
+                          onClick={() =>
+                            handleOpenAssignmentModal(
+                              params.row,
+                              params.row.submission
+                            )
+                          }
+                        >
+                          {params.row.isGraded ? "Graded" : "View & Grade"}
+                        </Button>
+                      ),
+                    },
+                  ]}
+                  pageSize={5}
                 />
               </div>
             )}
 
-            {/* ==================== Assignment Modal ==================== */}
+            {/* Assignments Grouped by Cohort */}
+            {studentAssignmentsLoading || assignmentsLoading ? (
+              <Box
+                sx={{
+                  height: 400,
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                }}
+              >
+                <CircularProgress size={60} color="success" />
+              </Box>
+            ) : (!Array.isArray(studentAssignments) ||
+                studentAssignments.length === 0) &&
+              (!Array.isArray(assignments) || assignments.length === 0) ? (
+              <Typography>No assignments available yet.</Typography>
+            ) : (
+              // Filter assignments by selectedCohortId
+              (() => {
+                const safeAssignments = Array.isArray(assignments)
+                  ? assignments
+                  : [];
+                const filteredAssignments = selectedCohortId
+                  ? safeAssignments.filter(
+                      (a) => a.cohortId?._id === selectedCohortId
+                    )
+                  : safeAssignments; // if no cohort selected, show all
+
+                return filteredAssignments.length === 0 ? (
+                  <Typography>No assignments for this cohort.</Typography>
+                ) : (
+                  <div style={{ height: 500, width: "100%" }}>
+                    <DataGrid
+                      rows={filteredAssignments.flatMap((a) =>
+                        Array.isArray(a.submissions) && a.submissions.length > 0
+                          ? a.submissions.map((s, index) => {
+                              const student = s?.studentId ?? {
+                                fullName: "Unknown Student",
+                                _id: null,
+                              };
+                              const studentName = student.fullName;
+                              const gradeValue = s?.grade ?? null;
+
+                              let status = "Pending";
+                              if (gradeValue !== null) status = "Completed";
+                              else if (new Date(a.dueDate) < new Date())
+                                status = "Expired";
+
+                              return {
+                                id: s?._id || `${a._id}-${index}`,
+                                assignmentId: a._id,
+                                studentId: student?._id || null,
+                                studentName,
+                                title: a.title,
+                                description: a.description,
+                                grade:
+                                  gradeValue !== null
+                                    ? gradeValue
+                                    : "Not Graded",
+                                status,
+                                isGraded:
+                                  typeof gradeValue === "number" &&
+                                  !Number.isNaN(gradeValue),
+                                dueDate: a.dueDate
+                                  ? new Date(a.dueDate).toLocaleDateString()
+                                  : "N/A",
+                                submission: s || null,
+                              };
+                            })
+                          : [
+                              {
+                                id: `${a._id}-no-submission`,
+                                assignmentId: a._id,
+                                studentId: null,
+                                studentName: "-",
+                                title: a.title,
+                                description: a.description,
+                                grade: "No submission",
+                                status:
+                                  new Date(a.dueDate) < new Date()
+                                    ? "Expired"
+                                    : "Pending",
+                                isGraded: false,
+                                dueDate: a.dueDate
+                                  ? new Date(a.dueDate).toLocaleDateString()
+                                  : "N/A",
+                                submission: null,
+                              },
+                            ]
+                      )}
+                      columns={[
+                        {
+                          field: "studentName",
+                          headerName: "Student",
+                          width: 200,
+                        },
+                        {
+                          field: "title",
+                          headerName: "Assignment",
+                          width: 250,
+                        },
+                        {
+                          field: "description",
+                          headerName: "Description",
+                          width: 300,
+                        },
+                        {
+                          field: "dueDate",
+                          headerName: "Due Date",
+                          width: 150,
+                        },
+                        { field: "grade", headerName: "Grade", width: 120 },
+                        { field: "status", headerName: "Status", width: 150 },
+                        {
+                          field: "actions",
+                          headerName: "Actions",
+                          width: 180,
+                          renderCell: (params) => (
+                            <Button
+                              variant="contained"
+                              size="small"
+                              sx={{
+                                bgcolor: params.row.isGraded
+                                  ? "#94a3b8"
+                                  : "#10b981",
+                              }}
+                              disabled={params.row.isGraded}
+                              onClick={() =>
+                                handleOpenAssignmentModal(
+                                  safeAssignments.find(
+                                    (a) => a._id === params.row.assignmentId
+                                  ),
+                                  params.row.submission
+                                )
+                              }
+                            >
+                              {params.row.isGraded ? "Graded" : "View & Grade"}
+                            </Button>
+                          ),
+                        },
+                      ]}
+                      pageSize={5}
+                      rowsPerPageOptions={[5]}
+                    />
+                  </div>
+                );
+              })()
+            )}
+            {/* Assignment Modal */}
             <Drawer
               anchor="right"
               open={openAssignmentModal}
@@ -1024,8 +1227,8 @@ const CoachDashboard = () => {
                     {selectedAssignment.title}
                   </Typography>
 
-                  <Typography variant="body2" sx={{ mb: 2 }}>
-                    {selectedAssignment.submission?.file ? (
+                  {selectedAssignment.submission?.file ? (
+                    <Typography variant="body2" sx={{ mb: 2 }}>
                       <a
                         href={selectedAssignment.submission.file}
                         target="_blank"
@@ -1033,12 +1236,14 @@ const CoachDashboard = () => {
                       >
                         View Submitted Document
                       </a>
-                    ) : (
-                      "No submission available"
-                    )}
-                  </Typography>
+                    </Typography>
+                  ) : (
+                    <Typography variant="body2" sx={{ mb: 2 }}>
+                      No submission available
+                    </Typography>
+                  )}
 
-                  {selectedAssignment.submission?.grade !== null ? (
+                  {selectedAssignment.submission?.grade != null ? (
                     <Alert severity="success" sx={{ mb: 2 }}>
                       Grade: <b>{selectedAssignment.submission.grade}%</b>
                     </Alert>
@@ -1057,11 +1262,14 @@ const CoachDashboard = () => {
                     variant="contained"
                     color="success"
                     fullWidth
-                    disabled={gradingLoading}
+                    disabled={
+                      gradingLoading ||
+                      selectedAssignment.submission?.grade != null
+                    }
                     onClick={() =>
                       submitGrade(
-                        selectedAssignment.submission?.studentId?._id ||
-                          selectedAssignment.submission?.studentId
+                        selectedAssignment.submission?.studentId ||
+                          selectedAssignment.studentId
                       )
                     }
                   >
@@ -1076,7 +1284,6 @@ const CoachDashboard = () => {
             </Drawer>
           </Paper>
         )}
-
         {/* Students */}
         {activeTab === "students" && (
           <Paper sx={{ p: 4 }}>
