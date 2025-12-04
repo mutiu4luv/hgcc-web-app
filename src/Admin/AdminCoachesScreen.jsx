@@ -86,10 +86,18 @@ const CoachDashboard = () => {
   const [gradeInput, setGradeInput] = useState("");
   const [gradingLoading, setGradingLoading] = useState(false);
 
+  const [assignedCourses, setAssignedCourses] = useState([]);
+  const [selectedCourse, setSelectedCourse] = useState("");
+  const [loadingAssigned, setLoadingAssigned] = useState(false);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [coursesArray, setCoursesArray] = useState([]);
+
   const { cohortIds } = useParams();
   console.log("COHORT ID FROM URL:", cohortId);
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
+  const user = JSON.parse(localStorage.getItem("user"));
+
   const isMobile = useMediaQuery("(max-width:900px)");
 
   const barColors = ["#10b981", "#3b82f6", "#f59e0b", "#ef4444", "#6366f1"];
@@ -102,6 +110,11 @@ const CoachDashboard = () => {
     { text: "All Documents", icon: <UploadFile />, key: "documents" },
     { text: "Assignments", icon: <AssignmentTurnedIn />, key: "assignments" },
     { text: "Students", icon: <School />, key: "students" },
+    {
+      text: "Start / End Course",
+      icon: <AssignmentTurnedIn />,
+      key: "course-control",
+    },
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
   //open assignment modal
@@ -162,6 +175,117 @@ const CoachDashboard = () => {
       setGradingLoading(false);
     }
   };
+  // Fetch assigned courses from API
+  const fetchAssignedCourses = async () => {
+    try {
+      setLoadingAssigned(true);
+      const res = await axios.get(`${BASE_URL}/api/cohort/coach/assigned`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      console.log("API response:", res.data);
+      setAssignedCourses(res.data.cohorts || []);
+    } catch (err) {
+      console.error("Error fetching assigned courses:", err);
+    } finally {
+      setLoadingAssigned(false);
+    }
+  };
+  // Transform assignedCourses into flat array for dropdown
+
+  useEffect(() => {
+    if (!assignedCourses || assignedCourses.length === 0) {
+      setCoursesArray([]);
+      return;
+    }
+
+    const flatCourses = assignedCourses.flatMap((cohort) =>
+      cohort.courses.map((course) => ({
+        cohortCourseId: course.cohortCourseId,
+        courseId: course.courseId,
+        courseName: course.name,
+        cohortName: cohort.cohortName,
+        status: course.status,
+      }))
+    );
+
+    setCoursesArray(flatCourses);
+  }, [assignedCourses]);
+  // Start course
+  const handleStartCourse = async () => {
+    if (!selectedCourse) {
+      alert("Please select a course to start");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+
+      const { data } = await axios.put(
+        `${BASE_URL}/api/cohort/start/course/${selectedCourse}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      fetchAssignedCourses(); // refresh courses
+      alert(data.message || "Course started successfully");
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to start course");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // End course
+  const handleEndCourse = async () => {
+    if (!selectedCourse) {
+      alert("Please select a course to end");
+      return;
+    }
+
+    try {
+      setActionLoading(true);
+
+      const { data } = await axios.put(
+        `${BASE_URL}/api/cohort/end/course/${selectedCourse}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      fetchAssignedCourses(); // refresh courses
+      alert(data.message || "Course ended successfully");
+    } catch (err) {
+      console.error(err);
+      alert(err.response?.data?.message || "Failed to end course");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (!assignedCourses || assignedCourses.length === 0) {
+      setCoursesArray([]);
+      return;
+    }
+
+    const flatCourses = assignedCourses.flatMap((cohort) =>
+      cohort.courses.map((course) => ({
+        cohortCourseId: course.cohortCourseId,
+        courseId: course.courseId,
+        courseName: course.name,
+        cohortName: cohort.cohortName,
+        status: course.status,
+      }))
+    );
+
+    setCoursesArray(flatCourses);
+  }, [assignedCourses]);
+
+  useEffect(() => {
+    if (activeTab === "course-control") {
+      fetchAssignedCourses();
+    }
+  }, [activeTab]);
 
   // ========================= // FETCH  ASSIGNMENT DONE BY STUDENT // =========================
   const loadStudentAssignments = async () => {
@@ -387,15 +511,20 @@ const CoachDashboard = () => {
   useEffect(() => {
     const loadStudents = async () => {
       console.log("📡 Fetching students...");
+      setStudentsLoading(true); // set loading true at the start
+
       try {
-        const res = await axios.get(`${BASE_URL}/api/coach/students`, {
+        const res = await axios.get(`${BASE_URL}/api/cohort/students/coach`, {
           headers: { Authorization: `Bearer ${token}` },
         });
+
         console.log("✅ Students response:", res.data);
+
         if (res.data.students) {
           setStudents(res.data.students);
         } else {
           console.warn("⚠ No 'students' field found in response");
+          setStudents([]); // fallback
         }
       } catch (err) {
         console.error(
@@ -403,10 +532,12 @@ const CoachDashboard = () => {
           err?.response?.data || err
         );
         setMessage("Failed to load students");
+        setStudents([]); // fallback
       } finally {
         setStudentsLoading(false);
       }
     };
+
     loadStudents();
   }, [BASE_URL, token]);
 
@@ -911,82 +1042,6 @@ const CoachDashboard = () => {
 
             {/* Assignments Table */}
 
-            {/* {assignmentsLoading ? (
-              <Box
-                sx={{
-                  height: 400,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <CircularProgress size={60} color="success" />
-              </Box>
-            ) : !Array.isArray(flattenedSubmissions) ||
-              flattenedSubmissions.length === 0 ? (
-              <Typography>No assignments available yet.</Typography>
-            ) : (
-              <div style={{ height: 500, width: "100%" }}>
-                <DataGrid
-                  rows={flattenedSubmissions
-                    .filter(
-                      (s) =>
-                        !selectedCohortId ||
-                        (s.cohortId && String(s.cohortId) === selectedCohortId)
-                    )
-                    .map((s, idx) => ({
-                      id: s.submissionId || `${s.assignmentId}-${idx}`,
-                      cohort: s.cohort || "No Cohort",
-                      cohortId: s.cohortId || null,
-                      studentName: s.student?.fullName || "Unknown Student",
-                      title: s.title,
-                      description: s.description,
-                      grade: s.grade ?? "Not Graded",
-                      status: s.grade != null ? "Completed" : "Pending",
-                      submission: s,
-                    }))}
-                  columns={[
-                    { field: "cohort", headerName: "Cohort", width: 180 },
-                    { field: "studentName", headerName: "Student", width: 200 },
-                    { field: "title", headerName: "Assignment", width: 250 },
-                    {
-                      field: "description",
-                      headerName: "Description",
-                      width: 300,
-                    },
-                    { field: "dueDate", headerName: "Due Date", width: 150 },
-                    { field: "grade", headerName: "Grade", width: 120 },
-                    { field: "status", headerName: "Status", width: 150 },
-                    {
-                      field: "actions",
-                      headerName: "Actions",
-                      width: 180,
-                      renderCell: (params) => (
-                        <Button
-                          variant="contained"
-                          size="small"
-                          sx={{
-                            bgcolor: params.row.isGraded
-                              ? "#94a3b8"
-                              : "#10b981",
-                          }}
-                          disabled={params.row.isGraded}
-                          onClick={() =>
-                            handleOpenAssignmentModal(
-                              params.row.submission,
-                              params.row.submission
-                            )
-                          }
-                        >
-                          {params.row.isGraded ? "Graded" : "View & Grade"}
-                        </Button>
-                      ),
-                    },
-                  ]}
-                  pageSize={5}
-                  rowsPerPageOptions={[5]}
-                /> */}
-
             {assignmentsLoading ? (
               <Box
                 sx={{
@@ -1314,11 +1369,16 @@ const CoachDashboard = () => {
               <div style={{ height: 500, width: "100%" }}>
                 <DataGrid
                   rows={students.map((s) => ({
-                    id: s._id,
+                    id: s.studentId, // use studentId
                     fullName: s.fullName,
                     email: s.email,
-                    phoneNumber: s.phoneNumber,
-                    progress: s.progress || "0%", // optional
+                    phoneNumber: s.phoneNumber || "-", // fallback if missing
+                    progress:
+                      s.enrollments && s.enrollments.length > 0
+                        ? `${s.enrollments.filter((e) => e.hasAccess).length}/${
+                            s.enrollments.length
+                          } courses`
+                        : "0 courses", // simple progress
                   }))}
                   columns={[
                     { field: "fullName", headerName: "Full Name", width: 250 },
@@ -1332,6 +1392,93 @@ const CoachDashboard = () => {
             )}
           </Paper>
         )}
+
+        {activeTab === "course-control" && (
+          <Paper sx={{ p: 4 }}>
+            <Typography
+              variant="h5"
+              fontWeight="bold"
+              color="green"
+              gutterBottom
+            >
+              🎓 Start or End Your Assigned Course
+            </Typography>
+
+            {loadingAssigned ? (
+              <CircularProgress />
+            ) : (
+              <>
+                <TextField
+                  select
+                  label="Select Assignment"
+                  value={selectedCourse}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  fullWidth
+                >
+                  {coursesArray.length === 0 ? (
+                    <MenuItem disabled>No assigned courses</MenuItem>
+                  ) : (
+                    coursesArray.map((course) => (
+                      <MenuItem
+                        key={course.cohortCourseId}
+                        value={course.cohortCourseId}
+                      >
+                        {course.cohortName} — {course.courseName} (
+                        {course.status})
+                      </MenuItem>
+                    ))
+                  )}
+                </TextField>
+
+                {selectedCourse &&
+                  (() => {
+                    const selected = coursesArray.find(
+                      (c) => c.cohortCourseId === selectedCourse
+                    );
+
+                    return (
+                      <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
+                        <Button
+                          variant="contained"
+                          color="success"
+                          onClick={handleStartCourse}
+                          disabled={
+                            actionLoading || selected.status !== "pending"
+                          }
+                        >
+                          {selected.status === "in_progress" ? (
+                            "Course Started"
+                          ) : actionLoading ? (
+                            <CircularProgress size={22} />
+                          ) : (
+                            "Start Course"
+                          )}
+                        </Button>
+
+                        <Button
+                          variant="contained"
+                          color="error"
+                          onClick={handleEndCourse}
+                          disabled={
+                            actionLoading || selected.status !== "in_progress"
+                          }
+                        >
+                          {selected.status === "completed" ? (
+                            "Course Completed"
+                          ) : actionLoading ? (
+                            <CircularProgress size={22} />
+                          ) : (
+                            "End Course"
+                          )}
+                        </Button>
+                      </Box>
+                    );
+                  })()}
+              </>
+            )}
+          </Paper>
+        )}
+
         {/* ✅ Live Mode */}
         {activeTab === "live" && (
           <Paper sx={{ p: 4 }}>
