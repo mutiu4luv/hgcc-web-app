@@ -422,10 +422,17 @@ const CoachDashboard = () => {
       !selectedCourseId ||
       !selectedCohortId
     ) {
+      console.log({
+        videoTitle,
+        videoFile,
+        classStartTime,
+        selectedCourseId,
+        selectedCohortId,
+      });
       return alert("All fields are required!");
     }
 
-    // Convert local datetime to UTC
+    // Convert local datetime to UTC ISO string
     const localTime = new Date(classStartTime);
     const utcTime = new Date(
       Date.UTC(
@@ -442,7 +449,7 @@ const CoachDashboard = () => {
     const formData = new FormData();
     formData.append("title", videoTitle);
     formData.append("file", videoFile);
-    formData.append("classStartTime", utcTime.toISOString()); // send UTC
+    formData.append("classStartTime", utcTime.toISOString()); // <-- use UTC ISO string
     formData.append("courseId", selectedCourseId);
     formData.append("cohortId", selectedCohortId);
 
@@ -451,16 +458,15 @@ const CoachDashboard = () => {
       const { data } = await axios.post(
         `${BASE_URL}/api/coach/upload-video`,
         formData,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        { headers: { Authorization: `Bearer ${token}` } }
       );
+
       setMessage(data.message);
       setVideoTitle("");
       setVideoFile(null);
       setClassStartTime("");
       setSelectedCourseId("");
-      setSelectedCohortId(""); // reset cohort selection
+      setSelectedCohortId("");
       loadVideos();
       await fetchMyVideos();
     } catch (error) {
@@ -962,7 +968,53 @@ const CoachDashboard = () => {
             <Typography variant="h6" sx={{ mt: 4 }}>
               🎥 Upload Video
             </Typography>
-            <form onSubmit={handleVideoUpload}>
+            <form
+              onSubmit={async (e) => {
+                e.preventDefault();
+
+                if (!videoTitle) return alert("Video title is required!");
+                if (!videoFile) return alert("Please select a video file!");
+                if (!classStartTime)
+                  return alert("Class start time is required!");
+                if (!selectedCourseId) return alert("Please select a course!");
+                if (!selectedCohortId) return alert("Please select a cohort!");
+
+                const utcTime = new Date(classStartTime).toISOString();
+
+                const formData = new FormData();
+                formData.append("title", videoTitle);
+                formData.append("file", videoFile);
+                formData.append("classStartTime", utcTime);
+                formData.append("courseId", selectedCourseId);
+                formData.append("cohortId", selectedCohortId);
+
+                try {
+                  setLoading(true);
+                  const { data } = await axios.post(
+                    `${BASE_URL}/api/coach/upload-video`,
+                    formData,
+                    { headers: { Authorization: `Bearer ${token}` } }
+                  );
+                  setMessage(data.message);
+                  setVideoTitle("");
+                  setVideoFile(null);
+                  setClassStartTime("");
+                  setSelectedCourseId(courses[0]?._id || "");
+                  setSelectedCohortId(cohorts[0]?.cohortId || "");
+                  loadVideos();
+                  await fetchMyVideos();
+                } catch (err) {
+                  console.error(err);
+                  const errMsg =
+                    err.response?.data?.message ||
+                    err.message ||
+                    "Upload failed";
+                  setMessage(`❌ ${errMsg}`);
+                } finally {
+                  setLoading(false);
+                }
+              }}
+            >
               {/* Video Title */}
               <TextField
                 label="Video Title"
@@ -1005,6 +1057,7 @@ const CoachDashboard = () => {
                   ))
                 )}
               </TextField>
+
               {/* Cohort Selection */}
               <TextField
                 label="Select Cohort"
@@ -1020,13 +1073,13 @@ const CoachDashboard = () => {
                 ) : (
                   cohorts.map((cohort) => (
                     <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
-                      {cohort.cohortName} {/* display the name */}
+                      {cohort.cohortName}
                     </MenuItem>
                   ))
                 )}
               </TextField>
 
-              {/* Buttons in same line */}
+              {/* Buttons */}
               <Box
                 sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}
               >
@@ -1036,10 +1089,21 @@ const CoachDashboard = () => {
                     hidden
                     type="file"
                     accept="video/*"
-                    required
-                    onChange={(e) => setVideoFile(e.target.files[0])}
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (file) {
+                        setVideoFile(file);
+                      } else {
+                        setVideoFile(null);
+                      }
+                    }}
                   />
                 </Button>
+                {videoFile && (
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Selected: {videoFile.name}
+                  </Typography>
+                )}
 
                 <Button type="submit" variant="contained" disabled={loading}>
                   {loading ? <CircularProgress size={24} /> : "Upload Video"}
@@ -1047,7 +1111,7 @@ const CoachDashboard = () => {
               </Box>
             </form>
 
-            {/* Error / Success Message */}
+            {/* Messages */}
             {message && (
               <Typography
                 variant="body1"
@@ -1057,20 +1121,14 @@ const CoachDashboard = () => {
               </Typography>
             )}
 
+            {/* My Uploaded Videos */}
             <Typography variant="h6">🎬 My Uploaded Videos</Typography>
-
             {Array.isArray(myVideos) && myVideos.length > 0 ? (
               myVideos.map((v) => (
                 <Paper
                   key={v._id}
-                  sx={{
-                    p: 2,
-                    mt: 2,
-                    position: "relative",
-                    borderRadius: 2,
-                  }}
+                  sx={{ p: 2, mt: 2, position: "relative", borderRadius: 2 }}
                 >
-                  {/* Delete Icon */}
                   <IconButton
                     sx={{ position: "absolute", top: 8, right: 8 }}
                     color="error"
@@ -1082,23 +1140,16 @@ const CoachDashboard = () => {
                   <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
                     {v.title}
                   </Typography>
-
                   <Typography variant="body2" color="text.secondary">
                     Course: {v.course?.name || "Unknown"}
                   </Typography>
-
                   <Typography variant="body2" color="text.secondary">
                     Uploaded: {new Date(v.createdAt).toLocaleString()}
                   </Typography>
-
                   <video
                     src={v.fileUrl}
                     controls
-                    style={{
-                      width: "100%",
-                      borderRadius: 8,
-                      marginTop: 10,
-                    }}
+                    style={{ width: "100%", borderRadius: 8, marginTop: 10 }}
                   />
                 </Paper>
               ))
