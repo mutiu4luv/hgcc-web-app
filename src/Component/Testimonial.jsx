@@ -291,7 +291,7 @@ const Testimonial = () => {
                             sx={{
                               fontSize: { xs: "0.9rem", sm: "1rem" },
                               lineHeight: 1.5,
-                              color: "#065f46",
+                              color: "yellow",
                             }}
                           >
                             {a.message}
@@ -305,7 +305,7 @@ const Testimonial = () => {
                             {a.button === "whatsapp" && (
                               <Button
                                 variant="outlined"
-                                color="success"
+                                color="yellow"
                                 size="small"
                                 href={
                                   a.whatsappLink ||
