@@ -90,20 +90,19 @@ const StudentDashboard = () => {
   useEffect(() => {
     const loadNotStartedCohorts = async () => {
       try {
-        setCohortLoading(true);
         const res = await axios.get(`${BASE_URL}/api/cohort/active`, {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: { Authorization: token ? `Bearer ${token}` : "" },
         });
 
-        // Set activeCohorts from res.data.cohorts (array)
-        if (Array.isArray(res.data.cohorts) && res.data.cohorts.length > 0) {
+        if (res.data.cohorts) {
           setActiveCohorts(res.data.cohorts);
         } else {
+          setMessage(res.data.message || "Unknown response");
           setActiveCohorts([]);
         }
       } catch (err) {
-        console.error("Failed to load cohorts:", err);
-        setMessage("Failed to load cohorts");
+        console.error("Frontend Error:", err.response?.data || err);
+        setMessage(err.response?.data?.message || "Request failed");
         setActiveCohorts([]);
       } finally {
         setCohortLoading(false);
