@@ -111,8 +111,8 @@ const CoachDashboard = () => {
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
     { text: "Upload Video", icon: <UploadFile />, key: "upload-video" },
     { text: "Upload Document", icon: <UploadFile />, key: "upload-doc" },
-    { text: "All Videos", icon: <UploadFile />, key: "videos" },
-    { text: "All Documents", icon: <UploadFile />, key: "documents" },
+    // { text: "All Videos", icon: <UploadFile />, key: "videos" },
+    // { text: "All Documents", icon: <UploadFile />, key: "documents" },
     { text: "Assignments", icon: <AssignmentTurnedIn />, key: "assignments" },
     { text: "Students", icon: <School />, key: "students" },
     {
@@ -1082,7 +1082,7 @@ const CoachDashboard = () => {
           </Paper>
         )}
         {/* All Videos */}
-        {activeTab === "videos" && (
+        {/* {activeTab === "videos" && (
           <Box sx={{ mt: 4 }}>
             <Typography variant="h6" sx={{ mb: 3 }}>
               📺 All Uploaded Videos
@@ -1110,9 +1110,9 @@ const CoachDashboard = () => {
               ))}
             </Grid>
           </Box>
-        )}
+        )} */}
         {/* All Documents */}
-        {activeTab === "documents" && (
+        {/* {activeTab === "documents" && (
           <Box sx={{ mt: 4 }}>
             <Typography variant="h6" sx={{ mb: 3 }}>
               📄 All Uploaded Documents
@@ -1142,7 +1142,7 @@ const CoachDashboard = () => {
               ))}
             </Grid>
           </Box>
-        )}
+        )} */}
         {/* Assignments */}
         {activeTab === "assignments" && (
           <Paper sx={{ p: 4 }}>

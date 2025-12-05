@@ -31,6 +31,7 @@ import {
 import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
+import { Videocam } from "@mui/icons-material";
 
 const drawerWidth = 250;
 
@@ -38,6 +39,8 @@ const StudentDashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
   const [globalLoading, setGlobalLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [upcomingClasses, setUpcomingClasses] = useState([]);
+  const [classList, setClassList] = useState([]);
 
   const [assignments, setAssignments] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
@@ -52,6 +55,7 @@ const StudentDashboard = () => {
   const [rating, setRating] = useState(0);
   const [comment, setComment] = useState("");
   const [selectedCoach, setSelectedCoach] = useState("");
+  const [upcomingClass, setUpcomingClass] = useState(null);
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeCohorts, setActiveCohorts] = useState([]);
@@ -84,7 +88,25 @@ const StudentDashboard = () => {
       icon: <AssignmentTurnedIn />,
       key: "register-course",
     },
+    { text: "Join Class", icon: <Videocam />, key: "join-class" },
   ];
+
+  // upcoming classes
+  useEffect(() => {
+    const loadClass = async () => {
+      const token = localStorage.getItem("token");
+      const res = await axios.get(
+        `${BASE_URL}/api/cohort/student/upcoming-class`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setUpcomingClass(res.data);
+    };
+
+    loadClass();
+  }, []);
 
   // Load not started cohorts
   useEffect(() => {
@@ -618,28 +640,68 @@ const StudentDashboard = () => {
                 <Typography variant="h6" gutterBottom>
                   Upcoming Classes
                 </Typography>
-                {activeCohorts.length === 0 ? (
+
+                {upcomingClasses && upcomingClasses.length === 0 ? (
                   <Typography>No upcoming classes</Typography>
                 ) : (
-                  activeCohorts.map((cohort) => (
-                    <Box key={cohort.cohortId} sx={{ mb: 2 }}>
-                      <Typography fontWeight="bold">
-                        {cohort.cohortName}
-                      </Typography>
-                      {cohort.notStartedCourses?.length > 0 ? (
-                        cohort.notStartedCourses.map((c) => (
-                          <Typography key={c.courseId._id} variant="body2">
-                            {c.courseId.name} - Starts:{" "}
-                            {c.courseId.startDate || "N/A"}
-                          </Typography>
-                        ))
-                      ) : (
-                        <Typography variant="body2">
-                          No upcoming courses
+                  upcomingClasses.map((cls) => {
+                    const classDateTime = new Date(cls.classDateTime); // backend should return classDateTime
+                    const now = new Date();
+                    const canJoin = cls.hasAccess && now >= classDateTime; // student must have access and time reached
+
+                    return (
+                      <Paper key={cls._id} sx={{ p: 2, mt: 2 }}>
+                        <Typography fontWeight="bold">
+                          {cls.courseName || "Course"}
                         </Typography>
-                      )}
-                    </Box>
-                  ))
+
+                        <Typography variant="body2">
+                          Starts: {classDateTime.toLocaleDateString()} @{" "}
+                          {classDateTime.toLocaleTimeString()}
+                        </Typography>
+
+                        {/* Render content only if student has access */}
+                        {canJoin ? (
+                          <>
+                            {cls.videos.length > 0 &&
+                              cls.videos.map((v) => (
+                                <video
+                                  key={v._id}
+                                  src={v.fileUrl}
+                                  controls
+                                  style={{
+                                    width: "100%",
+                                    marginTop: 10,
+                                    borderRadius: 8,
+                                  }}
+                                />
+                              ))}
+
+                            {cls.documents.length > 0 &&
+                              cls.documents.map((d) => (
+                                <Box key={d._id} sx={{ mt: 1 }}>
+                                  <a
+                                    href={d.fileUrl}
+                                    target="_blank"
+                                    rel="noreferrer"
+                                  >
+                                    📄 {d.title}
+                                  </a>
+                                </Box>
+                              ))}
+                          </>
+                        ) : (
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{ mt: 1 }}
+                          >
+                            Not yet accessible
+                          </Typography>
+                        )}
+                      </Paper>
+                    );
+                  })
                 )}
               </Paper>
             </Box>
@@ -672,6 +734,45 @@ const StudentDashboard = () => {
                 Upload Submission
               </Button>
             </form>
+          </Paper>
+        )}
+        {activeTab === "join-class" && (
+          <Paper sx={{ p: 4 }}>
+            <Typography
+              variant="h4"
+              fontWeight="bold"
+              color="primary"
+              gutterBottom
+            >
+              🎥 Join Your Class
+            </Typography>
+
+            {classList.length === 0 ? (
+              <Typography>No upcoming classes found.</Typography>
+            ) : (
+              classList.map((cls) => (
+                <Paper key={cls._id} sx={{ p: 2, mt: 2, bgcolor: "#f0f9ff" }}>
+                  <Typography variant="h6" fontWeight="bold">
+                    {cls.courseId.name}
+                  </Typography>
+
+                  <Typography>
+                    Date: {new Date(cls.date).toLocaleDateString()}
+                  </Typography>
+                  <Typography>Time: {cls.time}</Typography>
+
+                  <Button
+                    variant="contained"
+                    color="success"
+                    sx={{ mt: 2 }}
+                    onClick={() => handleJoinClass(cls._id)}
+                    disabled={!cls.canJoin}
+                  >
+                    {cls.canJoin ? "Join Class" : "Not Yet Available"}
+                  </Button>
+                </Paper>
+              ))
+            )}
           </Paper>
         )}
 
