@@ -344,7 +344,6 @@ const CoachDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       setStudentAssignments(res.data.assignments || []);
-      console.log(res.data.assignments);
     } catch (err) {
       console.error(
         "Error fetching student assignments:",
@@ -367,9 +366,8 @@ const CoachDashboard = () => {
         });
         if (res.data?.cohorts?.length > 0) {
           setCohorts(res.data.cohorts);
-          setSelectedCohortId(res.data.cohorts[0].cohortId); // correct field
-          setCohortId(res.data.cohorts[0].cohortId); // correct field
-          console.log("Fetched cohorts:", res.data.cohorts);
+          setSelectedCohortId(res.data.cohorts[0].cohortId);
+          setCohortId(res.data.cohorts[0].cohortId);
         } else {
           console.warn("No cohorts found in response", res.data);
         }
