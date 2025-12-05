@@ -43,6 +43,7 @@ import {
 import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
 import { useParams } from "react-router-dom";
+import DeleteIcon from "@mui/icons-material/Delete";
 
 const drawerWidth = 250;
 
@@ -59,6 +60,8 @@ const CoachDashboard = () => {
   const [docTitle, setDocTitle] = useState("");
   const [docFile, setDocFile] = useState(null);
   const [documents, setDocuments] = useState([]);
+  const [classStartTime, setClassStartTime] = useState("");
+  const [courses, setCourses] = useState([]);
 
   const [assignments, setAssignments] = useState([]);
   const [students, setStudents] = useState([]);
@@ -92,6 +95,8 @@ const CoachDashboard = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [coursesArray, setCoursesArray] = useState([]);
 
+  const [myVideos, setMyVideos] = useState([]);
+
   const { cohortIds } = useParams();
   console.log("COHORT ID FROM URL:", cohortId);
   const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -117,6 +122,50 @@ const CoachDashboard = () => {
     },
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
+  // FETCH  VIDEOS UPLOADED BY THE COACH
+  const fetchMyVideos = async () => {
+    try {
+      const { data } = await axios.get(`${BASE_URL}/api/coach/my-videos`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      const videosArray = Array.isArray(data) ? data : data.videos || [];
+      setMyVideos(videosArray);
+
+      console.log("Fetched videos:", videosArray);
+    } catch (error) {
+      console.error("Failed to load videos", error);
+      setMyVideos([]); // prevent map crash
+    }
+  };
+
+  useEffect(() => {
+    fetchMyVideos();
+  }, []);
+
+  // DELETE VIDEO
+  const handleDeleteVideo = async (videoId) => {
+    if (!window.confirm("Are you sure you want to delete this video?")) return;
+
+    try {
+      await axios.delete(`${BASE_URL}/api/coach/delete-video/${videoId}`, {
+        headers: {
+          Authorization: `Bearer ${localStorage.getItem("token")}`,
+        },
+      });
+
+      // Remove video from UI
+      setMyVideos((prev) => prev.filter((v) => v._id !== videoId));
+
+      alert("Video deleted successfully");
+    } catch (error) {
+      console.error("Failed to delete video", error);
+      alert("Failed to delete video");
+    }
+  };
+
   //open assignment modal
 
   const handleOpenAssignmentModal = (assignment, submission) => {
@@ -364,40 +413,43 @@ const CoachDashboard = () => {
   // =========================
   // VIDEO UPLOAD
   // =========================
+
   const handleVideoUpload = async (e) => {
     e.preventDefault();
-    if (!videoTitle || !videoFile)
-      return alert("Please provide title and video file");
+
+    if (!videoTitle || !videoFile || !classStartTime || !selectedCourseId) {
+      return alert("All fields are required!");
+    }
 
     const formData = new FormData();
     formData.append("title", videoTitle);
-    formData.append("file", videoFile);
+    formData.append("file", videoFile); // <-- must match upload.single("file")
+    formData.append("classStartTime", classStartTime);
+    formData.append("courseId", selectedCourseId);
 
     try {
       setLoading(true);
-      await axios.post(`${BASE_URL}/api/videos/upload`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setMessage("🎥 Video uploaded successfully");
+      const { data } = await axios.post(
+        `${BASE_URL}/api/coach/upload-video`,
+        formData,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setMessage(data.message);
       setVideoTitle("");
       setVideoFile(null);
+      setClassStartTime("");
+      setSelectedCourseId("");
       loadVideos();
-    } catch {
-      setMessage("❌ Video upload failed");
+      await fetchMyVideos();
+    } catch (error) {
+      console.error(error);
+      const errMsg =
+        error.response?.data?.message || error.message || "Upload failed";
+      setMessage(`❌ ${errMsg}`);
     } finally {
       setLoading(false);
-    }
-  };
-
-  const deleteVideo = async (id) => {
-    if (!window.confirm("Delete this video permanently?")) return;
-    try {
-      await axios.delete(`${BASE_URL}/api/videos/${id}`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setVideos(videos.filter((v) => v._id !== id));
-    } catch {
-      setMessage("❌ Failed to delete video");
     }
   };
 
@@ -575,6 +627,26 @@ const CoachDashboard = () => {
     };
     loadRatings();
   }, [BASE_URL, token]);
+  // fetch courses assigned to coach
+
+  useEffect(() => {
+    const loadCourses = async () => {
+      try {
+        const { data } = await axios.get(
+          `${BASE_URL}/api/course/my-courses-for-coach`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        console.log("Courses data:", data); // check what is coming
+        setCourses(data.courses || []);
+      } catch (error) {
+        console.error("Failed to load courses:", error);
+      }
+    };
+
+    loadCourses();
+  }, []);
 
   // Fetch courses in cohort
   const loadCohortCourses = async () => {
@@ -855,28 +927,131 @@ const CoachDashboard = () => {
               🎥 Upload Video
             </Typography>
             <form onSubmit={handleVideoUpload}>
+              {/* Video Title */}
               <TextField
                 label="Video Title"
                 fullWidth
+                required
                 sx={{ mb: 2 }}
                 value={videoTitle}
                 onChange={(e) => setVideoTitle(e.target.value)}
               />
-              <Button variant="contained" component="label" sx={{ mb: 2 }}>
-                Choose Video
-                <input
-                  hidden
-                  type="file"
-                  accept="video/*"
-                  onChange={(e) => setVideoFile(e.target.files[0])}
-                />
-              </Button>
-              <Button type="submit" variant="contained" disabled={loading}>
-                {loading ? <CircularProgress size={24} /> : "Upload Video"}
-              </Button>
+
+              {/* Class Start Time */}
+              <TextField
+                label="Class Start Time"
+                type="datetime-local"
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+                InputLabelProps={{ shrink: true }}
+                value={classStartTime}
+                onChange={(e) => setClassStartTime(e.target.value)}
+              />
+
+              {/* Course Selection */}
+              <TextField
+                label="Select Course"
+                select
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+                value={selectedCourseId}
+                onChange={(e) => setSelectedCourseId(e.target.value)}
+              >
+                {courses.length === 0 ? (
+                  <MenuItem disabled>No courses available</MenuItem>
+                ) : (
+                  courses.map((course) => (
+                    <MenuItem key={course._id} value={course._id}>
+                      {course.name}
+                    </MenuItem>
+                  ))
+                )}
+              </TextField>
+
+              {/* Buttons in same line */}
+              <Box
+                sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}
+              >
+                <Button variant="contained" component="label">
+                  Choose Video
+                  <input
+                    hidden
+                    type="file"
+                    accept="video/*"
+                    required
+                    onChange={(e) => setVideoFile(e.target.files[0])}
+                  />
+                </Button>
+
+                <Button type="submit" variant="contained" disabled={loading}>
+                  {loading ? <CircularProgress size={24} /> : "Upload Video"}
+                </Button>
+              </Box>
             </form>
+
+            {/* Error / Success Message */}
+            {message && (
+              <Typography
+                variant="body1"
+                color={message.includes("failed") ? "error" : "green"}
+              >
+                {message}
+              </Typography>
+            )}
+
+            <Typography variant="h6">🎬 My Uploaded Videos</Typography>
+
+            {Array.isArray(myVideos) && myVideos.length > 0 ? (
+              myVideos.map((v) => (
+                <Paper
+                  key={v._id}
+                  sx={{
+                    p: 2,
+                    mt: 2,
+                    position: "relative",
+                    borderRadius: 2,
+                  }}
+                >
+                  {/* Delete Icon */}
+                  <IconButton
+                    sx={{ position: "absolute", top: 8, right: 8 }}
+                    color="error"
+                    onClick={() => handleDeleteVideo(v._id)}
+                  >
+                    <DeleteIcon />
+                  </IconButton>
+
+                  <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                    {v.title}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary">
+                    Course: {v.course?.name || "Unknown"}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary">
+                    Uploaded: {new Date(v.createdAt).toLocaleString()}
+                  </Typography>
+
+                  <video
+                    src={v.fileUrl}
+                    controls
+                    style={{
+                      width: "100%",
+                      borderRadius: 8,
+                      marginTop: 10,
+                    }}
+                  />
+                </Paper>
+              ))
+            ) : (
+              <Typography sx={{ mt: 2 }}>No videos uploaded yet.</Typography>
+            )}
           </Paper>
         )}
+
         {/* Upload Document */}
         {activeTab === "upload-doc" && (
           <Paper sx={{ p: 4 }}>
@@ -1392,7 +1567,7 @@ const CoachDashboard = () => {
             )}
           </Paper>
         )}
-
+        {/* Start or End Course */}
         {activeTab === "course-control" && (
           <Paper sx={{ p: 4 }}>
             <Typography
@@ -1478,7 +1653,6 @@ const CoachDashboard = () => {
             )}
           </Paper>
         )}
-
         {/* ✅ Live Mode */}
         {activeTab === "live" && (
           <Paper sx={{ p: 4 }}>
