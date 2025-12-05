@@ -415,15 +415,36 @@ const CoachDashboard = () => {
   const handleVideoUpload = async (e) => {
     e.preventDefault();
 
-    if (!videoTitle || !videoFile || !classStartTime || !selectedCourseId) {
+    if (
+      !videoTitle ||
+      !videoFile ||
+      !classStartTime ||
+      !selectedCourseId ||
+      !selectedCohortId
+    ) {
       return alert("All fields are required!");
     }
 
+    // Convert local datetime to UTC
+    const localTime = new Date(classStartTime);
+    const utcTime = new Date(
+      Date.UTC(
+        localTime.getFullYear(),
+        localTime.getMonth(),
+        localTime.getDate(),
+        localTime.getHours(),
+        localTime.getMinutes(),
+        0,
+        0
+      )
+    );
+
     const formData = new FormData();
     formData.append("title", videoTitle);
-    formData.append("file", videoFile); // <-- must match upload.single("file")
-    formData.append("classStartTime", classStartTime);
+    formData.append("file", videoFile);
+    formData.append("classStartTime", utcTime.toISOString()); // send UTC
     formData.append("courseId", selectedCourseId);
+    formData.append("cohortId", selectedCohortId);
 
     try {
       setLoading(true);
@@ -439,6 +460,7 @@ const CoachDashboard = () => {
       setVideoFile(null);
       setClassStartTime("");
       setSelectedCourseId("");
+      setSelectedCohortId(""); // reset cohort selection
       loadVideos();
       await fetchMyVideos();
     } catch (error) {
@@ -478,6 +500,22 @@ const CoachDashboard = () => {
       setLoading(false);
     }
   };
+
+  const fetchCohorts = async () => {
+    try {
+      const { data } = await axios.get(`${BASE_URL}/api/cohort/available`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // data.cohorts is an array of { cohortId, cohortName, courses }
+      setCohorts(data.cohorts || []);
+    } catch (error) {
+      console.error(error);
+    }
+  };
+
+  useEffect(() => {
+    fetchCohorts();
+  }, []);
 
   const deleteDocument = async (id) => {
     if (!window.confirm("Delete this document permanently?")) return;
@@ -963,6 +1001,26 @@ const CoachDashboard = () => {
                   courses.map((course) => (
                     <MenuItem key={course._id} value={course._id}>
                       {course.name}
+                    </MenuItem>
+                  ))
+                )}
+              </TextField>
+              {/* Cohort Selection */}
+              <TextField
+                label="Select Cohort"
+                select
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+                value={selectedCohortId}
+                onChange={(e) => setSelectedCohortId(e.target.value)}
+              >
+                {cohorts.length === 0 ? (
+                  <MenuItem disabled>No cohorts available</MenuItem>
+                ) : (
+                  cohorts.map((cohort) => (
+                    <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                      {cohort.cohortName} {/* display the name */}
                     </MenuItem>
                   ))
                 )}
