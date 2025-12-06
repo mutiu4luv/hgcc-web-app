@@ -90,7 +90,7 @@ const Hero = () => {
         </Box>
 
         {/* BUTTONS */}
-        <Box
+        {/* <Box
           component={motion.div}
           sx={{
             display: "flex",
@@ -138,6 +138,40 @@ const Hero = () => {
           >
             Learn More
           </Button>
+        </Box> */}
+        <Box
+          component={motion.div}
+          sx={{
+            display: "flex",
+            justifyContent: { xs: "flex-start", md: "flex-start" },
+            gap: 2,
+            flexWrap: "wrap",
+            mb: 4,
+          }}
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 1, delay: 3.2 }}
+        >
+          <a
+            href="https://wa.me/message/UBJLJZJGN4ESE1"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{ textDecoration: "none" }}
+          >
+            <Button
+              variant="contained"
+              size="large"
+              sx={{
+                textTransform: "none",
+                fontWeight: 600,
+                px: 3,
+                backgroundColor: "#14CD02",
+                "&:hover": { backgroundColor: "#15803d" },
+              }}
+            >
+              Enroll Now
+            </Button>
+          </a>
         </Box>
 
         {/* STATS */}

@@ -132,12 +132,13 @@ const CoachDashboard = () => {
     const token = localStorage.getItem("token");
     const formData = new FormData();
     formData.append("title", docTitle);
-    formData.append("courseId", selectedCourseId); // ensure this comes from your course selection
+    formData.append("courseId", selectedCourseId);
     formData.append("unlockAt", unlockAt);
     formData.append("file", docFile);
+    // ✅ required field
 
     try {
-      const res = await fetch(`${BASE_URL}/api/material/upload-document`, {
+      const res = await fetch(`${BASE_URL}/api/coach/upload-document`, {
         method: "POST",
         headers: {
           Authorization: `Bearer ${token}`,
@@ -1201,6 +1202,21 @@ const CoachDashboard = () => {
                 value={unlockAt}
                 onChange={(e) => setUnlockAt(e.target.value)}
               />
+              <TextField
+                select
+                label="Select Course"
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+                value={selectedCourseId}
+                onChange={(e) => setSelectedCourseId(e.target.value)}
+              >
+                {courses.map((course) => (
+                  <MenuItem key={course._id} value={course._id}>
+                    {course.name}
+                  </MenuItem>
+                ))}
+              </TextField>
 
               {/* File Upload Button */}
               <Button
