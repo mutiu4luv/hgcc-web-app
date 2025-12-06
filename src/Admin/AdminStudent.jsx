@@ -67,6 +67,9 @@ const StudentDashboard = () => {
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
   const [submittedFile, setSubmittedFile] = useState(null);
 
+  const [videos, setVideos] = useState([]);
+  const [loadingVideos, setLoadingVideos] = useState(true);
+
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
 
@@ -90,6 +93,30 @@ const StudentDashboard = () => {
     },
     { text: "Join Class", icon: <Videocam />, key: "join-class" },
   ];
+
+  // Fetch unlocked videos
+  const fetchVideos = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${BASE_URL}/api/coach/video`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const data = await res.json();
+      if (res.ok) {
+        setVideos(data.unlockedMaterials || []);
+      }
+      console.log("Fetched videos:", data);
+    } catch (error) {
+      console.error("Failed to fetch videos:", error);
+    } finally {
+      setLoadingVideos(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchVideos();
+  }, []);
 
   // upcoming classes
   useEffect(() => {
@@ -736,39 +763,53 @@ const StudentDashboard = () => {
             </form>
           </Paper>
         )}
+
+        {/* Join Class Tab */}
         {activeTab === "join-class" && (
           <Paper sx={{ p: 4 }}>
             <Typography
               variant="h4"
               fontWeight="bold"
               color="primary"
-              gutterBottom
+              sx={{ mt: 6 }}
             >
-              🎥 Join Your Class
+              📚 Your Class Videos
             </Typography>
 
-            {classList.length === 0 ? (
-              <Typography>No upcoming classes found.</Typography>
+            {loadingVideos ? (
+              <Typography sx={{ mt: 2 }}>Loading videos...</Typography>
+            ) : videos.length === 0 ? (
+              <Typography sx={{ mt: 2 }}>No videos uploaded yet.</Typography>
             ) : (
-              classList.map((cls) => (
-                <Paper key={cls._id} sx={{ p: 2, mt: 2, bgcolor: "#f0f9ff" }}>
+              videos.map((video) => (
+                <Paper key={video._id} sx={{ p: 2, mt: 2, bgcolor: "#fff7f0" }}>
                   <Typography variant="h6" fontWeight="bold">
-                    {cls.courseId.name}
+                    🎥 {video.title}
                   </Typography>
 
-                  <Typography>
-                    Date: {new Date(cls.date).toLocaleDateString()}
+                  <Typography variant="body2" sx={{ mt: 1 }}>
+                    Course: {video.courseId?.name || "Unknown"}
                   </Typography>
-                  <Typography>Time: {cls.time}</Typography>
+
+                  <Typography variant="body2">
+                    Uploaded: {new Date(video.createdAt).toLocaleDateString()}
+                  </Typography>
+
+                  {/* Video player */}
+                  <video
+                    style={{ marginTop: 15, width: "100%", borderRadius: 8 }}
+                    controls
+                    src={video.fileUrl}
+                  />
 
                   <Button
                     variant="contained"
-                    color="success"
+                    color="primary"
                     sx={{ mt: 2 }}
-                    onClick={() => handleJoinClass(cls._id)}
-                    disabled={!cls.canJoin}
+                    href={video.fileUrl}
+                    target="_blank"
                   >
-                    {cls.canJoin ? "Join Class" : "Not Yet Available"}
+                    Open Full Video
                   </Button>
                 </Paper>
               ))
