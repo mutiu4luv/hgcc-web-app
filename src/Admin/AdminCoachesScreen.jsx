@@ -96,6 +96,7 @@ const CoachDashboard = () => {
   const [coursesArray, setCoursesArray] = useState([]);
 
   const [myVideos, setMyVideos] = useState([]);
+  const [unlockAt, setUnlockAt] = useState("");
 
   const { cohortIds } = useParams();
   console.log("COHORT ID FROM URL:", cohortId);
@@ -122,6 +123,43 @@ const CoachDashboard = () => {
     },
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
+
+  const handleDocumentUpload = async (e) => {
+    e.preventDefault();
+    if (!docFile || !docTitle || !unlockAt) return;
+
+    setLoading(true);
+    const token = localStorage.getItem("token");
+    const formData = new FormData();
+    formData.append("title", docTitle);
+    formData.append("courseId", selectedCourseId); // ensure this comes from your course selection
+    formData.append("unlockAt", unlockAt);
+    formData.append("file", docFile);
+
+    try {
+      const res = await fetch(`${BASE_URL}/api/material/upload-document`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+        body: formData,
+      });
+
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.message || "Upload failed");
+
+      alert("Document uploaded successfully!");
+      // Optionally refresh the document list
+      setDocTitle("");
+      setDocFile(null);
+      setUnlockAt("");
+    } catch (err) {
+      console.error(err);
+      alert(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
   // FETCH  VIDEOS UPLOADED BY THE COACH
   const fetchMyVideos = async () => {
     try {
@@ -482,30 +520,6 @@ const CoachDashboard = () => {
   // =========================
   // DOCUMENT UPLOAD
   // =========================
-  const handleDocumentUpload = async (e) => {
-    e.preventDefault();
-    if (!docTitle || !docFile)
-      return alert("Please provide title and document file");
-
-    const formData = new FormData();
-    formData.append("title", docTitle);
-    formData.append("file", docFile);
-
-    try {
-      setLoading(true);
-      await axios.post(`${BASE_URL}/api/coach/upload-document`, formData, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setMessage("📄 Document uploaded successfully");
-      setDocTitle("");
-      setDocFile(null);
-      loadDocuments();
-    } catch {
-      setMessage("❌ Document upload failed");
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const fetchCohorts = async () => {
     try {
@@ -1162,18 +1176,39 @@ const CoachDashboard = () => {
         {/* Upload Document */}
         {activeTab === "upload-doc" && (
           <Paper sx={{ p: 4 }}>
-            <Typography variant="h6" sx={{ mt: 4 }}>
+            <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
               📄 Upload Document
             </Typography>
             <form onSubmit={handleDocumentUpload}>
+              {/* Document Title */}
               <TextField
                 label="Document Title"
                 fullWidth
+                required
                 sx={{ mb: 2 }}
                 value={docTitle}
                 onChange={(e) => setDocTitle(e.target.value)}
               />
-              <Button variant="contained" component="label" sx={{ mb: 2 }}>
+
+              {/* Unlock Date & Time */}
+              <TextField
+                label="Unlock Date & Time"
+                type="datetime-local"
+                fullWidth
+                required
+                sx={{ mb: 2 }}
+                InputLabelProps={{ shrink: true }}
+                value={unlockAt}
+                onChange={(e) => setUnlockAt(e.target.value)}
+              />
+
+              {/* File Upload Button */}
+              <Button
+                variant="contained"
+                component="label"
+                fullWidth
+                sx={{ mb: 2 }}
+              >
                 Choose Document
                 <input
                   hidden
@@ -1182,7 +1217,19 @@ const CoachDashboard = () => {
                   onChange={(e) => setDocFile(e.target.files[0])}
                 />
               </Button>
-              <Button type="submit" variant="contained" disabled={loading}>
+              {docFile && (
+                <Typography variant="body2" sx={{ mb: 2 }}>
+                  Selected file: {docFile.name}
+                </Typography>
+              )}
+
+              {/* Submit Button */}
+              <Button
+                type="submit"
+                variant="contained"
+                fullWidth
+                disabled={loading || !docFile}
+              >
                 {loading ? <CircularProgress size={24} /> : "Upload Document"}
               </Button>
             </form>
