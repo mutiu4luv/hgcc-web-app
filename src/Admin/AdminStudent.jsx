@@ -121,15 +121,54 @@ const StudentDashboard = () => {
   // upcoming classes
   useEffect(() => {
     const loadClass = async () => {
-      const token = localStorage.getItem("token");
-      const res = await axios.get(
-        `${BASE_URL}/api/cohort/student/upcoming-class`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+      try {
+        const token = localStorage.getItem("token");
 
-      setUpcomingClass(res.data);
+        const res = await axios.get(`${BASE_URL}/api/coach/video`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const materials = res.data.unlockedMaterials || [];
+        setVideos(materials);
+
+        const now = Date.now();
+
+        // 1️⃣ Classes already unlocked (class is ON now)
+        const activeClasses = materials.filter(
+          (m) =>
+            m.unlockAt &&
+            !isNaN(new Date(m.unlockAt)) &&
+            new Date(m.unlockAt).getTime() <= now
+        );
+
+        // 2️⃣ Classes that start later (future)
+        const futureClasses = materials.filter(
+          (m) =>
+            m.unlockAt &&
+            !isNaN(new Date(m.unlockAt)) &&
+            new Date(m.unlockAt).getTime() > now
+        );
+
+        let nextClass = null;
+
+        if (activeClasses.length > 0) {
+          // choose the most recently unlocked class
+          nextClass = activeClasses.sort(
+            (a, b) =>
+              new Date(b.unlockAt).getTime() - new Date(a.unlockAt).getTime()
+          )[0];
+        } else if (futureClasses.length > 0) {
+          // choose the nearest upcoming class
+          nextClass = futureClasses.sort(
+            (a, b) =>
+              new Date(a.unlockAt).getTime() - new Date(b.unlockAt).getTime()
+          )[0];
+        }
+
+        setUpcomingClass(nextClass || null);
+      } catch (err) {
+        console.error("Failed to load class:", err);
+      }
     };
 
     loadClass();
@@ -535,6 +574,7 @@ const StudentDashboard = () => {
             >
               📊 Welcome to your Dashboard
             </Typography>
+
             <Typography sx={{ mb: 3 }}>
               Here you can view assignments, manage submissions, register
               courses, and rate coaches.
@@ -548,6 +588,7 @@ const StudentDashboard = () => {
                   {assignments.length}
                 </Typography>
               </Paper>
+
               <Paper sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#fef9c3" }}>
                 <Typography variant="h6">My Submissions</Typography>
                 <Typography variant="h4" fontWeight="bold">
@@ -567,17 +608,17 @@ const StudentDashboard = () => {
               </Paper>
             </Box>
 
-            {/* Bar Chart for assignments */}
+            {/* Assignment Table */}
             <Box sx={{ height: 300, mb: 4 }}>
               <Typography variant="h6" gutterBottom>
                 Assignment Status
               </Typography>
+
               <div style={{ height: 250, width: "100%" }}>
                 <DataGrid
                   rows={assignments.map((a, idx) => ({
                     id: idx,
                     title: a.title || "Untitled",
-                    // normalize status safely
                     status:
                       a.status?.toLowerCase() === "submitted"
                         ? "Submitted"
@@ -589,22 +630,18 @@ const StudentDashboard = () => {
                       field: "status",
                       headerName: "Status",
                       width: 200,
-                      renderCell: (params) => {
-                        // fallback to "Pending" if value is undefined or null
-                        const value = params.value || "Pending";
-                        // render text directly without charAt
-                        return (
-                          <Typography
-                            color={
-                              value.toLowerCase() === "pending"
-                                ? "red"
-                                : "green"
-                            }
-                          >
-                            {value}
-                          </Typography>
-                        );
-                      },
+                      renderCell: (params) => (
+                        <Typography
+                          color={
+                            (params.value || "Pending").toLowerCase() ===
+                            "pending"
+                              ? "red"
+                              : "green"
+                          }
+                        >
+                          {params.value || "Pending"}
+                        </Typography>
+                      ),
                     },
                   ]}
                   pageSize={5}
@@ -613,11 +650,12 @@ const StudentDashboard = () => {
               </div>
             </Box>
 
-            {/* Quick Coach Rating & Upcoming Classes */}
+            {/* Quick Coach Rating + Upcoming Class */}
             <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
               {/* Quick Coach Rating */}
               <Paper sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#fef2f2" }}>
                 <Typography variant="h6">Rate a Coach</Typography>
+
                 <TextField
                   select
                   label="Select Coach"
@@ -633,12 +671,14 @@ const StudentDashboard = () => {
                     </MenuItem>
                   ))}
                 </TextField>
+
                 {selectedCoach && (
                   <Rating
                     value={rating}
                     onChange={(e, newValue) => setRating(newValue)}
                   />
                 )}
+
                 {selectedCoach && (
                   <TextField
                     label="Comment"
@@ -651,6 +691,7 @@ const StudentDashboard = () => {
                     placeholder="Write a comment about the coach..."
                   />
                 )}
+
                 <Button
                   variant="contained"
                   color="success"
@@ -662,73 +703,79 @@ const StudentDashboard = () => {
                 </Button>
               </Paper>
 
-              {/* Upcoming Classes */}
+              {/* Upcoming Class */}
               <Paper sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#e0f2fe" }}>
                 <Typography variant="h6" gutterBottom>
-                  Upcoming Classes
+                  Upcoming Class
                 </Typography>
 
-                {upcomingClasses && upcomingClasses.length === 0 ? (
-                  <Typography>No upcoming classes</Typography>
+                {!upcomingClass ? (
+                  <Typography>No upcoming class available</Typography>
                 ) : (
-                  upcomingClasses.map((cls) => {
-                    const classDateTime = new Date(cls.classDateTime); // backend should return classDateTime
-                    const now = new Date();
-                    const canJoin = cls.hasAccess && now >= classDateTime; // student must have access and time reached
+                  <Paper sx={{ p: 2, mt: 2 }}>
+                    <Typography fontWeight="bold">
+                      {upcomingClass.courseId?.name || "Course"}
+                    </Typography>
 
-                    return (
-                      <Paper key={cls._id} sx={{ p: 2, mt: 2 }}>
-                        <Typography fontWeight="bold">
-                          {cls.courseName || "Course"}
-                        </Typography>
+                    {/* FIX: Safely parse unlockAt */}
+                    {(() => {
+                      const unlockTime = upcomingClass.unlockAt
+                        ? new Date(upcomingClass.unlockAt)
+                        : null;
 
-                        <Typography variant="body2">
-                          Starts: {classDateTime.toLocaleDateString()} @{" "}
-                          {classDateTime.toLocaleTimeString()}
-                        </Typography>
+                      const isValid =
+                        unlockTime instanceof Date &&
+                        !isNaN(unlockTime.getTime());
 
-                        {/* Render content only if student has access */}
-                        {canJoin ? (
-                          <>
-                            {cls.videos.length > 0 &&
-                              cls.videos.map((v) => (
-                                <video
-                                  key={v._id}
-                                  src={v.fileUrl}
-                                  controls
-                                  style={{
-                                    width: "100%",
-                                    marginTop: 10,
-                                    borderRadius: 8,
-                                  }}
-                                />
-                              ))}
-
-                            {cls.documents.length > 0 &&
-                              cls.documents.map((d) => (
-                                <Box key={d._id} sx={{ mt: 1 }}>
-                                  <a
-                                    href={d.fileUrl}
-                                    target="_blank"
-                                    rel="noreferrer"
-                                  >
-                                    📄 {d.title}
-                                  </a>
-                                </Box>
-                              ))}
-                          </>
-                        ) : (
-                          <Typography
-                            variant="body2"
-                            color="text.secondary"
-                            sx={{ mt: 1 }}
-                          >
-                            Not yet accessible
+                      return (
+                        <>
+                          <Typography variant="body2">
+                            Starts:{" "}
+                            {isValid
+                              ? unlockTime.toLocaleDateString()
+                              : "Unknown Date"}{" "}
+                            @{" "}
+                            {isValid
+                              ? unlockTime.toLocaleTimeString()
+                              : "Unknown Time"}
                           </Typography>
-                        )}
-                      </Paper>
-                    );
-                  })
+
+                          {/* FIX: Only allow access if date is valid */}
+                          {isValid && new Date() >= unlockTime ? (
+                            <>
+                              <video
+                                src={upcomingClass.fileUrl}
+                                controls
+                                style={{
+                                  width: "100%",
+                                  marginTop: 10,
+                                  borderRadius: 8,
+                                }}
+                              />
+
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                sx={{ mt: 2 }}
+                                href={upcomingClass.fileUrl}
+                                target="_blank"
+                              >
+                                Open Full Video
+                              </Button>
+                            </>
+                          ) : (
+                            <Typography
+                              variant="body2"
+                              color="text.secondary"
+                              sx={{ mt: 1 }}
+                            >
+                              ⏳ Class not accessible yet
+                            </Typography>
+                          )}
+                        </>
+                      );
+                    })()}
+                  </Paper>
                 )}
               </Paper>
             </Box>
