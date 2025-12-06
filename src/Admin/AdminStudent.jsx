@@ -823,43 +823,51 @@ const StudentDashboard = () => {
               📚 Your Class Videos
             </Typography>
 
-            {loadingVideos ? (
+            {loadingVideos || !courses.length ? (
               <Typography sx={{ mt: 2 }}>Loading videos...</Typography>
             ) : videos.length === 0 ? (
               <Typography sx={{ mt: 2 }}>No videos uploaded yet.</Typography>
             ) : (
-              videos.map((video) => (
-                <Paper key={video._id} sx={{ p: 2, mt: 2, bgcolor: "#fff7f0" }}>
-                  <Typography variant="h6" fontWeight="bold">
-                    🎥 {video.title}
-                  </Typography>
+              videos.map((video) => {
+                const courseName =
+                  courses.find((c) => c._id === video.courseId)?.name ||
+                  "Unknown";
 
-                  <Typography variant="body2" sx={{ mt: 1 }}>
-                    Course: {video.courseId?.name || "Unknown"}
-                  </Typography>
-
-                  <Typography variant="body2">
-                    Uploaded: {new Date(video.createdAt).toLocaleDateString()}
-                  </Typography>
-
-                  {/* Video player */}
-                  <video
-                    style={{ marginTop: 15, width: "100%", borderRadius: 8 }}
-                    controls
-                    src={video.fileUrl}
-                  />
-
-                  <Button
-                    variant="contained"
-                    color="primary"
-                    sx={{ mt: 2 }}
-                    href={video.fileUrl}
-                    target="_blank"
+                return (
+                  <Paper
+                    key={video._id}
+                    sx={{ p: 2, mt: 2, bgcolor: "#fff7f0" }}
                   >
-                    Open Full Video
-                  </Button>
-                </Paper>
-              ))
+                    <Typography variant="h6" fontWeight="bold">
+                      🎥 {video.title}
+                    </Typography>
+
+                    <Typography variant="body2" sx={{ mt: 1 }}>
+                      Course: <h1 style={{ color: "green" }}>{courseName}</h1>
+                    </Typography>
+
+                    <Typography variant="body2">
+                      Uploaded: {new Date(video.createdAt).toLocaleDateString()}
+                    </Typography>
+
+                    <video
+                      style={{ marginTop: 15, width: "100%", borderRadius: 8 }}
+                      controls
+                      src={video.fileUrl}
+                    />
+
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      sx={{ mt: 2 }}
+                      href={video.fileUrl}
+                      target="_blank"
+                    >
+                      Open Full Video
+                    </Button>
+                  </Paper>
+                );
+              })
             )}
           </Paper>
         )}
