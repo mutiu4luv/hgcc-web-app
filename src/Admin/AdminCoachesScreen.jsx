@@ -68,7 +68,7 @@ const CoachDashboard = () => {
   const [ratingData, setRatingData] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [studentsLoading, setStudentsLoading] = useState(true);
-  const [assignmentsLoading, setAssignmentsLoading] = useState(true); // <-- ADD THIS
+  const [assignmentsLoading, setAssignmentsLoading] = useState(true);
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
@@ -79,6 +79,7 @@ const CoachDashboard = () => {
   const [cohorts, setCohorts] = useState([]);
   const [selectedCohortId, setSelectedCohortId] = useState("");
   const [flattenedSubmissions, setFlattenedSubmissions] = useState([]);
+  const [myDocuments, setMyDocuments] = useState([]);
 
   const [studentAssignments, setStudentAssignments] = useState([]);
   const [studentAssignmentsLoading, setStudentAssignmentsLoading] =
@@ -172,8 +173,6 @@ const CoachDashboard = () => {
 
       const videosArray = Array.isArray(data) ? data : data.videos || [];
       setMyVideos(videosArray);
-
-      console.log("Fetched videos:", videosArray);
     } catch (error) {
       console.error("Failed to load videos", error);
       setMyVideos([]); // prevent map crash
@@ -183,6 +182,23 @@ const CoachDashboard = () => {
   useEffect(() => {
     fetchMyVideos();
   }, []);
+
+  // DELETE DOCUMENT
+  const handleDeleteDocument = async (documentId) => {
+    if (!window.confirm("Are you sure you want to delete this document?"))
+      return;
+
+    try {
+      await axios.delete(`${BASE_URL}/api/coach/document/${documentId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      // Remove from UI
+      setMyDocuments((prev) => prev.filter((doc) => doc._id !== documentId));
+    } catch (err) {
+      console.error("❌ Error deleting document:", err);
+    }
+  };
 
   // DELETE VIDEO
   const handleDeleteVideo = async (videoId) => {
@@ -430,20 +446,20 @@ const CoachDashboard = () => {
     }
   };
 
-  const loadDocuments = async () => {
+  const fetchMyDocuments = async () => {
     try {
-      const res = await axios.get(`${BASE_URL}/api/coach/documents`, {
+      const { data } = await axios.get(`${BASE_URL}/api/coach/my-documents`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setDocuments(res.data);
+
+      setMyDocuments(data.unlockedMaterials || []);
     } catch (err) {
-      console.error(err);
+      console.error("❌ Error fetching coach documents:", err);
     }
   };
-
   useEffect(() => {
     loadVideos();
-    loadDocuments();
+    fetchMyDocuments();
     setGlobalLoading(false);
   }, []);
 
@@ -528,7 +544,6 @@ const CoachDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
       // data.cohorts is an array of { cohortId, cohortName, courses }
-      setCohorts(data.cohorts || []);
     } catch (error) {
       console.error(error);
     }
@@ -571,8 +586,6 @@ const CoachDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
-
-      console.log("Assignments API response:", res.data);
 
       setAssignments(res.data.assignmentsByCohort || {}); // FIX
       setFlattenedSubmissions(res.data.submissions || []); // FIX
@@ -627,8 +640,6 @@ const CoachDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        console.log("✅ Students response:", res.data);
-
         if (res.data.students) {
           setStudents(res.data.students);
         } else {
@@ -658,7 +669,6 @@ const CoachDashboard = () => {
         const res = await axios.get(`${BASE_URL}/api/feedbacks/my-ratings`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        console.log("✅ Ratings raw:", res.data);
         const monthlyRatings = res.data.reduce((acc, item) => {
           const month = new Date(item.createdAt).toLocaleString("default", {
             month: "short",
@@ -695,7 +705,6 @@ const CoachDashboard = () => {
             headers: { Authorization: `Bearer ${token}` },
           }
         );
-        console.log("Courses data:", data); // check what is coming
         setCourses(data.courses || []);
       } catch (error) {
         console.error("Failed to load courses:", error);
@@ -768,9 +777,8 @@ const CoachDashboard = () => {
     })
   );
 
-  /// MOVE IT HERE (NOT ABOVE)
-  console.log("RAW assignments:", assignments);
-  console.log("assignmentRows:", assignmentRows);
+  // console.log("RAW assignments:", assignments);
+  // console.log("assignmentRows:", assignmentRows);
 
   // ========================= RENDER =========================
   if (globalLoading) {
@@ -1249,6 +1257,49 @@ const CoachDashboard = () => {
                 {loading ? <CircularProgress size={24} /> : "Upload Document"}
               </Button>
             </form>
+
+            {/* 🔥 Display uploaded documents */}
+            <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+              📚 My Uploaded Documents
+            </Typography>
+
+            {myDocuments.length === 0 ? (
+              <Typography>No documents uploaded yet.</Typography>
+            ) : (
+              myDocuments.map((doc) => (
+                <Paper key={doc._id} sx={{ p: 2, mb: 2, position: "relative" }}>
+                  {/* Delete Icon */}
+                  <IconButton
+                    sx={{ position: "absolute", top: 8, right: 8 }}
+                    onClick={() => handleDeleteDocument(doc._id)}
+                  >
+                    <Delete color="error" />
+                  </IconButton>
+
+                  <Typography variant="subtitle1" fontWeight="bold">
+                    {doc.title}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary">
+                    Course:{" "}
+                    {doc.courseId?.name || doc.course?.name || "Unknown"}
+                  </Typography>
+
+                  <Typography variant="body2" color="text.secondary">
+                    Unlocks: {new Date(doc.unlockAt).toLocaleString()}
+                  </Typography>
+
+                  <Button
+                    variant="outlined"
+                    sx={{ mt: 1 }}
+                    href={doc.fileUrl}
+                    target="_blank"
+                  >
+                    View Document
+                  </Button>
+                </Paper>
+              ))
+            )}
           </Paper>
         )}
         {/* All Videos */}
