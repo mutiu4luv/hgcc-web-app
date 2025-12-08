@@ -41,6 +41,7 @@ const StudentDashboard = () => {
   const [message, setMessage] = useState("");
   const [upcomingClasses, setUpcomingClasses] = useState([]);
   const [myDocuments, setMyDocuments] = useState([]);
+  const [upcomingDocuments, setUpcomingDocuments] = useState([]);
 
   const [assignments, setAssignments] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
@@ -95,13 +96,15 @@ const StudentDashboard = () => {
   ];
 
   // Fetch documents for student
+
   const fetchDocuments = async () => {
     try {
       const { data } = await axios.get(`${BASE_URL}/api/coach/doc`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      // Store unlocked materials
+
       setMyDocuments(data.unlockedMaterials || []);
+      setUpcomingDocuments(data.upcomingMaterials || []);
     } catch (err) {
       console.error("❌ Error fetching documents:", err);
     }
@@ -423,7 +426,7 @@ const StudentDashboard = () => {
   };
 
   // =========================
-  // REGISTER STUDENT
+  // REGISTER STUDENT FOR A COHORT
   // =========================
   const handleRegisterStudent = async (cohortId, courseId) => {
     try {
@@ -913,21 +916,43 @@ const StudentDashboard = () => {
                             <span style={{ color: "green" }}>{courseName}</span>
                           </Typography>
 
-                          {now < unlockAt ? (
-                            <Typography sx={{ mt: 1, color: "orange" }}>
-                              Class will start on {unlockAt.toLocaleString()}
-                            </Typography>
-                          ) : (
-                            <Button
-                              variant="contained"
-                              color="primary"
-                              sx={{ mt: 2 }}
-                              href={doc.fileUrl}
-                              target="_blank"
-                            >
-                              Open Document
-                            </Button>
-                          )}
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            sx={{ mt: 2 }}
+                            href={doc.fileUrl}
+                            target="_blank"
+                          >
+                            Open Document
+                          </Button>
+                        </Paper>
+                      );
+                    })}
+
+                    {/* Render upcoming documents */}
+                    {upcomingDocuments.map((doc) => {
+                      const courseName =
+                        courses.find((c) => c._id === doc.courseId?._id)
+                          ?.name || "Unknown";
+                      const unlockAt = new Date(doc.unlockAt);
+
+                      return (
+                        <Paper
+                          key={doc._id}
+                          sx={{ p: 2, mt: 2, bgcolor: "#f0f7ff" }}
+                        >
+                          <Typography variant="h6" fontWeight="bold">
+                            📄 {doc.title}
+                          </Typography>
+
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            Course:{" "}
+                            <span style={{ color: "green" }}>{courseName}</span>
+                          </Typography>
+
+                          <Typography sx={{ mt: 1, color: "orange" }}>
+                            Class will start on {unlockAt.toLocaleString()}
+                          </Typography>
                         </Paper>
                       );
                     })}
