@@ -1216,15 +1216,12 @@ const StudentDashboard = () => {
                           sx={{ mb: 2 }}
                         >
                           <MenuItem value="">-- Select Course --</MenuItem>
-                          {coursesList.map((course) => {
-                            const c = course.courseId || {};
-                            return (
-                              <MenuItem key={course._id} value={c._id}>
-                                {c.name || "Unnamed"} ({c.category || "N/A"}) -{" "}
-                                {c.duration || "N/A"}
-                              </MenuItem>
-                            );
-                          })}
+                          {coursesList.map((course) => (
+                            <MenuItem key={course._id} value={course._id}>
+                              {course.name} ({course.category}) —{" "}
+                              {course.durationInDays} days
+                            </MenuItem>
+                          ))}
                         </TextField>
 
                         <Button
