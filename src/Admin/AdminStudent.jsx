@@ -181,6 +181,7 @@ const StudentDashboard = () => {
         const res = await axios.get(`${BASE_URL}/api/cohort/active`, {
           headers: { Authorization: token ? `Bearer ${token}` : "" },
         });
+        console.log(res.data.cohorts);
 
         if (res.data.cohorts) {
           setActiveCohorts(res.data.cohorts);
@@ -401,27 +402,6 @@ const StudentDashboard = () => {
       setGlobalLoading(false);
     }
   };
-
-  // =========================
-  // ACTIVE COHORT
-  // =========================
-  useEffect(() => {
-    const loadActiveCohorts = async () => {
-      try {
-        setCohortLoading(true);
-        const res = await axios.get(`${BASE_URL}/api/cohort/assigned`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setActiveCohorts(res.data.cohorts || []);
-      } catch (err) {
-        console.error(err);
-        setActiveCohorts([]);
-      } finally {
-        setCohortLoading(false);
-      }
-    };
-    loadActiveCohorts();
-  }, []);
 
   // =========================
   // REGISTER STUDENT
@@ -1161,7 +1141,7 @@ const StudentDashboard = () => {
           <Paper sx={{ p: 4 }}>
             {cohortLoading ? (
               <CircularProgress />
-            ) : !Array.isArray(activeCohorts) || activeCohorts.length === 0 ? (
+            ) : Array.isArray(activeCohorts) && activeCohorts.length === 0 ? (
               <Typography variant="h5" color="red">
                 ❌ No available cohorts
               </Typography>
@@ -1206,7 +1186,6 @@ const StudentDashboard = () => {
 
                     return (
                       <>
-                        {/* 🔹 FIX: Dropdown is now “Choose Course” */}
                         <TextField
                           select
                           label="Choose Course"
@@ -1218,8 +1197,9 @@ const StudentDashboard = () => {
                           <MenuItem value="">-- Select Course --</MenuItem>
                           {coursesList.map((course) => (
                             <MenuItem key={course._id} value={course._id}>
-                              {course.name} ({course.category}) —{" "}
-                              {course.durationInDays} days
+                              {course.name || "Unnamed"} (
+                              {course.category || "N/A"}) -{" "}
+                              {course.durationInDays || "N/A"}
                             </MenuItem>
                           ))}
                         </TextField>
