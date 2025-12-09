@@ -921,45 +921,89 @@ const StudentDashboard = () => {
 
                 {/* Render all documents */}
                 {documents.map((doc) => {
-                  const courseName =
-                    courses.find((c) => String(c._id) === String(doc.courseId))
-                      ?.name || "Unknown";
+                  const unlockDateUTC = new Date(doc.unlockAt);
                   const now = new Date();
-                  const unlockAt = new Date(doc.unlockAt);
-                  const isUnlocked = now >= unlockAt;
+                  const isUnlocked = now >= unlockDateUTC;
+
+                  const unlockLocalString = unlockDateUTC.toLocaleString(
+                    "en-US",
+                    {
+                      weekday: "short",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }
+                  );
+
+                  const unlockUTCString =
+                    unlockDateUTC.toLocaleString("en-US", {
+                      timeZone: "UTC",
+                      weekday: "short",
+                      year: "numeric",
+                      month: "short",
+                      day: "numeric",
+                      hour: "2-digit",
+                      minute: "2-digit",
+                    }) + " UTC";
 
                   return (
                     <Paper
                       key={doc._id}
                       sx={{
                         p: 2,
-                        mt: 2,
-                        bgcolor: isUnlocked ? "#f0f7ff" : "#fff4e5",
+                        mb: 2,
+                        borderLeft: isUnlocked
+                          ? "4px solid green"
+                          : "4px solid orange",
                       }}
                     >
-                      <Typography variant="h6" fontWeight="bold">
-                        📄 {doc.title}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        Course:{" "}
-                        <span style={{ color: "green" }}>{doc.courseName}</span>
+                      <Typography variant="h6">{doc.title}</Typography>
+                      <Typography variant="body2">
+                        Course: {doc.courseId?.name}
                       </Typography>
 
-                      {isUnlocked ? (
-                        <Button
-                          variant="contained"
-                          color="primary"
-                          sx={{ mt: 2 }}
-                          href={doc.fileUrl}
-                          target="_blank"
-                        >
-                          Open Document
-                        </Button>
-                      ) : (
-                        <Typography sx={{ mt: 1, color: "orange" }}>
-                          Will unlock on {unlockAt.toLocaleString()}
-                        </Typography>
-                      )}
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          mt: 1,
+                          color: isUnlocked ? "green" : "orange",
+                          fontWeight: 600,
+                        }}
+                      >
+                        {isUnlocked ? "Unlocked" : "Will unlock at"}
+                      </Typography>
+
+                      {/* Local time */}
+                      <Typography variant="body2">
+                        Local Time: {unlockLocalString}
+                      </Typography>
+
+                      {/* UTC time */}
+                      <Typography
+                        variant="body2"
+                        sx={{ fontStyle: "italic", opacity: 0.7 }}
+                      >
+                        UTC Time: {unlockUTCString}
+                      </Typography>
+
+                      {/* Download Button */}
+                      <Box sx={{ mt: 2 }}>
+                        {isUnlocked ? (
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            onClick={() => window.open(doc.fileUrl, "_blank")}
+                          >
+                            Download
+                          </Button>
+                        ) : (
+                          <Button variant="outlined" disabled>
+                            Locked
+                          </Button>
+                        )}
+                      </Box>
                     </Paper>
                   );
                 })}
