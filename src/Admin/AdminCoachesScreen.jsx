@@ -1839,7 +1839,7 @@ const CoachDashboard = () => {
                           color="success"
                           onClick={handleStartCourse}
                           disabled={
-                            actionLoading || selected.status !== "pending"
+                            actionLoading || selected.status !== "not_started"
                           }
                         >
                           {selected.status === "in_progress" ? (
