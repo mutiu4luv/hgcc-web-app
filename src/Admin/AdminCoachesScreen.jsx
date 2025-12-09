@@ -288,7 +288,7 @@ const CoachDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("API response:", res.data);
+      console.log("Assigned courses from API:", res.data);
       setAssignedCourses(res.data.cohorts || []);
     } catch (err) {
       console.error("Error fetching assigned courses:", err);
@@ -296,13 +296,17 @@ const CoachDashboard = () => {
       setLoadingAssigned(false);
     }
   };
-  // Transform assignedCourses into flat array for dropdown
 
+  // =========================
+  // FLATTEN COURSES FOR DROPDOWN
+  // =========================
   useEffect(() => {
     if (!assignedCourses || assignedCourses.length === 0) {
       setCoursesArray([]);
       return;
     }
+
+    // Transform assignedCourses into flat array for dropdown
 
     const flatCourses = assignedCourses.flatMap((cohort) =>
       cohort.courses.map((course) => ({
@@ -313,9 +317,16 @@ const CoachDashboard = () => {
         status: course.status,
       }))
     );
+    //
 
     setCoursesArray(flatCourses);
   }, [assignedCourses]);
+  // auto-select first course when coursesArray changes
+  useEffect(() => {
+    if (coursesArray.length > 0 && !selectedCourse) {
+      setSelectedCourse(coursesArray[0].cohortCourseId);
+    }
+  }, [coursesArray]);
   // Start course
   const handleStartCourse = async () => {
     if (!selectedCourse) {
@@ -1792,9 +1803,9 @@ const CoachDashboard = () => {
               <>
                 <TextField
                   select
-                  label="Start cohort"
-                  value={selectedCohortId}
-                  onChange={(e) => setSelectedCohortId(e.target.value)}
+                  label="Select Assigned Course"
+                  value={selectedCourse}
+                  onChange={(e) => setSelectedCourse(e.target.value)}
                   fullWidth
                 >
                   {coursesArray.length === 0 ? (
@@ -1812,50 +1823,45 @@ const CoachDashboard = () => {
                   )}
                 </TextField>
 
-                {selectedCourse &&
-                  (() => {
-                    const selected = coursesArray.find(
-                      (c) => c.cohortCourseId === selectedCourse
-                    );
+                {selectedCourse && (
+                  <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
+                    <Button
+                      variant="contained"
+                      color="success"
+                      onClick={handleStartCourse}
+                      disabled={
+                        actionLoading ||
+                        coursesArray.find(
+                          (c) => c.cohortCourseId === selectedCourse
+                        )?.status !== "not_started"
+                      }
+                    >
+                      {actionLoading ? (
+                        <CircularProgress size={22} />
+                      ) : (
+                        "Start Course"
+                      )}
+                    </Button>
 
-                    return (
-                      <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
-                        <Button
-                          variant="contained"
-                          color="success"
-                          onClick={handleStartCourse}
-                          disabled={
-                            actionLoading || selected.status !== "not_started"
-                          }
-                        >
-                          {selected.status === "in_progress" ? (
-                            "Course Started"
-                          ) : actionLoading ? (
-                            <CircularProgress size={22} />
-                          ) : (
-                            "Start Course"
-                          )}
-                        </Button>
-
-                        <Button
-                          variant="contained"
-                          color="error"
-                          onClick={handleEndCourse}
-                          disabled={
-                            actionLoading || selected.status !== "in_progress"
-                          }
-                        >
-                          {selected.status === "completed" ? (
-                            "Course Completed"
-                          ) : actionLoading ? (
-                            <CircularProgress size={22} />
-                          ) : (
-                            "End Course"
-                          )}
-                        </Button>
-                      </Box>
-                    );
-                  })()}
+                    <Button
+                      variant="contained"
+                      color="error"
+                      onClick={handleEndCourse}
+                      disabled={
+                        actionLoading ||
+                        coursesArray.find(
+                          (c) => c.cohortCourseId === selectedCourse
+                        )?.status !== "in_progress"
+                      }
+                    >
+                      {actionLoading ? (
+                        <CircularProgress size={22} />
+                      ) : (
+                        "End Course"
+                      )}
+                    </Button>
+                  </Box>
+                )}
               </>
             )}
           </Paper>
