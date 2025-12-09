@@ -100,7 +100,7 @@ const CoachDashboard = () => {
   const [unlockAt, setUnlockAt] = useState("");
 
   const { cohortIds } = useParams();
-  console.log("COHORT ID FROM URL:", cohortId);
+  // console.log("COHORT ID FROM URL:", cohortId);
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
   const user = JSON.parse(localStorage.getItem("user"));
@@ -1792,9 +1792,9 @@ const CoachDashboard = () => {
               <>
                 <TextField
                   select
-                  label="Select Assignment"
-                  value={selectedCourse}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
+                  label="Start cohort"
+                  value={selectedCohortId}
+                  onChange={(e) => setSelectedCohortId(e.target.value)}
                   fullWidth
                 >
                   {coursesArray.length === 0 ? (
