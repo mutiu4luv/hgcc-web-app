@@ -69,7 +69,8 @@ const StudentDashboard = () => {
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
   const [submittedFile, setSubmittedFile] = useState(null);
-
+  const [nextClass, setNextClass] = useState(null);
+  const [nextClassCountdown, setNextClassCountdown] = useState("");
   const [videos, setVideos] = useState([]);
   const [loadingVideos, setLoadingVideos] = useState(true);
 
@@ -121,9 +122,15 @@ const StudentDashboard = () => {
       }));
 
       setDocuments(allDocs);
+
+      // ✅ Grab next class info
+      setNextClass(data.nextClass || null);
+      setNextClassCountdown(data.nextClassCountdown || "");
     } catch (err) {
       console.error("❌ Error fetching documents:", err);
       setDocuments([]);
+      setNextClass(null);
+      setNextClassCountdown("");
     } finally {
       setLoadingDocuments(false);
     }
@@ -741,59 +748,78 @@ const StudentDashboard = () => {
                   Upcoming Class
                 </Typography>
 
-                {!upcomingClass ? (
+                {!nextClass ? (
                   <Typography>No upcoming class available</Typography>
                 ) : (
                   <Paper sx={{ p: 2, mt: 2 }}>
                     <Typography fontWeight="bold">
-                      {upcomingClass.courseId?.name || "Course"}
+                      {nextClass.courseId?.name || "Course"}
                     </Typography>
 
-                    {/* FIX: Safely parse unlockAt */}
+                    {/* Unlock Date & Countdown */}
                     {(() => {
-                      const unlockTime = upcomingClass.unlockAt
-                        ? new Date(upcomingClass.unlockAt)
+                      const unlockTime = nextClass.unlockAt
+                        ? new Date(nextClass.unlockAt)
                         : null;
-
+                      const now = new Date();
                       const isValid =
                         unlockTime instanceof Date &&
                         !isNaN(unlockTime.getTime());
+                      const isUnlocked = isValid && now >= unlockTime;
 
                       return (
                         <>
-                          <Typography variant="body2">
+                          <Typography variant="body2" sx={{ mb: 1 }}>
                             Starts:{" "}
                             {isValid
-                              ? unlockTime.toLocaleDateString()
-                              : "Unknown Date"}{" "}
-                            @{" "}
-                            {isValid
-                              ? unlockTime.toLocaleTimeString()
-                              : "Unknown Time"}
+                              ? unlockTime.toLocaleDateString() +
+                                " @ " +
+                                unlockTime.toLocaleTimeString()
+                              : "Unknown Date"}
                           </Typography>
 
-                          {/* FIX: Only allow access if date is valid */}
-                          {isValid && new Date() >= unlockTime ? (
-                            <>
-                              <video
-                                src={upcomingClass.fileUrl}
-                                controls
-                                style={{
-                                  width: "100%",
-                                  marginTop: 10,
-                                  borderRadius: 8,
-                                }}
-                              />
+                          {/* Countdown */}
+                          {isValid && !isUnlocked && (
+                            <Typography variant="body2" color="text.secondary">
+                              ⏳{" "}
+                              {nextClassCountdown || "Next class unlocks soon"}
+                            </Typography>
+                          )}
 
-                              <Button
-                                variant="contained"
-                                color="primary"
-                                sx={{ mt: 2 }}
-                                href={upcomingClass.fileUrl}
-                                target="_blank"
-                              >
-                                Open Full Video
-                              </Button>
+                          {/* Video & Download */}
+                          {isUnlocked ? (
+                            <>
+                              {nextClass.fileUrl && (
+                                <>
+                                  {nextClass.type === "video" ? (
+                                    <video
+                                      src={nextClass.fileUrl}
+                                      controls
+                                      style={{
+                                        width: "100%",
+                                        marginTop: 10,
+                                        borderRadius: 8,
+                                      }}
+                                    />
+                                  ) : (
+                                    <Typography variant="body2">
+                                      Document available
+                                    </Typography>
+                                  )}
+                                  <Button
+                                    variant="contained"
+                                    color="primary"
+                                    sx={{ mt: 2 }}
+                                    href={nextClass.fileUrl}
+                                    target="_blank"
+                                  >
+                                    Open Full{" "}
+                                    {nextClass.type === "video"
+                                      ? "Video"
+                                      : "Document"}
+                                  </Button>
+                                </>
+                              )}
                             </>
                           ) : (
                             <Typography
