@@ -440,8 +440,15 @@ const StudentDashboard = () => {
       setSuccessModalOpen(true);
       setTimeout(() => navigate(`/payment/${cohortId}/${courseId}`), 5000);
     } catch (err) {
-      console.error(err);
-      setMessage(err.response?.data?.message || "Failed to register");
+      console.error("REGISTER ERROR:", err);
+
+      const backendMessage =
+        err?.response?.data?.message ||
+        err?.response?.data?.error ||
+        "Registration failed";
+
+      setMessage(backendMessage);
+      // setMessage(err.response?.data?.message || "Failed to register");
     } finally {
       setRegisterLoading(false);
     }
