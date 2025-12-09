@@ -328,20 +328,20 @@ const StudentDashboard = () => {
   // =========================
   // FETCH SUBMISSIONS
   // =========================
-  useEffect(() => {
-    const loadSubmissions = async () => {
-      try {
-        const res = await axios.get(`${BASE_URL}/api/student/submissions`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        setMySubmissions(res.data);
-      } catch (err) {
-        console.error(err);
-        setMessage("Failed to load submissions");
-      }
-    };
-    loadSubmissions();
-  }, []);
+  // useEffect(() => {
+  //   const loadSubmissions = async () => {
+  //     try {
+  //       const res = await axios.get(`${BASE_URL}/api/student/submissions`, {
+  //         headers: { Authorization: `Bearer ${token}` },
+  //       });
+  //       setMySubmissions(res.data);
+  //     } catch (err) {
+  //       console.error(err);
+  //       setMessage("Failed to load submissions");
+  //     }
+  //   };
+  //   loadSubmissions();
+  // }, []);
 
   // =========================
   // FETCH COACHES
