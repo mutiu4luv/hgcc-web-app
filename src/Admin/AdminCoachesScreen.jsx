@@ -195,11 +195,12 @@ const CoachDashboard = () => {
 
       // Remove from UI
       setMyDocuments((prev) => prev.filter((doc) => doc._id !== documentId));
+      alert("Document deleted successfully");
     } catch (err) {
       console.error("❌ Error deleting document:", err);
+      alert("Failed to delete document");
     }
   };
-
   // DELETE VIDEO
   const handleDeleteVideo = async (videoId) => {
     if (!window.confirm("Are you sure you want to delete this video?")) return;
@@ -537,21 +538,6 @@ const CoachDashboard = () => {
   // =========================
   // DOCUMENT UPLOAD
   // =========================
-
-  const fetchCohorts = async () => {
-    try {
-      const { data } = await axios.get(`${BASE_URL}/api/cohort/available`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      // data.cohorts is an array of { cohortId, cohortName, courses }
-    } catch (error) {
-      console.error(error);
-    }
-  };
-
-  useEffect(() => {
-    fetchCohorts();
-  }, []);
 
   const deleteDocument = async (id) => {
     if (!window.confirm("Delete this document permanently?")) return;

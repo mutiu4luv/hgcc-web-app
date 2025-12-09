@@ -1,0 +1,197 @@
+{activeTab === "join-class" && (
+<Paper sx={{ p: 4 }}>
+<Typography
+variant="h4"
+fontWeight="bold"
+color="primary"
+sx={{ mt: 6 }} >
+📚 Your Class Materials
+</Typography>
+
+            {loadingVideos || !courses.length ? (
+              <Typography sx={{ mt: 2 }}>Loading classes...</Typography>
+            ) : (
+              <>
+                {/* 🔹 Combine videos and documents */}
+                {videos.length === 0 && myDocuments.length === 0 ? (
+                  <Typography sx={{ mt: 2 }}>
+                    Class is not available now.
+                  </Typography>
+                ) : (
+                  <>
+                    {/* Render videos */}
+                    {videos.map((video) => {
+                      const courseName =
+                        courses.find((c) => c._id === video.courseId)?.name ||
+                        "Unknown";
+                      const now = new Date();
+                      const unlockAt = new Date(video.unlockAt);
+
+                      return (
+                        <Paper
+                          key={video._id}
+                          sx={{ p: 2, mt: 2, bgcolor: "#fff7f0" }}
+                        >
+                          <Typography variant="h6" fontWeight="bold">
+                            🎥 {video.title}
+                          </Typography>
+
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            Course:{" "}
+                            <span style={{ color: "green" }}>{courseName}</span>
+                          </Typography>
+
+                          {now < unlockAt ? (
+                            <Typography sx={{ mt: 1, color: "orange" }}>
+                              Class will start on {unlockAt.toLocaleString()}
+                            </Typography>
+                          ) : (
+                            <>
+                              <Typography variant="body2">
+                                Uploaded:{" "}
+                                {new Date(video.createdAt).toLocaleDateString()}
+                              </Typography>
+
+                              <video
+                                style={{
+                                  marginTop: 15,
+                                  width: "100%",
+                                  borderRadius: 8,
+                                }}
+                                controls
+                                src={video.fileUrl}
+                              />
+
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                sx={{ mt: 2 }}
+                                href={video.fileUrl}
+                                target="_blank"
+                              >
+                                Open Full Video
+                              </Button>
+                            </>
+                          )}
+                        </Paper>
+                      );
+                    })}
+
+                    {/* Render documents */}
+                    {myDocuments.map((doc) => {
+                      const courseName =
+                        courses.find((c) => c._id === doc.courseId?._id)
+                          ?.name || "Unknown";
+                      const now = new Date();
+                      const unlockAt = new Date(doc.unlockAt);
+
+                      return (
+                        <Paper
+                          key={doc._id}
+                          sx={{ p: 2, mt: 2, bgcolor: "#f0f7ff" }}
+                        >
+                          <Typography variant="h6" fontWeight="bold">
+                            📄 {doc.title}
+                          </Typography>
+
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            Course:{" "}
+                            <span style={{ color: "green" }}>{courseName}</span>
+                          </Typography>
+
+                          <Button
+                            variant="contained"
+                            color="primary"
+                            sx={{ mt: 2 }}
+                            href={doc.fileUrl}
+                            target="_blank"
+                          >
+                            Open Document
+                          </Button>
+                        </Paper>
+                      );
+                    })}
+
+                    {/* Render upcoming documents */}
+                    {upcomingDocuments.map((doc) => {
+                      const courseName =
+                        courses.find((c) => c._id === doc.courseId?._id)
+                          ?.name || "Unknown";
+                      const unlockAt = new Date(doc.unlockAt);
+                      return (
+                        <Paper
+                          key={doc._id}
+                          sx={{ p: 2, mt: 2, bgcolor: "#fff4e5" }}
+                        >
+                          <Typography variant="h6" fontWeight="bold">
+                            📄 {doc.title}
+                          </Typography>
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            Course:{" "}
+                            <span style={{ color: "green" }}>{courseName}</span>
+                          </Typography>
+                          <Typography sx={{ mt: 1, color: "orange" }}>
+                            Will unlock on {unlockAt.toLocaleString()}
+                          </Typography>
+                        </Paper>
+                      );
+                    })}
+                    {loadingDocuments ? (
+                      <Typography sx={{ mt: 2 }}>Loading classes...</Typography>
+                    ) : documents.length === 0 ? (
+                      <Typography sx={{ mt: 2 }}>
+                        Class is not available now.
+                      </Typography>
+                    ) : (
+                      documents.map((doc) => {
+                        const courseName =
+                          courses.find((c) => c._id === doc.courseId?._id)
+                            ?.name || "Unknown";
+                        const now = new Date();
+                        const unlockAt = new Date(doc.unlockAt);
+                        const isUnlocked = now >= unlockAt;
+
+                        return (
+                          <Paper
+                            key={doc._id}
+                            sx={{
+                              p: 2,
+                              mt: 2,
+                              bgcolor: isUnlocked ? "#f0f7ff" : "#fff4e5",
+                            }}
+                          >
+                            <Typography variant="h6" fontWeight="bold">
+                              📄 {doc.title}
+                            </Typography>
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                              Course:{" "}
+                              <span style={{ color: "green" }}>
+                                {courseName}
+                              </span>
+                            </Typography>
+
+                            {isUnlocked ? (
+                              <Button
+                                variant="contained"
+                                color="primary"
+                                sx={{ mt: 2 }}
+                                href={doc.fileUrl}
+                                target="_blank"
+                              >
+                                Open Document
+                              </Button>
+                            ) : (
+                              <Typography sx={{ mt: 1, color: "orange" }}>
+                                Will unlock on {unlockAt.toLocaleString()}
+                              </Typography>
+                            )}
+                          </Paper>
+                        );
+                      })
+                    )}
+                  </>
+                )}
+              </>
+            )}
+          </Paper>
+        )}

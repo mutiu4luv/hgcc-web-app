@@ -41,7 +41,7 @@ const StudentDashboard = () => {
   const [message, setMessage] = useState("");
   const [upcomingClasses, setUpcomingClasses] = useState([]);
   const [myDocuments, setMyDocuments] = useState([]);
-  const [upcomingDocuments, setUpcomingDocuments] = useState([]);
+  const [loadingDocuments, setLoadingDocuments] = useState(false);
 
   const [assignments, setAssignments] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
@@ -57,6 +57,8 @@ const StudentDashboard = () => {
   const [comment, setComment] = useState("");
   const [selectedCoach, setSelectedCoach] = useState("");
   const [upcomingClass, setUpcomingClass] = useState(null);
+  const [upcomingDocuments, setUpcomingDocuments] = useState([]);
+  const [documents, setDocuments] = useState([]);
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeCohorts, setActiveCohorts] = useState([]);
@@ -99,16 +101,37 @@ const StudentDashboard = () => {
 
   const fetchDocuments = async () => {
     try {
+      setLoadingDocuments(true);
       const { data } = await axios.get(`${BASE_URL}/api/coach/doc`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      setMyDocuments(data.unlockedMaterials || []);
-      setUpcomingDocuments(data.upcomingMaterials || []);
+      console.log("📄 Fetched documents", data);
+
+      // Normalize documents: make sure courseName is always available
+      const allDocs = [
+        ...(data.unlockedMaterials || []),
+        ...(data.upcomingMaterials || []),
+      ].map((doc) => ({
+        ...doc,
+        courseName:
+          typeof doc.courseId === "object"
+            ? doc.courseId.name
+            : courses.find((c) => c._id === doc.courseId)?.name || "Unknown",
+      }));
+
+      setDocuments(allDocs);
     } catch (err) {
       console.error("❌ Error fetching documents:", err);
+      setDocuments([]);
+    } finally {
+      setLoadingDocuments(false);
     }
   };
+
+  useEffect(() => {
+    fetchDocuments();
+  }, []);
 
   // Fetch unlocked videos
   const fetchVideos = async () => {
@@ -832,139 +855,114 @@ const StudentDashboard = () => {
               📚 Your Class Materials
             </Typography>
 
-            {loadingVideos || !courses.length ? (
+            {loadingVideos || loadingDocuments || !courses.length ? (
               <Typography sx={{ mt: 2 }}>Loading classes...</Typography>
+            ) : videos.length === 0 && documents.length === 0 ? (
+              <Typography sx={{ mt: 2 }}>
+                Class is not available now.
+              </Typography>
             ) : (
               <>
-                {/* 🔹 Combine videos and documents */}
-                {videos.length === 0 && myDocuments.length === 0 ? (
-                  <Typography sx={{ mt: 2 }}>
-                    Class is not available now.
-                  </Typography>
-                ) : (
-                  <>
-                    {/* Render videos */}
-                    {videos.map((video) => {
-                      const courseName =
-                        courses.find((c) => c._id === video.courseId)?.name ||
-                        "Unknown";
-                      const now = new Date();
-                      const unlockAt = new Date(video.unlockAt);
+                {/* Render videos */}
+                {videos.map((video) => {
+                  const courseName =
+                    courses.find((c) => c._id === video.courseId)?.name ||
+                    "Unknown";
+                  const now = new Date();
+                  const unlockAt = new Date(video.unlockAt);
+                  const isUnlocked = now >= unlockAt;
 
-                      return (
-                        <Paper
-                          key={video._id}
-                          sx={{ p: 2, mt: 2, bgcolor: "#fff7f0" }}
-                        >
-                          <Typography variant="h6" fontWeight="bold">
-                            🎥 {video.title}
+                  return (
+                    <Paper
+                      key={video._id}
+                      sx={{ p: 2, mt: 2, bgcolor: "#fff7f0" }}
+                    >
+                      <Typography variant="h6" fontWeight="bold">
+                        🎥 {video.title}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        Course:{" "}
+                        <span style={{ color: "green" }}>{courseName}</span>
+                      </Typography>
+
+                      {isUnlocked ? (
+                        <>
+                          <Typography variant="body2">
+                            Uploaded:{" "}
+                            {new Date(video.createdAt).toLocaleDateString()}
                           </Typography>
-
-                          <Typography variant="body2" sx={{ mt: 1 }}>
-                            Course:{" "}
-                            <span style={{ color: "green" }}>{courseName}</span>
-                          </Typography>
-
-                          {now < unlockAt ? (
-                            <Typography sx={{ mt: 1, color: "orange" }}>
-                              Class will start on {unlockAt.toLocaleString()}
-                            </Typography>
-                          ) : (
-                            <>
-                              <Typography variant="body2">
-                                Uploaded:{" "}
-                                {new Date(video.createdAt).toLocaleDateString()}
-                              </Typography>
-
-                              <video
-                                style={{
-                                  marginTop: 15,
-                                  width: "100%",
-                                  borderRadius: 8,
-                                }}
-                                controls
-                                src={video.fileUrl}
-                              />
-
-                              <Button
-                                variant="contained"
-                                color="primary"
-                                sx={{ mt: 2 }}
-                                href={video.fileUrl}
-                                target="_blank"
-                              >
-                                Open Full Video
-                              </Button>
-                            </>
-                          )}
-                        </Paper>
-                      );
-                    })}
-
-                    {/* Render documents */}
-                    {myDocuments.map((doc) => {
-                      const courseName =
-                        courses.find((c) => c._id === doc.courseId?._id)
-                          ?.name || "Unknown";
-                      const now = new Date();
-                      const unlockAt = new Date(doc.unlockAt);
-
-                      return (
-                        <Paper
-                          key={doc._id}
-                          sx={{ p: 2, mt: 2, bgcolor: "#f0f7ff" }}
-                        >
-                          <Typography variant="h6" fontWeight="bold">
-                            📄 {doc.title}
-                          </Typography>
-
-                          <Typography variant="body2" sx={{ mt: 1 }}>
-                            Course:{" "}
-                            <span style={{ color: "green" }}>{courseName}</span>
-                          </Typography>
-
+                          <video
+                            style={{
+                              marginTop: 15,
+                              width: "100%",
+                              borderRadius: 8,
+                            }}
+                            controls
+                            src={video.fileUrl}
+                          />
                           <Button
                             variant="contained"
                             color="primary"
                             sx={{ mt: 2 }}
-                            href={doc.fileUrl}
+                            href={video.fileUrl}
                             target="_blank"
                           >
-                            Open Document
+                            Open Full Video
                           </Button>
-                        </Paper>
-                      );
-                    })}
+                        </>
+                      ) : (
+                        <Typography sx={{ mt: 1, color: "orange" }}>
+                          Class will start on {unlockAt.toLocaleString()}
+                        </Typography>
+                      )}
+                    </Paper>
+                  );
+                })}
 
-                    {/* Render upcoming documents */}
-                    {upcomingDocuments.map((doc) => {
-                      const courseName =
-                        courses.find((c) => c._id === doc.courseId?._id)
-                          ?.name || "Unknown";
-                      const unlockAt = new Date(doc.unlockAt);
+                {/* Render all documents */}
+                {documents.map((doc) => {
+                  const courseName =
+                    courses.find((c) => String(c._id) === String(doc.courseId))
+                      ?.name || "Unknown";
+                  const now = new Date();
+                  const unlockAt = new Date(doc.unlockAt);
+                  const isUnlocked = now >= unlockAt;
 
-                      return (
-                        <Paper
-                          key={doc._id}
-                          sx={{ p: 2, mt: 2, bgcolor: "#f0f7ff" }}
+                  return (
+                    <Paper
+                      key={doc._id}
+                      sx={{
+                        p: 2,
+                        mt: 2,
+                        bgcolor: isUnlocked ? "#f0f7ff" : "#fff4e5",
+                      }}
+                    >
+                      <Typography variant="h6" fontWeight="bold">
+                        📄 {doc.title}
+                      </Typography>
+                      <Typography variant="body2" sx={{ mt: 1 }}>
+                        Course:{" "}
+                        <span style={{ color: "green" }}>{doc.courseName}</span>
+                      </Typography>
+
+                      {isUnlocked ? (
+                        <Button
+                          variant="contained"
+                          color="primary"
+                          sx={{ mt: 2 }}
+                          href={doc.fileUrl}
+                          target="_blank"
                         >
-                          <Typography variant="h6" fontWeight="bold">
-                            📄 {doc.title}
-                          </Typography>
-
-                          <Typography variant="body2" sx={{ mt: 1 }}>
-                            Course:{" "}
-                            <span style={{ color: "green" }}>{courseName}</span>
-                          </Typography>
-
-                          <Typography sx={{ mt: 1, color: "orange" }}>
-                            Class will start on {unlockAt.toLocaleString()}
-                          </Typography>
-                        </Paper>
-                      );
-                    })}
-                  </>
-                )}
+                          Open Document
+                        </Button>
+                      ) : (
+                        <Typography sx={{ mt: 1, color: "orange" }}>
+                          Will unlock on {unlockAt.toLocaleString()}
+                        </Typography>
+                      )}
+                    </Paper>
+                  );
+                })}
               </>
             )}
           </Paper>
