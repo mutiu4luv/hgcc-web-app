@@ -159,7 +159,6 @@ const AdminOwner = () => {
   };
 
   // handle submit announcement
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -172,14 +171,16 @@ const AdminOwner = () => {
         {
           title,
           message,
-          button: buttonType,
-          whatsappLink: buttonType === "whatsapp" ? buttonLink : undefined,
-          telegramLink: buttonType === "telegram" ? buttonLink : undefined,
-          youtubeLink: buttonType === "youtube" ? buttonLink : undefined,
+          button: buttonType || null,
+
+          // Send EXACTLY ONE link, and others must be null
+          whatsappLink: buttonType === "whatsapp" ? buttonLink : null,
+          telegramLink: buttonType === "telegram" ? buttonLink : null,
+          youtubeLink: buttonType === "youtube" ? buttonLink : null,
         },
         {
           headers: {
-            Authorization: `Bearer ${token}`, // CEO token required
+            Authorization: `Bearer ${token}`,
           },
         }
       );
