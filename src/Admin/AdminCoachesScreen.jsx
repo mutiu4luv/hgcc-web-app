@@ -701,24 +701,24 @@ const CoachDashboard = () => {
   }, []);
 
   // Fetch courses in cohort
-  const loadCohortCourses = async () => {
-    try {
-      const res = await axios.get(
-        `${BASE_URL}/api/cohort/${cohortId}/courses`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
+  // const loadCohortCourses = async () => {
+  //   try {
+  //     const res = await axios.get(
+  //       `${BASE_URL}/api/cohort/${cohortId}/courses`,
+  //       {
+  //         headers: { Authorization: `Bearer ${token}` },
+  //       }
+  //     );
 
-      setCohortCourses(res.data.courses || []);
-    } catch (err) {
-      console.error("Failed loading cohort courses:", err);
-    }
-  };
+  //     setCohortCourses(res.data.courses || []);
+  //   } catch (err) {
+  //     console.error("Failed loading cohort courses:", err);
+  //   }
+  // };
 
   useEffect(() => {
     loadAssignments();
-    loadCohortCourses();
+    // loadCohortCourses();
   }, [BASE_URL, token, cohortId]);
 
   // ========================= // ASSIGNMENTS TAB =========================
