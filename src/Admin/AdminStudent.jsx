@@ -1273,6 +1273,15 @@ const StudentDashboard = () => {
                 >
                   📝 Register to a Cohort
                 </Typography>
+                {message && (
+                  <Typography
+                    variant="body1"
+                    color="error"
+                    sx={{ mb: 2, fontWeight: "bold" }}
+                  >
+                    {message}
+                  </Typography>
+                )}
 
                 {/* Cohort dropdown */}
                 <TextField
