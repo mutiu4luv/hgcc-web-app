@@ -85,6 +85,10 @@ const StudentDashboard = () => {
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [countdown, setCountdown] = useState("");
 
+  const [chatMessages, setChatMessages] = useState({ class: [] });
+  const [newMessage, setNewMessage] = useState("");
+  const studentName = "Student";
+
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
 
@@ -108,6 +112,29 @@ const StudentDashboard = () => {
     },
     { text: "Join Class", icon: <Videocam />, key: "join-class" },
   ];
+  // Send chat message function
+  const sendChat = (chatId) => {
+    if (!newMessage.trim()) return; // ignore empty messages
+
+    const newMsg = {
+      sender: studentName, // student name
+      text: newMessage.trim(),
+      timestamp: new Date().toISOString(),
+    };
+
+    setChatMessages((prev) => ({
+      ...prev,
+      [chatId]: [...(prev[chatId] || []), newMsg],
+    }));
+
+    setNewMessage("");
+
+    // Optional: auto-scroll to bottom
+    setTimeout(() => {
+      const chatBox = document.getElementById("chat-box");
+      if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
+    }, 50);
+  };
 
   // Fetch documents for student
 
@@ -906,7 +933,6 @@ const StudentDashboard = () => {
           </Paper>
         )}
         {/* Join Class Tab */}
-
         {activeTab === "join-class" && (
           <Paper sx={{ p: 4 }}>
             <Typography
@@ -983,7 +1009,7 @@ const StudentDashboard = () => {
                   );
                 })}
 
-                {/* Render documents with react-pdf-viewer */}
+                {/* Render documents */}
                 {documents.map((doc) => {
                   const unlockDate = new Date(doc.unlockAt);
                   const now = new Date();
@@ -1048,21 +1074,16 @@ const StudentDashboard = () => {
 
                       {isUnlocked && doc.fileUrl ? (
                         <Box sx={{ mt: 2, height: 500 }}>
-                          <Box sx={{ mt: 2, height: 500 }}>
-                            <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js">
-                              <Viewer
-                                fileUrl={doc.fileUrl}
-                                plugins={[defaultLayoutPluginInstance]}
-                              />
-                            </Worker>
-
-                            <Typography
-                              variant="caption"
-                              sx={{ display: "block", mt: 1, color: "gray" }}
-                            >
-                              Viewing only. Download is disabled.
-                            </Typography>
-                          </Box>
+                          <Worker
+                            workerUrl="https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js"
+                            renderMode="canvas"
+                            textContentSource="canvas"
+                          >
+                            <Viewer
+                              fileUrl={doc.fileUrl}
+                              plugins={[defaultLayoutPluginInstance]}
+                            />
+                          </Worker>
 
                           <Typography
                             variant="caption"
@@ -1079,6 +1100,84 @@ const StudentDashboard = () => {
                     </Paper>
                   );
                 })}
+
+                {/* Class chat - only if any material is unlocked */}
+                {(videos.some(
+                  (v) =>
+                    new Date(v.unlockAt) <= new Date() &&
+                    new Date() <=
+                      new Date(
+                        new Date(v.unlockAt).getTime() + 3 * 60 * 60 * 1000
+                      )
+                ) ||
+                  documents.some(
+                    (d) => new Date(d.unlockAt) <= new Date()
+                  )) && (
+                  <Paper sx={{ p: 2, mt: 2, bgcolor: "#e8f5e9" }}>
+                    <Typography
+                      variant="subtitle1"
+                      fontWeight="bold"
+                      sx={{ mb: 1 }}
+                    >
+                      💬 Class Chat (Only For This Class)
+                    </Typography>
+
+                    <Box
+                      id="chat-box"
+                      sx={{
+                        maxHeight: 200,
+                        overflowY: "auto",
+                        mb: 1,
+                        p: 1,
+                        bgcolor: "#f1f8e9",
+                        borderRadius: 1,
+                      }}
+                    >
+                      {(chatMessages["class"] || []).map((msg, idx) => (
+                        <Box
+                          key={idx}
+                          sx={{
+                            textAlign:
+                              msg.sender === studentName ? "right" : "left",
+                            mb: 0.5,
+                          }}
+                        >
+                          <Typography
+                            variant="body2"
+                            sx={{
+                              display: "inline-block",
+                              p: 1,
+                              borderRadius: 1,
+                              bgcolor:
+                                msg.sender === studentName ? "#d1e7dd" : "#fff",
+                            }}
+                          >
+                            <strong>{msg.sender}:</strong> {msg.text}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+
+                    <Box sx={{ display: "flex", gap: 1 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="Type a message..."
+                        value={newMessage}
+                        onChange={(e) => setNewMessage(e.target.value)}
+                        onKeyDown={(e) => {
+                          if (e.key === "Enter") sendChat("class");
+                        }}
+                      />
+                      <Button
+                        variant="contained"
+                        onClick={() => sendChat("class")}
+                      >
+                        Send
+                      </Button>
+                    </Box>
+                  </Paper>
+                )}
               </>
             )}
           </Paper>
