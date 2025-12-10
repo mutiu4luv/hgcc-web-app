@@ -922,9 +922,13 @@ const StudentDashboard = () => {
                   const courseName =
                     courses.find((c) => c._id === video.courseId)?.name ||
                     "Unknown";
+
                   const now = new Date();
                   const unlockAt = new Date(video.unlockAt);
-                  const isUnlocked = now >= unlockAt;
+                  const expireTime = new Date(
+                    unlockAt.getTime() + 3 * 60 * 60 * 1000
+                  ); // 3 hours
+                  const isUnlocked = now >= unlockAt && now <= expireTime;
 
                   return (
                     <Paper
@@ -952,17 +956,15 @@ const StudentDashboard = () => {
                               borderRadius: 8,
                             }}
                             controls
+                            controlsList="nodownload"
                             src={video.fileUrl}
                           />
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            sx={{ mt: 2 }}
-                            href={video.fileUrl}
-                            target="_blank"
+                          <Typography
+                            variant="caption"
+                            sx={{ display: "block", mt: 1, color: "gray" }}
                           >
-                            Open Full Video
-                          </Button>
+                            Video is available for 3 hours only.
+                          </Typography>
                         </>
                       ) : (
                         <Typography sx={{ mt: 1, color: "orange" }}>
@@ -974,7 +976,6 @@ const StudentDashboard = () => {
                 })}
 
                 {/* Render all documents */}
-
                 {documents.map((doc) => {
                   const unlockDateUTC = new Date(doc.unlockAt);
                   const now = new Date();
@@ -1030,12 +1031,9 @@ const StudentDashboard = () => {
                         {isUnlocked ? "Unlocked" : "Will unlock at"}
                       </Typography>
 
-                      {/* Local time */}
                       <Typography variant="body2">
                         Local Time: {unlockLocalString}
                       </Typography>
-
-                      {/* UTC time */}
                       <Typography
                         variant="body2"
                         sx={{ fontStyle: "italic", opacity: 0.7 }}
@@ -1043,22 +1041,31 @@ const StudentDashboard = () => {
                         UTC Time: {unlockUTCString}
                       </Typography>
 
-                      {/* Download Button */}
-                      <Box sx={{ mt: 2 }}>
-                        {isUnlocked ? (
-                          <Button
-                            variant="contained"
-                            color="primary"
-                            onClick={() => window.open(doc.fileUrl, "_blank")}
+                      {isUnlocked ? (
+                        <Box sx={{ mt: 2 }}>
+                          {/* Use iframe to view PDF inline without download */}
+                          <iframe
+                            src={`https://docs.google.com/gview?url=${encodeURIComponent(
+                              doc.fileUrl
+                            )}&embedded=true`}
+                            style={{
+                              width: "100%",
+                              height: 500,
+                              border: "none",
+                            }}
+                          ></iframe>
+                          <Typography
+                            variant="caption"
+                            sx={{ display: "block", mt: 1, color: "gray" }}
                           >
-                            Download
-                          </Button>
-                        ) : (
-                          <Button variant="outlined" disabled>
-                            Locked
-                          </Button>
-                        )}
-                      </Box>
+                            Viewing only. Download is disabled.
+                          </Typography>
+                        </Box>
+                      ) : (
+                        <Button variant="outlined" disabled>
+                          Locked
+                        </Button>
+                      )}
                     </Paper>
                   );
                 })}
