@@ -73,6 +73,7 @@ const StudentDashboard = () => {
   const [nextClassCountdown, setNextClassCountdown] = useState("");
   const [videos, setVideos] = useState([]);
   const [loadingVideos, setLoadingVideos] = useState(true);
+  const [countdown, setCountdown] = useState("");
 
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
@@ -483,6 +484,34 @@ const StudentDashboard = () => {
       setRegisterLoading(false);
     }
   };
+  // countdown for next class
+  useEffect(() => {
+    if (!nextClass?.unlockAt) return;
+
+    const updateCountdown = () => {
+      setCountdown(getCountdownString(nextClass.unlockAt));
+    };
+
+    updateCountdown();
+    const interval = setInterval(updateCountdown, 1000);
+
+    return () => clearInterval(interval);
+  }, [nextClass]);
+  // countdown string function for next class
+  function getCountdownString(unlockAt) {
+    const now = new Date();
+    const unlockDate = new Date(unlockAt);
+    const diffMs = unlockDate.getTime() - now.getTime();
+
+    if (diffMs <= 0) return "Unlocked";
+
+    const totalSeconds = Math.floor(diffMs / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+
+    return `${hours}h ${minutes}m ${seconds}s`;
+  }
 
   // =========================
   // LOGOUT
@@ -781,8 +810,7 @@ const StudentDashboard = () => {
                           {/* Countdown */}
                           {isValid && !isUnlocked && (
                             <Typography variant="body2" color="text.secondary">
-                              ⏳{" "}
-                              {nextClassCountdown || "Next class unlocks soon"}
+                              ⏳ {countdown || "Next class unlocks soon"}
                             </Typography>
                           )}
 
@@ -946,6 +974,7 @@ const StudentDashboard = () => {
                 })}
 
                 {/* Render all documents */}
+
                 {documents.map((doc) => {
                   const unlockDateUTC = new Date(doc.unlockAt);
                   const now = new Date();
