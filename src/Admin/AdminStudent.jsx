@@ -32,10 +32,20 @@ import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
 import { useNavigate } from "react-router-dom";
 import { Videocam } from "@mui/icons-material";
+import DocViewer, { DocViewerRenderers } from "react-doc-viewer";
+import { Worker, Viewer } from "@react-pdf-viewer/core";
+import "@react-pdf-viewer/core/lib/styles/index.css";
+import "@react-pdf-viewer/default-layout/lib/styles/index.css";
+import { pdfjs } from "react-pdf";
+import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
+
+pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js`;
 
 const drawerWidth = 250;
 
 const StudentDashboard = () => {
+  const defaultLayoutPluginInstance = defaultLayoutPlugin();
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [globalLoading, setGlobalLoading] = useState(true);
   const [message, setMessage] = useState("");
@@ -867,7 +877,6 @@ const StudentDashboard = () => {
             </Box>
           </Paper>
         )}
-
         {/* Upload Submission */}
         {activeTab === "upload" && (
           <Paper sx={{ p: 4 }}>
@@ -896,8 +905,8 @@ const StudentDashboard = () => {
             </form>
           </Paper>
         )}
-
         {/* Join Class Tab */}
+
         {activeTab === "join-class" && (
           <Paper sx={{ p: 4 }}>
             <Typography
@@ -922,12 +931,11 @@ const StudentDashboard = () => {
                   const courseName =
                     courses.find((c) => c._id === video.courseId)?.name ||
                     "Unknown";
-
                   const now = new Date();
                   const unlockAt = new Date(video.unlockAt);
                   const expireTime = new Date(
                     unlockAt.getTime() + 3 * 60 * 60 * 1000
-                  ); // 3 hours
+                  );
                   const isUnlocked = now >= unlockAt && now <= expireTime;
 
                   return (
@@ -943,7 +951,7 @@ const StudentDashboard = () => {
                         <span style={{ color: "green" }}>{courseName}</span>
                       </Typography>
 
-                      {isUnlocked ? (
+                      {isUnlocked && video.fileUrl ? (
                         <>
                           <Typography variant="body2">
                             Uploaded:{" "}
@@ -975,26 +983,23 @@ const StudentDashboard = () => {
                   );
                 })}
 
-                {/* Render all documents */}
+                {/* Render documents with react-pdf-viewer */}
                 {documents.map((doc) => {
-                  const unlockDateUTC = new Date(doc.unlockAt);
+                  const unlockDate = new Date(doc.unlockAt);
                   const now = new Date();
-                  const isUnlocked = now >= unlockDateUTC;
+                  const isUnlocked = now >= unlockDate;
 
-                  const unlockLocalString = unlockDateUTC.toLocaleString(
-                    "en-US",
-                    {
-                      weekday: "short",
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }
-                  );
+                  const unlockLocalString = unlockDate.toLocaleString("en-US", {
+                    weekday: "short",
+                    year: "numeric",
+                    month: "short",
+                    day: "numeric",
+                    hour: "2-digit",
+                    minute: "2-digit",
+                  });
 
                   const unlockUTCString =
-                    unlockDateUTC.toLocaleString("en-US", {
+                    unlockDate.toLocaleString("en-US", {
                       timeZone: "UTC",
                       weekday: "short",
                       year: "numeric",
@@ -1017,7 +1022,7 @@ const StudentDashboard = () => {
                     >
                       <Typography variant="h6">{doc.title}</Typography>
                       <Typography variant="body2">
-                        Course: {doc.courseId?.name}
+                        Course: {doc.courseId?.name || "Unknown"}
                       </Typography>
 
                       <Typography
@@ -1041,19 +1046,24 @@ const StudentDashboard = () => {
                         UTC Time: {unlockUTCString}
                       </Typography>
 
-                      {isUnlocked ? (
-                        <Box sx={{ mt: 2 }}>
-                          {/* Use iframe to view PDF inline without download */}
-                          <iframe
-                            src={`https://docs.google.com/gview?url=${encodeURIComponent(
-                              doc.fileUrl
-                            )}&embedded=true`}
-                            style={{
-                              width: "100%",
-                              height: 500,
-                              border: "none",
-                            }}
-                          ></iframe>
+                      {isUnlocked && doc.fileUrl ? (
+                        <Box sx={{ mt: 2, height: 500 }}>
+                          <Box sx={{ mt: 2, height: 500 }}>
+                            <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js">
+                              <Viewer
+                                fileUrl={doc.fileUrl}
+                                plugins={[defaultLayoutPluginInstance]}
+                              />
+                            </Worker>
+
+                            <Typography
+                              variant="caption"
+                              sx={{ display: "block", mt: 1, color: "gray" }}
+                            >
+                              Viewing only. Download is disabled.
+                            </Typography>
+                          </Box>
+
                           <Typography
                             variant="caption"
                             sx={{ display: "block", mt: 1, color: "gray" }}
@@ -1305,7 +1315,6 @@ const StudentDashboard = () => {
             )}
           </Paper>
         )}
-
         {/* Rate Coach */}
         {activeTab === "rate-coach" && (
           <Paper sx={{ p: 4 }}>
@@ -1356,9 +1365,7 @@ const StudentDashboard = () => {
             {message && <Alert sx={{ mt: 2 }}>{message}</Alert>}
           </Paper>
         )}
-
         {/* Register Course */}
-
         {activeTab === "register-course" && (
           <Paper sx={{ p: 4 }}>
             {cohortLoading ? (
