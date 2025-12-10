@@ -1184,6 +1184,7 @@ const CoachDashboard = () => {
             <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
               📄 Upload Document
             </Typography>
+
             <form onSubmit={handleDocumentUpload}>
               {/* Document Title */}
               <TextField
@@ -1206,6 +1207,8 @@ const CoachDashboard = () => {
                 value={unlockAt}
                 onChange={(e) => setUnlockAt(e.target.value)}
               />
+
+              {/* Select Course */}
               <TextField
                 select
                 label="Select Course"
@@ -1229,14 +1232,36 @@ const CoachDashboard = () => {
                 fullWidth
                 sx={{ mb: 2 }}
               >
-                Choose Document
+                Choose Document (PDF, DOC, DOCX)
                 <input
                   hidden
                   type="file"
-                  accept=".pdf,.doc,.docx"
-                  onChange={(e) => setDocFile(e.target.files[0])}
+                  accept="
+                        .pdf,application/pdf,
+                        .doc,application/msword,
+                        .docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document
+                    "
+                  onChange={(e) => {
+                    const file = e.target.files[0];
+                    if (!file) return;
+
+                    const allowedTypes = [
+                      "application/pdf",
+                      "application/msword",
+                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    ];
+
+                    if (!allowedTypes.includes(file.type)) {
+                      alert("❌ Only PDF, DOC, and DOCX files are allowed.");
+                      e.target.value = "";
+                      return;
+                    }
+
+                    setDocFile(file);
+                  }}
                 />
               </Button>
+
               {docFile && (
                 <Typography variant="body2" sx={{ mb: 2 }}>
                   Selected file: {docFile.name}
@@ -1254,7 +1279,7 @@ const CoachDashboard = () => {
               </Button>
             </form>
 
-            {/* 🔥 Display uploaded documents */}
+            {/* Display uploaded documents */}
             <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
               📚 My Uploaded Documents
             </Typography>
@@ -1298,6 +1323,7 @@ const CoachDashboard = () => {
             )}
           </Paper>
         )}
+
         {/* All Videos */}
         {/* {activeTab === "videos" && (
           <Box sx={{ mt: 4 }}>
