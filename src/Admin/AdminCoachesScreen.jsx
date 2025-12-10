@@ -404,26 +404,26 @@ const CoachDashboard = () => {
   }, [activeTab]);
 
   // ========================= // FETCH  ASSIGNMENT DONE BY STUDENT // =========================
-  const loadStudentAssignments = async () => {
-    setStudentAssignmentsLoading(true);
-    try {
-      const res = await axios.get(`${BASE_URL}/api/assignment/student/`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setStudentAssignments(res.data.assignments || []);
-    } catch (err) {
-      console.error(
-        "Error fetching student assignments:",
-        err?.response?.data || err
-      );
-      setMessage("Failed to load student assignments");
-    } finally {
-      setStudentAssignmentsLoading(false);
-    }
-  };
-  useEffect(() => {
-    loadStudentAssignments();
-  }, []);
+  // const loadStudentAssignments = async () => {
+  //   setStudentAssignmentsLoading(true);
+  //   try {
+  //     const res = await axios.get(`${BASE_URL}/api/assignment/student/`, {
+  //       headers: { Authorization: `Bearer ${token}` },
+  //     });
+  //     setStudentAssignments(res.data.assignments || []);
+  //   } catch (err) {
+  //     console.error(
+  //       "Error fetching student assignments:",
+  //       err?.response?.data || err
+  //     );
+  //     setMessage("Failed to load student assignments");
+  //   } finally {
+  //     setStudentAssignmentsLoading(false);
+  //   }
+  // };
+  // useEffect(() => {
+  //   loadStudentAssignments();
+  // }, []);
 
   useEffect(() => {
     const fetchCohorts = async () => {
@@ -571,9 +571,7 @@ const CoachDashboard = () => {
     window.location.href = "/login";
   };
 
-  // ========================= // FETCH ASSIGNMENTS // =========================
-
-  // filepath: /home/pc/Desktop/new work/benedicta-digital-skill-new/digital-skill/src/Admin/AdminCoachesScreen.jsx
+  // ========================= // FETCH ASSIGNMENTS SUBMISSIONS // =========================
   const loadAssignments = async () => {
     setAssignmentsLoading(true);
     try {
@@ -734,26 +732,27 @@ const CoachDashboard = () => {
 
   // ========================= // ASSIGNMENTS TAB =========================
 
-  const assignmentRows = Object.values(assignments || {}).flatMap((list) =>
-    list.flatMap((a) => {
+  const assignmentRows = Object.values(assignments || {})
+    .flat()
+    .flatMap((a) => {
       // CASE 1 — assignment has submissions
       if (Array.isArray(a.submissions) && a.submissions.length > 0) {
         return a.submissions.map((s, idx) => ({
-          id: `${a._id}-${idx}`,
+          id: `${a._id}-${s.studentId?._id || idx}`,
           assignmentId: a._id,
           title: a.title,
           description: a.description,
           cohortId: a.cohortId?._id,
-          cohortName: a.cohortId?.name || "No Cohort", // ✔ FIXED
+          cohortName: a.cohortId?.name || "No Cohort",
           studentId: s.studentId?._id,
           studentName: s.studentId?.fullName || "Unknown",
           grade: s.grade ?? "Not Graded",
           isGraded: s.grade != null,
           status: s.grade != null ? "Completed" : "Pending",
           dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
+          submission: s,
         }));
       }
-
       // CASE 2 — assignment has no submissions
       return [
         {
@@ -762,17 +761,17 @@ const CoachDashboard = () => {
           title: a.title,
           description: a.description,
           cohortId: a.cohortId?._id,
-          cohortName: a.cohortId?.name || "No Cohort", // ✔ FIXED
+          cohortName: a.cohortId?.name || "No Cohort",
           studentId: null,
           studentName: "-",
-          grade: "Not Graded",
+          grade: "No submission",
           isGraded: false,
           status: new Date(a.dueDate) < new Date() ? "Expired" : "Pending",
           dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
+          submission: null,
         },
       ];
-    })
-  );
+    });
 
   // console.log("RAW assignments:", assignments);
   // console.log("assignmentRows:", assignmentRows);
@@ -1714,12 +1713,14 @@ const CoachDashboard = () => {
                       gradingLoading ||
                       selectedAssignment.submission?.grade != null
                     }
-                    onClick={() =>
-                      submitGrade(
+                    onClick={async () => {
+                      await submitGrade(
                         selectedAssignment.submission?.studentId ||
                           selectedAssignment.studentId
-                      )
-                    }
+                      );
+                      // Refresh assignments instantly after grading
+                      await loadAssignments();
+                    }}
                   >
                     {gradingLoading ? (
                       <CircularProgress size={24} />
