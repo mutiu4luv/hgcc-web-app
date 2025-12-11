@@ -99,6 +99,14 @@ const CoachDashboard = () => {
   const [myVideos, setMyVideos] = useState([]);
   const [unlockAt, setUnlockAt] = useState("");
 
+  const [chatMessages, setChatMessages] = useState(() => {
+    const saved = localStorage.getItem("classChats");
+    return saved ? JSON.parse(saved) : { video: {}, doc: {}, coach: {} };
+  });
+  const [newMessage, setNewMessage] = useState("");
+  const studentName = "Student";
+  const coachName = "Coach";
+
   const { cohortIds } = useParams();
   // console.log("COHORT ID FROM URL:", cohortId);
   const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -124,6 +132,18 @@ const CoachDashboard = () => {
     },
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
+
+  const sendCoachMessage = (type, id, text) => {
+    if (!text.trim()) return;
+
+    setChatMessages((prev) => {
+      const updated = { ...prev };
+      if (!updated[type][id]) updated[type][id] = [];
+      updated[type][id].push({ sender: coachName, text });
+      localStorage.setItem("classChats", JSON.stringify(updated));
+      return updated;
+    });
+  };
 
   const handleDocumentUpload = async (e) => {
     e.preventDefault();
@@ -987,10 +1007,10 @@ const CoachDashboard = () => {
             <Typography variant="h6" sx={{ mt: 4 }}>
               🎥 Upload Video
             </Typography>
+
             <form
               onSubmit={async (e) => {
                 e.preventDefault();
-
                 if (!videoTitle) return alert("Video title is required!");
                 if (!videoFile) return alert("Please select a video file!");
                 if (!classStartTime)
@@ -1034,7 +1054,6 @@ const CoachDashboard = () => {
                 }
               }}
             >
-              {/* Video Title */}
               <TextField
                 label="Video Title"
                 fullWidth
@@ -1043,8 +1062,6 @@ const CoachDashboard = () => {
                 value={videoTitle}
                 onChange={(e) => setVideoTitle(e.target.value)}
               />
-
-              {/* Class Start Time */}
               <TextField
                 label="Class Start Time"
                 type="datetime-local"
@@ -1055,8 +1072,6 @@ const CoachDashboard = () => {
                 value={classStartTime}
                 onChange={(e) => setClassStartTime(e.target.value)}
               />
-
-              {/* Course Selection */}
               <TextField
                 label="Select Course"
                 select
@@ -1076,8 +1091,6 @@ const CoachDashboard = () => {
                   ))
                 )}
               </TextField>
-
-              {/* Cohort Selection */}
               <TextField
                 label="Select Cohort"
                 select
@@ -1098,7 +1111,6 @@ const CoachDashboard = () => {
                 )}
               </TextField>
 
-              {/* Buttons */}
               <Box
                 sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}
               >
@@ -1108,18 +1120,11 @@ const CoachDashboard = () => {
                     hidden
                     type="file"
                     accept="video/*"
-                    onChange={(e) => {
-                      const file = e.target.files[0];
-                      if (file) {
-                        setVideoFile(file);
-                      } else {
-                        setVideoFile(null);
-                      }
-                    }}
+                    onChange={(e) => setVideoFile(e.target.files[0] || null)}
                   />
                 </Button>
                 {videoFile && (
-                  <Typography variant="body2" sx={{ mt: 1 }}>
+                  <Typography sx={{ mt: 1 }}>
                     Selected: {videoFile.name}
                   </Typography>
                 )}
@@ -1130,48 +1135,153 @@ const CoachDashboard = () => {
               </Box>
             </form>
 
-            {/* Messages */}
             {message && (
               <Typography
-                variant="body1"
                 color={message.includes("failed") ? "error" : "green"}
               >
                 {message}
               </Typography>
             )}
 
-            {/* My Uploaded Videos */}
             <Typography variant="h6">🎬 My Uploaded Videos</Typography>
             {Array.isArray(myVideos) && myVideos.length > 0 ? (
-              myVideos.map((v) => (
-                <Paper
-                  key={v._id}
-                  sx={{ p: 2, mt: 2, position: "relative", borderRadius: 2 }}
-                >
-                  <IconButton
-                    sx={{ position: "absolute", top: 8, right: 8 }}
-                    color="error"
-                    onClick={() => handleDeleteVideo(v._id)}
-                  >
-                    <DeleteIcon />
-                  </IconButton>
+              myVideos.map((video) => {
+                const unlockAt = new Date(
+                  video.classStartTime || video.createdAt
+                );
+                const expireTime = new Date(
+                  unlockAt.getTime() + 3 * 60 * 60 * 1000
+                );
+                const isUnlocked =
+                  new Date() >= unlockAt && new Date() <= expireTime;
 
-                  <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                    {v.title}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Course: {v.course?.name || "Unknown"}
-                  </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    Uploaded: {new Date(v.createdAt).toLocaleString()}
-                  </Typography>
-                  <video
-                    src={v.fileUrl}
-                    controls
-                    style={{ width: "100%", borderRadius: 8, marginTop: 10 }}
-                  />
-                </Paper>
-              ))
+                // Load chat messages from localStorage
+                const videoChat =
+                  JSON.parse(localStorage.getItem("chatMessages"))?.video?.[
+                    video._id
+                  ] || [];
+
+                const [videoMessage, setVideoMessage] = React.useState("");
+                const [videoChatState, setVideoChatState] =
+                  React.useState(videoChat);
+
+                const sendVideoChat = (vidId) => {
+                  if (!videoMessage.trim()) return;
+                  const newMsg = { sender: studentName, text: videoMessage };
+                  const updatedChat = [...videoChatState, newMsg];
+                  setVideoChatState(updatedChat);
+                  setVideoMessage("");
+
+                  // Save to localStorage
+                  const allChats = JSON.parse(
+                    localStorage.getItem("chatMessages")
+                  ) || { video: {}, doc: {} };
+                  allChats.video[vidId] = updatedChat;
+                  localStorage.setItem(
+                    "chatMessages",
+                    JSON.stringify(allChats)
+                  );
+                };
+
+                return (
+                  <Paper
+                    key={video._id}
+                    sx={{ p: 2, mt: 2, position: "relative", borderRadius: 2 }}
+                  >
+                    <IconButton
+                      sx={{ position: "absolute", top: 8, right: 8 }}
+                      color="error"
+                      onClick={() => handleDeleteVideo(video._id)}
+                    >
+                      <DeleteIcon />
+                    </IconButton>
+
+                    <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
+                      {video.title}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Course: {video.course?.name || "Unknown"}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Uploaded: {new Date(video.createdAt).toLocaleString()}
+                    </Typography>
+                    <video
+                      src={video.fileUrl}
+                      controls
+                      style={{ width: "100%", borderRadius: 8, marginTop: 10 }}
+                    />
+
+                    {isUnlocked && (
+                      <Paper sx={{ p: 2, mt: 2, bgcolor: "#e8f5e9" }}>
+                        <Typography
+                          variant="subtitle1"
+                          fontWeight="bold"
+                          sx={{ mb: 1 }}
+                        >
+                          💬 Class Chat (Video)
+                        </Typography>
+
+                        <Box
+                          id={`chat-box-video-${video._id}`}
+                          sx={{
+                            maxHeight: 200,
+                            overflowY: "auto",
+                            mb: 1,
+                            p: 1,
+                            bgcolor: "#f1f8e9",
+                            borderRadius: 1,
+                          }}
+                        >
+                          {videoChatState.map((msg, idx) => (
+                            <Box
+                              key={idx}
+                              sx={{
+                                textAlign:
+                                  msg.sender === studentName ? "right" : "left",
+                                mb: 0.5,
+                              }}
+                            >
+                              <Typography
+                                variant="body2"
+                                sx={{
+                                  display: "inline-block",
+                                  p: 1,
+                                  borderRadius: 1,
+                                  bgcolor:
+                                    msg.sender === studentName
+                                      ? "#d1e7dd"
+                                      : "#fff",
+                                }}
+                              >
+                                <strong>{msg.sender}:</strong> {msg.text}
+                              </Typography>
+                            </Box>
+                          ))}
+                        </Box>
+
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            placeholder="Type a message..."
+                            value={videoMessage}
+                            onChange={(e) => setVideoMessage(e.target.value)}
+                            onKeyDown={(e) => {
+                              if (e.key === "Enter") sendVideoChat(video._id);
+                            }}
+                          />
+                          <Button
+                            variant="contained"
+                            onClick={() => sendVideoChat(video._id)}
+                          >
+                            Send
+                          </Button>
+                        </Box>
+                      </Paper>
+                    )}
+                  </Paper>
+                );
+              })
             ) : (
               <Typography sx={{ mt: 2 }}>No videos uploaded yet.</Typography>
             )}
