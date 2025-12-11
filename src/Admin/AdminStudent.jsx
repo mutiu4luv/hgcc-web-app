@@ -38,7 +38,7 @@ import "@react-pdf-viewer/core/lib/styles/index.css";
 import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 import { pdfjs } from "react-pdf";
 import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
-
+import "../Admin/AdninStudent.css";
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js`;
 
 const drawerWidth = 250;
@@ -1715,32 +1715,3 @@ const StudentDashboard = () => {
 };
 
 export default StudentDashboard;
-<style>
-  {`
-.live-badge {
-  background: red;
-  color: white;
-  padding: 4px 10px;
-  border-radius: 6px;
-  font-size: 12px;
-  font-weight: bold;
-  margin-left: 10px;
-}
-
-.glow {
-  animation: glowPulse 1.8s infinite ease-in-out;
-}
-
-@keyframes glowPulse {
-  0% {
-    box-shadow: 0 0 0px rgba(255, 0, 0, 0.3);
-  }
-  50% {
-    box-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
-  }
-  100% {
-    box-shadow: 0 0 0px rgba(255, 0, 0, 0.3);
-  }
-}
-`}
-</style>;
