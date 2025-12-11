@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -39,9 +39,170 @@ import "@react-pdf-viewer/default-layout/lib/styles/index.css";
 import { pdfjs } from "react-pdf";
 import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
 import "../Admin/AdninStudent.css";
+import io from "socket.io-client";
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js`;
 
 const drawerWidth = 250;
+
+// Chat component for student-coach chat
+function ClassChat({ coachId, studentId, baseUrl, coaches = [] }) {
+  const storageKey = `chat_${coachId}_${studentId}`;
+  const [messages, setMessages] = useState(() => {
+    // Load from localStorage initially
+    try {
+      const saved = localStorage.getItem(storageKey);
+      return saved ? JSON.parse(saved) : [];
+    } catch (e) {
+      return [];
+    }
+  });
+  const [newMsg, setNewMsg] = useState("");
+  const socketRef = useRef(null);
+  const seenRef = useRef(new Set(messages.map((m) => m._clientId))); // dedupe using existing messages
+
+  const getNameForId = (id) => {
+    if (!id) return "";
+    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const myId = user?._id || user?.id;
+    if (id === myId) return user?.fullName || user?.name || "You";
+    const coach = Array.isArray(coaches)
+      ? coaches.find((c) => c._id === id || c.id === id)
+      : null;
+    if (coach) return coach.fullName || coach.name || "Coach";
+    return `${String(id).slice(0, 8)}...`;
+  };
+
+  useEffect(() => {
+    if (!coachId || !studentId) return;
+
+    const token = localStorage.getItem("token");
+    const socket = io(baseUrl || import.meta.env.VITE_BASE_URL, {
+      transports: ["websocket", "polling"],
+      auth: token ? { token } : undefined,
+    });
+    socketRef.current = socket;
+
+    socket.on("connect", () => {
+      console.debug("ClassChat socket connected", socket.id);
+      socket.emit("joinRoom", { coachId, studentId });
+    });
+
+    socket.on("receiveMessage", (msg) => {
+      const msgId =
+        msg._id ||
+        msg.id ||
+        `${msg.sender}:${msg.text}:${msg.createdAt || msg.ts || ""}`;
+      if (seenRef.current.has(msgId)) return;
+      seenRef.current.add(msgId);
+
+      const normalized = {
+        ...msg,
+        senderName: msg.senderName || getNameForId(msg.sender),
+        _clientId: msgId,
+      };
+
+      setMessages((prev) => {
+        const updated = [...prev, normalized];
+        localStorage.setItem(storageKey, JSON.stringify(updated));
+        return updated;
+      });
+    });
+
+    socket.on("connect_error", (err) =>
+      console.error("ClassChat connect_error:", err)
+    );
+    socket.on("disconnect", (reason) =>
+      console.debug("ClassChat disconnected:", reason)
+    );
+
+    return () => {
+      try {
+        socket.emit("leaveRoom", { coachId, studentId });
+      } catch {}
+      socket.off("receiveMessage");
+      socket.off("connect");
+      socket.disconnect();
+      socketRef.current = null;
+      seenRef.current.clear();
+      console.debug("ClassChat cleaned up socket");
+    };
+  }, [coachId, studentId, baseUrl, coaches, storageKey]);
+
+  const sendMessage = () => {
+    const text = (newMsg || "").trim();
+    if (!text) return;
+
+    const socket = socketRef.current;
+    if (!socket || !socket.connected) {
+      console.warn("ClassChat: socket not connected", { text });
+      setNewMsg("");
+      return;
+    }
+
+    socket.emit("sendMessage", { coachId, studentId, text });
+    setNewMsg("");
+  };
+
+  return (
+    <Box sx={{ mt: 2 }}>
+      <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
+        💬 Chat with your Coach
+      </Typography>
+      <Box
+        sx={{
+          maxHeight: 200,
+          overflowY: "auto",
+          mb: 1,
+          p: 1,
+          bgcolor: "#f1f8e9",
+          borderRadius: 1,
+        }}
+      >
+        {messages.length === 0 ? (
+          <Typography variant="body2" sx={{ color: "gray" }}>
+            No messages yet. Say hi 👋
+          </Typography>
+        ) : (
+          messages.map((m, i) => (
+            <Box
+              key={m._clientId || i}
+              sx={{
+                mb: 0.5,
+                textAlign: m.sender === studentId ? "right" : "left",
+              }}
+            >
+              <Typography
+                variant="body2"
+                sx={{
+                  display: "inline-block",
+                  p: 1,
+                  borderRadius: 1,
+                  bgcolor: m.sender === studentId ? "#d1e7dd" : "#fff",
+                }}
+              >
+                <strong>{m.senderName || getNameForId(m.sender)}</strong>:{" "}
+                {m.text}
+              </Typography>
+            </Box>
+          ))
+        )}
+      </Box>
+      <Box sx={{ display: "flex", gap: 1 }}>
+        <TextField
+          fullWidth
+          size="small"
+          placeholder="Type a message..."
+          value={newMsg}
+          onChange={(e) => setNewMsg(e.target.value)}
+          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+        />
+        <Button variant="contained" onClick={sendMessage}>
+          Send
+        </Button>
+      </Box>
+    </Box>
+  );
+}
 
 const StudentDashboard = () => {
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
@@ -86,10 +247,6 @@ const StudentDashboard = () => {
   const [countdown, setCountdown] = useState("");
   const [tick, setTick] = useState(0);
 
-  const [chatMessages, setChatMessages] = useState({ class: [] });
-  const [newMessage, setNewMessage] = useState("");
-  const studentName = "Student";
-
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
 
@@ -113,29 +270,6 @@ const StudentDashboard = () => {
     },
     { text: "Join Class", icon: <Videocam />, key: "join-class" },
   ];
-  // Send chat message function
-  const sendChat = (chatId) => {
-    if (!newMessage.trim()) return; // ignore empty messages
-
-    const newMsg = {
-      sender: studentName, // student name
-      text: newMessage.trim(),
-      timestamp: new Date().toISOString(),
-    };
-
-    setChatMessages((prev) => ({
-      ...prev,
-      [chatId]: [...(prev[chatId] || []), newMsg],
-    }));
-
-    setNewMessage("");
-
-    // Optional: auto-scroll to bottom
-    setTimeout(() => {
-      const chatBox = document.getElementById("chat-box");
-      if (chatBox) chatBox.scrollTop = chatBox.scrollHeight;
-    }, 50);
-  };
 
   // Timer for join class countdown
   useEffect(() => {
@@ -1237,74 +1371,33 @@ const StudentDashboard = () => {
                         new Date(v.unlockAt).getTime() + 3 * 60 * 60 * 1000
                       )
                 ) ||
-                  documents.some(
-                    (d) => new Date(d.unlockAt) <= new Date()
-                  )) && (
-                  <Paper sx={{ p: 2, mt: 2, bgcolor: "#e8f5e9" }}>
-                    <Typography
-                      variant="subtitle1"
-                      fontWeight="bold"
-                      sx={{ mb: 1 }}
-                    >
-                      💬 Class Chat (Only For This Class)
-                    </Typography>
+                  documents.some((d) => new Date(d.unlockAt) <= new Date())) &&
+                  nextClass &&
+                  nextClass.courseId &&
+                  (() => {
+                    const user = JSON.parse(
+                      localStorage.getItem("user") || "{}"
+                    );
+                    const studentId = user?._id || user?.id;
+                    const coachId = nextClass.coachId?._id || nextClass.coachId;
 
-                    <Box
-                      id="chat-box"
-                      sx={{
-                        maxHeight: 200,
-                        overflowY: "auto",
-                        mb: 1,
-                        p: 1,
-                        bgcolor: "#f1f8e9",
-                        borderRadius: 1,
-                      }}
-                    >
-                      {(chatMessages["class"] || []).map((msg, idx) => (
-                        <Box
-                          key={idx}
-                          sx={{
-                            textAlign:
-                              msg.sender === studentName ? "right" : "left",
-                            mb: 0.5,
-                          }}
-                        >
-                          <Typography
-                            variant="body2"
-                            sx={{
-                              display: "inline-block",
-                              p: 1,
-                              borderRadius: 1,
-                              bgcolor:
-                                msg.sender === studentName ? "#d1e7dd" : "#fff",
-                            }}
-                          >
-                            <strong>{msg.sender}:</strong> {msg.text}
-                          </Typography>
-                        </Box>
-                      ))}
-                    </Box>
+                    if (!coachId || !studentId) {
+                      console.debug(
+                        "Chat not shown: missing coachId or studentId",
+                        { coachId, studentId, nextClass }
+                      );
+                      return null;
+                    }
 
-                    <Box sx={{ display: "flex", gap: 1 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        placeholder="Type a message..."
-                        value={newMessage}
-                        onChange={(e) => setNewMessage(e.target.value)}
-                        onKeyDown={(e) => {
-                          if (e.key === "Enter") sendChat("class");
-                        }}
+                    return (
+                      <ClassChat
+                        coachId={coachId}
+                        studentId={studentId}
+                        baseUrl={BASE_URL}
+                        coaches={coaches}
                       />
-                      <Button
-                        variant="contained"
-                        onClick={() => sendChat("class")}
-                      >
-                        Send
-                      </Button>
-                    </Box>
-                  </Paper>
-                )}
+                    );
+                  })()}
               </>
             )}
           </Paper>
