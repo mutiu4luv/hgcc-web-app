@@ -84,6 +84,7 @@ const StudentDashboard = () => {
   const [videos, setVideos] = useState([]);
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [countdown, setCountdown] = useState("");
+  const [tick, setTick] = useState(0);
 
   const [chatMessages, setChatMessages] = useState({ class: [] });
   const [newMessage, setNewMessage] = useState("");
@@ -136,6 +137,14 @@ const StudentDashboard = () => {
     }, 50);
   };
 
+  // Timer for join class countdown
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick((t) => t + 1);
+    }, 1000);
+
+    return () => clearInterval(interval);
+  }, []);
   // Fetch documents for student
 
   const fetchDocuments = async () => {
@@ -822,39 +831,78 @@ const StudentDashboard = () => {
                       {nextClass.courseId?.name || "Course"}
                     </Typography>
 
-                    {/* Unlock Date & Countdown */}
                     {(() => {
-                      const unlockTime = nextClass.unlockAt
+                      // ================================
+                      //          TIME LOGIC (UTC)
+                      // ================================
+
+                      const unlockTimeUTC = nextClass.unlockAt
                         ? new Date(nextClass.unlockAt)
                         : null;
-                      const now = new Date();
+
+                      const nowUTC = new Date(new Date().toISOString()); // force UTC
+
                       const isValid =
-                        unlockTime instanceof Date &&
-                        !isNaN(unlockTime.getTime());
-                      const isUnlocked = isValid && now >= unlockTime;
+                        unlockTimeUTC instanceof Date &&
+                        !isNaN(unlockTimeUTC.getTime());
+
+                      const isUnlocked = isValid && nowUTC >= unlockTimeUTC;
+
+                      // Format as: Mon, Dec 15, 2025, 09:18 AM UTC
+                      const formattedUTC = isValid
+                        ? unlockTimeUTC.toLocaleString("en-US", {
+                            timeZone: "UTC",
+                            weekday: "short",
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          }) + " UTC"
+                        : "Unknown Date";
+
+                      // ================================
+                      //        COUNTDOWN TEXT
+                      // ================================
+                      let countdownText = "";
+                      if (isValid && !isUnlocked) {
+                        const diff = unlockTimeUTC - nowUTC;
+                        const totalSeconds = Math.floor(diff / 1000);
+                        const hours = Math.floor(totalSeconds / 3600);
+                        const minutes = Math.floor((totalSeconds % 3600) / 60);
+                        const seconds = totalSeconds % 60;
+                        countdownText = `${hours}h ${minutes}m ${seconds}s`;
+                      }
 
                       return (
                         <>
-                          <Typography variant="body2" sx={{ mb: 1 }}>
-                            Starts:{" "}
-                            {isValid
-                              ? unlockTime.toLocaleDateString() +
-                                " @ " +
-                                unlockTime.toLocaleTimeString()
-                              : "Unknown Date"}
+                          {/* Start Time */}
+                          <Typography sx={{ mt: 1 }}>
+                            Time: {formattedUTC}
                           </Typography>
 
                           {/* Countdown */}
-                          {isValid && !isUnlocked && (
-                            <Typography variant="body2" color="text.secondary">
-                              ⏳ {countdown || "Next class unlocks soon"}
+                          {!isUnlocked && isValid && (
+                            <Typography
+                              variant="body2"
+                              color="orange"
+                              sx={{ mt: 1 }}
+                            >
+                              ⏳ Starts in: {countdownText}
                             </Typography>
                           )}
 
-                          {/* Video & Download */}
-                          {isUnlocked ? (
+                          {/* LOCKED MESSAGE */}
+                          {!isUnlocked && (
+                            <Typography variant="body2" sx={{ mt: 1 }}>
+                              🔒 Class not accessible yet
+                            </Typography>
+                          )}
+
+                          {/* UNLOCKED CONTENT */}
+                          {isUnlocked && (
                             <>
-                              {nextClass.fileUrl && (
+                              {nextClass.fileUrl ? (
                                 <>
                                   {nextClass.type === "video" ? (
                                     <video
@@ -867,10 +915,11 @@ const StudentDashboard = () => {
                                       }}
                                     />
                                   ) : (
-                                    <Typography variant="body2">
+                                    <Typography sx={{ mt: 2 }}>
                                       Document available
                                     </Typography>
                                   )}
+
                                   <Button
                                     variant="contained"
                                     color="primary"
@@ -884,17 +933,89 @@ const StudentDashboard = () => {
                                       : "Document"}
                                   </Button>
                                 </>
+                              ) : (
+                                <Typography sx={{ mt: 2 }}>
+                                  No file available
+                                </Typography>
                               )}
                             </>
-                          ) : (
-                            <Typography
-                              variant="body2"
-                              color="text.secondary"
-                              sx={{ mt: 1 }}
-                            >
-                              ⏳ Class not accessible yet
-                            </Typography>
                           )}
+
+                          {/* VIDEO LISTING */}
+                          {videos.map((video) => {
+                            const courseName =
+                              courses.find((c) => c._id === video.courseId?._id)
+                                ?.name || "Unknown";
+
+                            const unlockAt = new Date(video.unlockAt);
+                            const now = new Date();
+                            const isUnlocked = now >= unlockAt;
+
+                            const unlockAtFormatted = unlockAt.toLocaleString(
+                              "en-US",
+                              {
+                                weekday: "short",
+                                year: "numeric",
+                                month: "short",
+                                day: "numeric",
+                                hour: "2-digit",
+                                minute: "2-digit",
+                                hour12: true,
+                              }
+                            );
+
+                            return (
+                              <Box
+                                key={video._id}
+                                sx={{
+                                  p: 2,
+                                  mb: 3,
+                                  borderRadius: 2,
+                                  border: "1px solid #ddd",
+                                  ...(isUnlocked && {
+                                    borderColor: "red",
+                                    animation: "glowPulse 1.8s infinite",
+                                  }),
+                                }}
+                                className={isUnlocked ? "glow" : ""}
+                              >
+                                <Typography variant="h6" fontWeight="bold">
+                                  🎬 {video.title}
+                                  {isUnlocked && (
+                                    <span className="live-badge">LIVE</span>
+                                  )}
+                                </Typography>
+
+                                <Typography sx={{ mb: 1 }}>
+                                  Course: {courseName}
+                                </Typography>
+
+                                {!isUnlocked ? (
+                                  <Typography
+                                    sx={{ color: "red", fontWeight: "bold" }}
+                                  >
+                                    ⏳ Unlocks at: {unlockAtFormatted}
+                                  </Typography>
+                                ) : (
+                                  <video
+                                    width="100%"
+                                    controls
+                                    autoPlay={true}
+                                    style={{
+                                      borderRadius: "10px",
+                                      marginTop: "10px",
+                                    }}
+                                  >
+                                    <source
+                                      src={video.videoUrl}
+                                      type="video/mp4"
+                                    />
+                                    Your browser does not support the video tag.
+                                  </video>
+                                )}
+                              </Box>
+                            );
+                          })}
                         </>
                       );
                     })()}
@@ -1011,21 +1132,28 @@ const StudentDashboard = () => {
 
                 {/* Render documents */}
                 {documents.map((doc) => {
-                  const unlockDate = new Date(doc.unlockAt);
-                  const now = new Date();
-                  const isUnlocked = now >= unlockDate;
+                  const unlockDateUTC = new Date(doc.unlockAt);
+                  const nowUTC = new Date(new Date().toISOString()); // updates because tick changes
 
-                  const unlockLocalString = unlockDate.toLocaleString("en-US", {
-                    weekday: "short",
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  });
+                  const isUnlocked = nowUTC >= unlockDateUTC;
+
+                  // Countdown calc
+                  let countdownText = "";
+                  if (!isUnlocked) {
+                    const diffMs = unlockDateUTC - nowUTC;
+                    if (diffMs <= 0) {
+                      countdownText = "Few seconds...";
+                    } else {
+                      const totalSeconds = Math.floor(diffMs / 1000);
+                      const hours = Math.floor(totalSeconds / 3600);
+                      const minutes = Math.floor((totalSeconds % 3600) / 60);
+                      const seconds = totalSeconds % 60;
+                      countdownText = `${hours}h ${minutes}m ${seconds}s`;
+                    }
+                  }
 
                   const unlockUTCString =
-                    unlockDate.toLocaleString("en-US", {
+                    unlockDateUTC.toLocaleString("en-US", {
                       timeZone: "UTC",
                       weekday: "short",
                       year: "numeric",
@@ -1047,6 +1175,7 @@ const StudentDashboard = () => {
                       }}
                     >
                       <Typography variant="h6">{doc.title}</Typography>
+
                       <Typography variant="body2">
                         Course: {doc.courseId?.name || "Unknown"}
                       </Typography>
@@ -1056,46 +1185,44 @@ const StudentDashboard = () => {
                         sx={{
                           mt: 1,
                           color: isUnlocked ? "green" : "orange",
-                          fontWeight: 600,
+                          fontWeight: 700,
                         }}
                       >
-                        {isUnlocked ? "Unlocked" : "Will unlock at"}
+                        {isUnlocked ? "Available Now" : "Will unlock at:"}
                       </Typography>
 
-                      <Typography variant="body2">
-                        Local Time: {unlockLocalString}
-                      </Typography>
-                      <Typography
-                        variant="body2"
-                        sx={{ fontStyle: "italic", opacity: 0.7 }}
-                      >
-                        UTC Time: {unlockUTCString}
-                      </Typography>
+                      {!isUnlocked && (
+                        <Typography
+                          variant="body2"
+                          sx={{ fontStyle: "italic", opacity: 0.7 }}
+                        >
+                          UTC Time: {unlockUTCString}
+                        </Typography>
+                      )}
+
+                      {!isUnlocked && (
+                        <Typography
+                          sx={{ mt: 1, color: "red", fontWeight: "bold" }}
+                        >
+                          Starts in: {countdownText}
+                        </Typography>
+                      )}
 
                       {isUnlocked && doc.fileUrl ? (
                         <Box sx={{ mt: 2, height: 500 }}>
-                          <Worker
-                            workerUrl="https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js"
-                            renderMode="canvas"
-                            textContentSource="canvas"
-                          >
+                          <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js">
                             <Viewer
                               fileUrl={doc.fileUrl}
                               plugins={[defaultLayoutPluginInstance]}
                             />
                           </Worker>
-
-                          <Typography
-                            variant="caption"
-                            sx={{ display: "block", mt: 1, color: "gray" }}
-                          >
-                            Viewing only. Download is disabled.
-                          </Typography>
                         </Box>
                       ) : (
-                        <Button variant="outlined" disabled>
-                          Locked
-                        </Button>
+                        !isUnlocked && (
+                          <Button variant="outlined" disabled>
+                            Locked
+                          </Button>
+                        )
                       )}
                     </Paper>
                   );
@@ -1588,3 +1715,32 @@ const StudentDashboard = () => {
 };
 
 export default StudentDashboard;
+<style>
+  {`
+.live-badge {
+  background: red;
+  color: white;
+  padding: 4px 10px;
+  border-radius: 6px;
+  font-size: 12px;
+  font-weight: bold;
+  margin-left: 10px;
+}
+
+.glow {
+  animation: glowPulse 1.8s infinite ease-in-out;
+}
+
+@keyframes glowPulse {
+  0% {
+    box-shadow: 0 0 0px rgba(255, 0, 0, 0.3);
+  }
+  50% {
+    box-shadow: 0 0 12px rgba(255, 0, 0, 0.8);
+  }
+  100% {
+    box-shadow: 0 0 0px rgba(255, 0, 0, 0.3);
+  }
+}
+`}
+</style>;
