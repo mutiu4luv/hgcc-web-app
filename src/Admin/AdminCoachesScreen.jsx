@@ -17,6 +17,7 @@ import {
   useMediaQuery,
   Grid,
   MenuItem,
+  Badge,
 } from "@mui/material";
 import {
   Dashboard,
@@ -29,6 +30,7 @@ import {
   CheckCircle,
   LiveTv,
   Delete,
+  Chat as ChatIcon,
 } from "@mui/icons-material";
 import {
   BarChart,
@@ -46,6 +48,291 @@ import { useParams } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 const drawerWidth = 250;
+const CHAT_SIDEBAR_WIDTH = 360;
+const STORAGE_KEY = "classChats";
+
+function ChatSidebarLocal({
+  videos,
+  documents,
+  chatMessages,
+  updateChatMessages,
+  user,
+}) {
+  const [selected, setSelected] = useState(() => {
+    if (Array.isArray(videos) && videos.length > 0)
+      return { type: "video", id: videos[0]._id, title: videos[0].title };
+    if (Array.isArray(documents) && documents.length > 0)
+      return { type: "doc", id: documents[0]._id, title: documents[0].title };
+    return null;
+  });
+
+  useEffect(() => {
+    if (!selected) {
+      if (videos?.length)
+        setSelected({
+          type: "video",
+          id: videos[0]._id,
+          title: videos[0].title,
+        });
+      else if (documents?.length)
+        setSelected({
+          type: "doc",
+          id: documents[0]._id,
+          title: documents[0].title,
+        });
+    } else {
+      const exists =
+        selected.type === "video"
+          ? videos?.some((v) => v._id === selected.id)
+          : documents?.some((d) => d._id === selected.id);
+      if (!exists) {
+        if (videos?.length)
+          setSelected({
+            type: "video",
+            id: videos[0]._id,
+            title: videos[0].title,
+          });
+        else if (documents?.length)
+          setSelected({
+            type: "doc",
+            id: documents[0]._id,
+            title: documents[0].title,
+          });
+        else setSelected(null);
+      }
+    }
+  }, [videos, documents, selected]);
+
+  const getCount = (type, id) => {
+    return (
+      (chatMessages[type] &&
+        chatMessages[type][id] &&
+        chatMessages[type][id].length) ||
+      0
+    );
+  };
+
+  const messagesForSelected = selected
+    ? (chatMessages[selected.type] &&
+        chatMessages[selected.type][selected.id]) ||
+      []
+    : [];
+
+  const persist = (type, id, next) => {
+    try {
+      const raw = localStorage.getItem(STORAGE_KEY);
+      const all = raw ? JSON.parse(raw) : { video: {}, doc: {} };
+      all[type] = all[type] || {};
+      all[type][id] = next;
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(all));
+      // same-tab update
+      window.dispatchEvent(new CustomEvent("classChatsUpdated"));
+    } catch (e) {
+      console.warn("Failed to persist chats:", e);
+    }
+  };
+
+  const sendMessage = (text, isCoach = true) => {
+    if (!selected || !text?.trim()) return;
+    const m = {
+      sender: user?.fullName || user?.name || (isCoach ? "Coach" : "Student"),
+      text: text.trim(),
+      ts: new Date().toISOString(),
+      isCoach: !!isCoach,
+    };
+    const next = [...(messagesForSelected || []), m];
+    updateChatMessages(selected.type, selected.id, next);
+    persist(selected.type, selected.id, next);
+  };
+
+  return (
+    <Box
+      sx={{
+        width: CHAT_SIDEBAR_WIDTH,
+        borderLeft: "1px solid rgba(0,0,0,0.08)",
+        height: "100vh",
+        position: "sticky",
+        top: 0,
+        bgcolor: "#fff",
+        p: 2,
+        display: "flex",
+        flexDirection: "column",
+      }}
+    >
+      <Box
+        sx={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          mb: 1,
+        }}
+      >
+        <Typography variant="h6">Class Chats</Typography>
+        <IconButton size="small">
+          <ChatIcon />
+        </IconButton>
+      </Box>
+
+      <Divider />
+
+      <Typography sx={{ mt: 2, mb: 1, fontWeight: "bold" }}>Videos</Typography>
+      <List dense sx={{ maxHeight: 180, overflowY: "auto" }}>
+        {Array.isArray(videos) && videos.length > 0 ? (
+          videos.map((v) => (
+            <ListItemButton
+              key={v._id}
+              selected={selected?.type === "video" && selected?.id === v._id}
+              onClick={() =>
+                setSelected({ type: "video", id: v._id, title: v.title })
+              }
+            >
+              <ListItemText
+                primary={v.title}
+                secondary={v.course?.name || ""}
+              />
+              <ListItemIcon>
+                <Badge
+                  color="primary"
+                  badgeContent={getCount("video", v._id)}
+                />
+              </ListItemIcon>
+            </ListItemButton>
+          ))
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ pl: 1 }}>
+            No video rooms
+          </Typography>
+        )}
+      </List>
+
+      <Typography sx={{ mt: 2, mb: 1, fontWeight: "bold" }}>
+        Documents
+      </Typography>
+      <List dense sx={{ maxHeight: 140, overflowY: "auto" }}>
+        {Array.isArray(documents) && documents.length > 0 ? (
+          documents.map((d) => (
+            <ListItemButton
+              key={d._id}
+              selected={selected?.type === "doc" && selected?.id === d._id}
+              onClick={() =>
+                setSelected({ type: "doc", id: d._id, title: d.title })
+              }
+            >
+              <ListItemText
+                primary={d.title}
+                secondary={d.courseId?.name || ""}
+              />
+              <ListItemIcon>
+                <Badge color="primary" badgeContent={getCount("doc", d._id)} />
+              </ListItemIcon>
+            </ListItemButton>
+          ))
+        ) : (
+          <Typography variant="body2" color="text.secondary" sx={{ pl: 1 }}>
+            No document rooms
+          </Typography>
+        )}
+      </List>
+
+      <Divider sx={{ my: 2 }} />
+
+      <Box sx={{ flex: 1, display: "flex", flexDirection: "column" }}>
+        {selected ? (
+          <>
+            <Typography variant="subtitle1" sx={{ mb: 1, fontWeight: "bold" }}>
+              {selected.type === "video" ? "Video Chat" : "Document Chat"} —{" "}
+              {selected.title || selected.id}
+            </Typography>
+
+            <Paper
+              sx={{
+                p: 2,
+                flex: 1,
+                display: "flex",
+                flexDirection: "column",
+                gap: 1,
+              }}
+            >
+              <Box
+                sx={{
+                  flex: 1,
+                  overflowY: "auto",
+                  p: 1,
+                  bgcolor: "#f7faf7",
+                  borderRadius: 1,
+                }}
+              >
+                {messagesForSelected.length === 0 ? (
+                  <Typography variant="body2" color="text.secondary">
+                    No messages yet.
+                  </Typography>
+                ) : (
+                  messagesForSelected.map((m, i) => (
+                    <Box
+                      key={i}
+                      sx={{ mb: 0.6, textAlign: m.isCoach ? "right" : "left" }}
+                    >
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          display: "inline-block",
+                          p: 1,
+                          borderRadius: 1,
+                          bgcolor: m.isCoach ? "#d1e7dd" : "#fff",
+                        }}
+                      >
+                        <strong>{m.sender}:</strong> {m.text}
+                      </Typography>
+                    </Box>
+                  ))
+                )}
+              </Box>
+
+              <ChatInput onSend={(text) => sendMessage(text, true)} />
+            </Paper>
+          </>
+        ) : (
+          <Typography variant="body2" color="text.secondary">
+            Select a room to open chat.
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  );
+}
+
+/* small ChatInput component used inside the sidebar */
+function ChatInput({ onSend }) {
+  const [text, setText] = useState("");
+  return (
+    <Box sx={{ display: "flex", gap: 1 }}>
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Type a message..."
+        value={text}
+        onChange={(e) => setText(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter") {
+            onSend(text);
+            setText("");
+          }
+        }}
+      />
+      <Button
+        variant="contained"
+        onClick={() => {
+          if (text.trim()) {
+            onSend(text);
+            setText("");
+          }
+        }}
+      >
+        Send
+      </Button>
+    </Box>
+  );
+}
 
 const CoachDashboard = () => {
   const [activeTab, setActiveTab] = useState("dashboard");
@@ -98,12 +385,12 @@ const CoachDashboard = () => {
 
   const [myVideos, setMyVideos] = useState([]);
   const [unlockAt, setUnlockAt] = useState("");
-
   const [chatMessages, setChatMessages] = useState(() => {
     const saved = localStorage.getItem("classChats");
-    return saved ? JSON.parse(saved) : { video: {}, doc: {}, coach: {} };
+    return saved ? JSON.parse(saved) : { video: {}, doc: {} };
   });
-  const [newMessage, setNewMessage] = useState("");
+  const [newMessages, setNewMessages] = useState({});
+
   const studentName = "Student";
   const coachName = "Coach";
 
@@ -133,17 +420,57 @@ const CoachDashboard = () => {
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
 
-  const sendCoachMessage = (type, id, text) => {
-    if (!text.trim()) return;
+  useEffect(() => {
+    const handleStorage = (e) => {
+      if (e.key === STORAGE_KEY) {
+        try {
+          setChatMessages(JSON.parse(e.newValue || "{}"));
+        } catch (err) {
+          console.warn("Failed to parse classChats from storage event", err);
+        }
+      }
+    };
 
+    const handleCustom = () => {
+      try {
+        setChatMessages(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"));
+      } catch (err) {
+        console.warn("Failed to parse classChats from localStorage", err);
+      }
+    };
+
+    window.addEventListener("storage", handleStorage);
+    window.addEventListener("classChatsUpdated", handleCustom);
+    return () => {
+      window.removeEventListener("storage", handleStorage);
+      window.removeEventListener("classChatsUpdated", handleCustom);
+    };
+  }, []);
+
+  useEffect(() => {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(chatMessages));
+    } catch (e) {
+      console.warn("Failed to save chats to localStorage:", e);
+    }
+  }, [chatMessages]);
+
+  const updateChatMessages = (type, id, msgs) => {
     setChatMessages((prev) => {
-      const updated = { ...prev };
-      if (!updated[type][id]) updated[type][id] = [];
-      updated[type][id].push({ sender: coachName, text });
-      localStorage.setItem("classChats", JSON.stringify(updated));
-      return updated;
+      const next = { ...(prev || { video: {}, doc: {} }) };
+      next[type] = { ...(next[type] || {}) };
+      next[type][id] = msgs;
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(next));
+        window.dispatchEvent(new CustomEvent("classChatsUpdated"));
+      } catch (e) {
+        console.warn("Failed to persist classChats:", e);
+      }
+      return next;
     });
   };
+
+  // helper to update parent chatMessages state
 
   const handleDocumentUpload = async (e) => {
     e.preventDefault();
@@ -962,256 +1289,426 @@ const CoachDashboard = () => {
       {/* Main Content */}
       <Box
         sx={{
-          flexGrow: 1,
-          ml: isMobile ? 0 : `${drawerWidth}px`,
-          p: { xs: 2, md: 4 },
-          overflowY: "auto",
-          height: "100vh",
+          flex: 1,
+          display: "flex",
+          minHeight: "100vh",
+          overflow: "hidden",
         }}
       >
-        {/* Dashboard */}
-        {activeTab === "dashboard" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography
-              variant="h4"
-              color="green"
-              fontWeight="bold"
-              gutterBottom
-            >
-              📊 Monthly Rating Overview
-            </Typography>
-            {ratingData.length === 0 ? (
-              <Typography>No rating data available yet.</Typography>
-            ) : (
-              <Box sx={{ width: "100%", height: 400 }}>
-                <ResponsiveContainer>
-                  <BarChart data={ratingData}>
-                    <XAxis dataKey="month" />
-                    <YAxis domain={[0, 5]} />
-                    <Tooltip />
-                    <Legend />
-                    <Bar dataKey="averageRating" name="Average Rating">
-                      {ratingData.map((_, i) => (
-                        <Cell key={i} fill={barColors[i % barColors.length]} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                </ResponsiveContainer>
-              </Box>
-            )}
-          </Paper>
-        )}
-        {/* Upload Video */}
-        {activeTab === "upload-video" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography variant="h6" sx={{ mt: 4 }}>
-              🎥 Upload Video
-            </Typography>
-
-            <form
-              onSubmit={async (e) => {
-                e.preventDefault();
-                if (!videoTitle) return alert("Video title is required!");
-                if (!videoFile) return alert("Please select a video file!");
-                if (!classStartTime)
-                  return alert("Class start time is required!");
-                if (!selectedCourseId) return alert("Please select a course!");
-                if (!selectedCohortId) return alert("Please select a cohort!");
-
-                const utcTime = new Date(classStartTime).toISOString();
-
-                const formData = new FormData();
-                formData.append("title", videoTitle);
-                formData.append("file", videoFile);
-                formData.append("classStartTime", utcTime);
-                formData.append("courseId", selectedCourseId);
-                formData.append("cohortId", selectedCohortId);
-
-                try {
-                  setLoading(true);
-                  const { data } = await axios.post(
-                    `${BASE_URL}/api/coach/upload-video`,
-                    formData,
-                    { headers: { Authorization: `Bearer ${token}` } }
-                  );
-                  setMessage(data.message);
-                  setVideoTitle("");
-                  setVideoFile(null);
-                  setClassStartTime("");
-                  setSelectedCourseId(courses[0]?._id || "");
-                  setSelectedCohortId(cohorts[0]?.cohortId || "");
-                  loadVideos();
-                  await fetchMyVideos();
-                } catch (err) {
-                  console.error(err);
-                  const errMsg =
-                    err.response?.data?.message ||
-                    err.message ||
-                    "Upload failed";
-                  setMessage(`❌ ${errMsg}`);
-                } finally {
-                  setLoading(false);
-                }
-              }}
-            >
-              <TextField
-                label="Video Title"
-                fullWidth
-                required
-                sx={{ mb: 2 }}
-                value={videoTitle}
-                onChange={(e) => setVideoTitle(e.target.value)}
-              />
-              <TextField
-                label="Class Start Time"
-                type="datetime-local"
-                fullWidth
-                required
-                sx={{ mb: 2 }}
-                InputLabelProps={{ shrink: true }}
-                value={classStartTime}
-                onChange={(e) => setClassStartTime(e.target.value)}
-              />
-              <TextField
-                label="Select Course"
-                select
-                fullWidth
-                required
-                sx={{ mb: 2 }}
-                value={selectedCourseId}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
-              >
-                {courses.length === 0 ? (
-                  <MenuItem disabled>No courses available</MenuItem>
-                ) : (
-                  courses.map((course) => (
-                    <MenuItem key={course._id} value={course._id}>
-                      {course.name}
-                    </MenuItem>
-                  ))
-                )}
-              </TextField>
-              <TextField
-                label="Select Cohort"
-                select
-                fullWidth
-                required
-                sx={{ mb: 2 }}
-                value={selectedCohortId}
-                onChange={(e) => setSelectedCohortId(e.target.value)}
-              >
-                {cohorts.length === 0 ? (
-                  <MenuItem disabled>No cohorts available</MenuItem>
-                ) : (
-                  cohorts.map((cohort) => (
-                    <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
-                      {cohort.cohortName}
-                    </MenuItem>
-                  ))
-                )}
-              </TextField>
-
-              <Box
-                sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}
-              >
-                <Button variant="contained" component="label">
-                  Choose Video
-                  <input
-                    hidden
-                    type="file"
-                    accept="video/*"
-                    onChange={(e) => setVideoFile(e.target.files[0] || null)}
-                  />
-                </Button>
-                {videoFile && (
-                  <Typography sx={{ mt: 1 }}>
-                    Selected: {videoFile.name}
-                  </Typography>
-                )}
-
-                <Button type="submit" variant="contained" disabled={loading}>
-                  {loading ? <CircularProgress size={24} /> : "Upload Video"}
-                </Button>
-              </Box>
-            </form>
-
-            {message && (
+        <Box
+          sx={{
+            flex: 1,
+            overflowY: "auto",
+            p: { xs: 2, md: 4 },
+            bgcolor: "#f9fafb",
+          }}
+        >
+          {/* Dashboard */}
+          {activeTab === "dashboard" && (
+            <Paper sx={{ p: 4 }}>
               <Typography
-                color={message.includes("failed") ? "error" : "green"}
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
               >
-                {message}
+                📊 Monthly Rating Overview
               </Typography>
-            )}
+              {ratingData.length === 0 ? (
+                <Typography>No rating data available yet.</Typography>
+              ) : (
+                <Box sx={{ width: "100%", height: 400 }}>
+                  <ResponsiveContainer>
+                    <BarChart data={ratingData}>
+                      <XAxis dataKey="month" />
+                      <YAxis domain={[0, 5]} />
+                      <Tooltip />
+                      <Legend />
+                      <Bar dataKey="averageRating" name="Average Rating">
+                        {ratingData.map((_, i) => (
+                          <Cell
+                            key={i}
+                            fill={barColors[i % barColors.length]}
+                          />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  </ResponsiveContainer>
+                </Box>
+              )}
+            </Paper>
+          )}
+          {/* Upload Video */}
+          {activeTab === "upload-video" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h6" sx={{ mt: 4 }}>
+                🎥 Upload Video
+              </Typography>
 
-            <Typography variant="h6">🎬 My Uploaded Videos</Typography>
-            {Array.isArray(myVideos) && myVideos.length > 0 ? (
-              myVideos.map((video) => {
-                const unlockAt = new Date(
-                  video.classStartTime || video.createdAt
-                );
-                const expireTime = new Date(
-                  unlockAt.getTime() + 3 * 60 * 60 * 1000
-                );
-                const isUnlocked =
-                  new Date() >= unlockAt && new Date() <= expireTime;
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!videoTitle) return alert("Video title is required!");
+                  if (!videoFile) return alert("Please select a video file!");
+                  if (!classStartTime)
+                    return alert("Class start time is required!");
+                  if (!selectedCourseId)
+                    return alert("Please select a course!");
+                  if (!selectedCohortId)
+                    return alert("Please select a cohort!");
 
-                // Load chat messages from localStorage
-                const videoChat =
-                  JSON.parse(localStorage.getItem("chatMessages"))?.video?.[
-                    video._id
-                  ] || [];
+                  const utcTime = new Date(classStartTime).toISOString();
 
-                const [videoMessage, setVideoMessage] = React.useState("");
-                const [videoChatState, setVideoChatState] =
-                  React.useState(videoChat);
+                  const formData = new FormData();
+                  formData.append("title", videoTitle);
+                  formData.append("file", videoFile);
+                  formData.append("classStartTime", utcTime);
+                  formData.append("courseId", selectedCourseId);
+                  formData.append("cohortId", selectedCohortId);
 
-                const sendVideoChat = (vidId) => {
-                  if (!videoMessage.trim()) return;
-                  const newMsg = { sender: studentName, text: videoMessage };
-                  const updatedChat = [...videoChatState, newMsg];
-                  setVideoChatState(updatedChat);
-                  setVideoMessage("");
+                  try {
+                    setLoading(true);
+                    const { data } = await axios.post(
+                      `${BASE_URL}/api/coach/upload-video`,
+                      formData,
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    setMessage(data.message);
+                    setVideoTitle("");
+                    setVideoFile(null);
+                    setClassStartTime("");
+                    setSelectedCourseId(courses[0]?._id || "");
+                    setSelectedCohortId(cohorts[0]?.cohortId || "");
+                    loadVideos();
+                    await fetchMyVideos();
+                  } catch (err) {
+                    console.error(err);
+                    const errMsg =
+                      err.response?.data?.message ||
+                      err.message ||
+                      "Upload failed";
+                    setMessage(`❌ ${errMsg}`);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                <TextField
+                  label="Video Title"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={videoTitle}
+                  onChange={(e) => setVideoTitle(e.target.value)}
+                />
+                <TextField
+                  label="Class Start Time"
+                  type="datetime-local"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  InputLabelProps={{ shrink: true }}
+                  value={classStartTime}
+                  onChange={(e) => setClassStartTime(e.target.value)}
+                />
+                <TextField
+                  label="Select Course"
+                  select
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                >
+                  {courses.length === 0 ? (
+                    <MenuItem disabled>No courses available</MenuItem>
+                  ) : (
+                    courses.map((course) => (
+                      <MenuItem key={course._id} value={course._id}>
+                        {course.name}
+                      </MenuItem>
+                    ))
+                  )}
+                </TextField>
+                <TextField
+                  label="Select Cohort"
+                  select
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={selectedCohortId}
+                  onChange={(e) => setSelectedCohortId(e.target.value)}
+                >
+                  {cohorts.length === 0 ? (
+                    <MenuItem disabled>No cohorts available</MenuItem>
+                  ) : (
+                    cohorts.map((cohort) => (
+                      <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                        {cohort.cohortName}
+                      </MenuItem>
+                    ))
+                  )}
+                </TextField>
 
-                  // Save to localStorage
-                  const allChats = JSON.parse(
-                    localStorage.getItem("chatMessages")
-                  ) || { video: {}, doc: {} };
-                  allChats.video[vidId] = updatedChat;
-                  localStorage.setItem(
-                    "chatMessages",
-                    JSON.stringify(allChats)
-                  );
-                };
-
-                return (
-                  <Paper
-                    key={video._id}
-                    sx={{ p: 2, mt: 2, position: "relative", borderRadius: 2 }}
-                  >
-                    <IconButton
-                      sx={{ position: "absolute", top: 8, right: 8 }}
-                      color="error"
-                      onClick={() => handleDeleteVideo(video._id)}
-                    >
-                      <DeleteIcon />
-                    </IconButton>
-
-                    <Typography variant="subtitle1" sx={{ fontWeight: "bold" }}>
-                      {video.title}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Course: {video.course?.name || "Unknown"}
-                    </Typography>
-                    <Typography variant="body2" color="text.secondary">
-                      Uploaded: {new Date(video.createdAt).toLocaleString()}
-                    </Typography>
-                    <video
-                      src={video.fileUrl}
-                      controls
-                      style={{ width: "100%", borderRadius: 8, marginTop: 10 }}
+                <Box
+                  sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}
+                >
+                  <Button variant="contained" component="label">
+                    Choose Video
+                    <input
+                      hidden
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => setVideoFile(e.target.files[0] || null)}
                     />
+                  </Button>
+                  {videoFile && (
+                    <Typography sx={{ mt: 1 }}>
+                      Selected: {videoFile.name}
+                    </Typography>
+                  )}
 
-                    {isUnlocked && (
+                  <Button type="submit" variant="contained" disabled={loading}>
+                    {loading ? <CircularProgress size={24} /> : "Upload Video"}
+                  </Button>
+                </Box>
+              </form>
+
+              {message && (
+                <Typography
+                  color={message.includes("failed") ? "error" : "green"}
+                >
+                  {message}
+                </Typography>
+              )}
+
+              <Typography variant="h6">🎬 My Uploaded Videos</Typography>
+              {Array.isArray(myVideos) && myVideos.length > 0 ? (
+                myVideos.map((video) => {
+                  const unlockAt = new Date(
+                    video.classStartTime || video.createdAt
+                  );
+                  const expireTime = new Date(
+                    unlockAt.getTime() + 3 * 60 * 60 * 1000
+                  );
+                  const isUnlocked =
+                    new Date() >= unlockAt && new Date() <= expireTime;
+
+                  // Load chat messages from localStorage
+                  // place this inside myVideos.map(video => { ... }) where you render each video
+                  {
+                    videos.map((video) => {
+                      const videoChat =
+                        (chatMessages.video && chatMessages.video[video._id]) ||
+                        [];
+
+                      return (
+                        <Paper
+                          key={video._id}
+                          sx={{
+                            p: 2,
+                            mt: 2,
+                            position: "relative",
+                            borderRadius: 2,
+                          }}
+                        >
+                          {/* VIDEO DETAILS */}
+                          <Typography
+                            variant="subtitle1"
+                            sx={{ fontWeight: "bold" }}
+                          >
+                            {video.title}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Course: {video.course?.name || "Unknown"}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Uploaded:{" "}
+                            {new Date(video.createdAt).toLocaleString()}
+                          </Typography>
+
+                          <video
+                            src={video.fileUrl}
+                            controls
+                            style={{
+                              width: "100%",
+                              borderRadius: 8,
+                              marginTop: 10,
+                            }}
+                          />
+
+                          {/* ✅ PLACE STUDENT–COACH CHAT HERE */}
+                          <Paper sx={{ p: 2, mt: 2, bgcolor: "#e8f5e9" }}>
+                            <Typography
+                              variant="subtitle1"
+                              fontWeight="bold"
+                              sx={{ mb: 1 }}
+                            >
+                              💬 Class Chat (Video)
+                            </Typography>
+
+                            <Box
+                              sx={{
+                                maxHeight: 200,
+                                overflowY: "auto",
+                                mb: 1,
+                                p: 1,
+                                bgcolor: "#f1f8e9",
+                                borderRadius: 1,
+                              }}
+                            >
+                              {videoChat.length === 0 ? (
+                                <Typography
+                                  variant="body2"
+                                  sx={{ color: "gray" }}
+                                >
+                                  No messages yet.
+                                </Typography>
+                              ) : (
+                                videoChat.map((msg, idx) => (
+                                  <Box
+                                    key={idx}
+                                    sx={{
+                                      textAlign:
+                                        msg.senderId === studentId
+                                          ? "right"
+                                          : "left",
+                                      mb: 0.5,
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="body2"
+                                      sx={{
+                                        display: "inline-block",
+                                        p: 1,
+                                        borderRadius: 1,
+                                        bgcolor:
+                                          msg.senderId === studentId
+                                            ? "#d1e7dd"
+                                            : "#fff",
+                                      }}
+                                    >
+                                      <strong>{msg.senderName}:</strong>{" "}
+                                      {msg.text}
+                                    </Typography>
+                                  </Box>
+                                ))
+                              )}
+                            </Box>
+
+                            {/* CHAT INPUT */}
+                            <Box sx={{ display: "flex", gap: 1 }}>
+                              <TextField
+                                fullWidth
+                                size="small"
+                                placeholder="Type a message..."
+                                value={newMessages[video._id] || ""}
+                                onChange={(e) =>
+                                  setNewMessages((prev) => ({
+                                    ...prev,
+                                    [video._id]: e.target.value,
+                                  }))
+                                }
+                                onKeyDown={(e) => {
+                                  if (e.key === "Enter") {
+                                    const text = (
+                                      newMessages[video._id] || ""
+                                    ).trim();
+                                    if (text)
+                                      sendStudentMessage(
+                                        "video",
+                                        video._id,
+                                        text
+                                      );
+                                  }
+                                }}
+                              />
+                              <Button
+                                variant="contained"
+                                onClick={() => {
+                                  const text = (
+                                    newMessages[video._id] || ""
+                                  ).trim();
+                                  if (text)
+                                    sendStudentMessage(
+                                      "video",
+                                      video._id,
+                                      text
+                                    );
+                                }}
+                              >
+                                Send
+                              </Button>
+                            </Box>
+                          </Paper>
+                          {/* END CHAT */}
+                        </Paper>
+                      );
+                    });
+                  }
+
+                  const [videoMessage, setVideoMessage] = React.useState("");
+                  const [videoChatState, setVideoChatState] =
+                    React.useState(videoChat);
+
+                  const sendVideoChat = (vidId) => {
+                    if (!videoMessage.trim()) return;
+                    const newMsg = { sender: studentName, text: videoMessage };
+                    const updatedChat = [...videoChatState, newMsg];
+                    setVideoChatState(updatedChat);
+                    setVideoMessage("");
+
+                    // Save to localStorage
+                    const allChats = JSON.parse(
+                      localStorage.getItem("chatMessages")
+                    ) || { video: {}, doc: {} };
+                    allChats.video[vidId] = updatedChat;
+                    localStorage.setItem(
+                      "chatMessages",
+                      JSON.stringify(allChats)
+                    );
+                  };
+
+                  return (
+                    <Paper
+                      key={video._id}
+                      sx={{
+                        p: 2,
+                        mt: 2,
+                        position: "relative",
+                        borderRadius: 2,
+                      }}
+                    >
+                      <IconButton
+                        sx={{ position: "absolute", top: 8, right: 8 }}
+                        color="error"
+                        onClick={() => handleDeleteVideo(video._id)}
+                      >
+                        <DeleteIcon />
+                      </IconButton>
+
+                      <Typography
+                        variant="subtitle1"
+                        sx={{ fontWeight: "bold" }}
+                      >
+                        {video.title}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Course: {video.course?.name || "Unknown"}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Uploaded: {new Date(video.createdAt).toLocaleString()}
+                      </Typography>
+                      <video
+                        src={video.fileUrl}
+                        controls
+                        style={{
+                          width: "100%",
+                          borderRadius: 8,
+                          marginTop: 10,
+                        }}
+                      />
+
                       <Paper sx={{ p: 2, mt: 2, bgcolor: "#e8f5e9" }}>
                         <Typography
                           variant="subtitle1"
@@ -1232,31 +1729,39 @@ const CoachDashboard = () => {
                             borderRadius: 1,
                           }}
                         >
-                          {videoChatState.map((msg, idx) => (
-                            <Box
-                              key={idx}
-                              sx={{
-                                textAlign:
-                                  msg.sender === studentName ? "right" : "left",
-                                mb: 0.5,
-                              }}
-                            >
-                              <Typography
-                                variant="body2"
+                          {videoChatState.length === 0 ? (
+                            <Typography variant="body2" sx={{ color: "gray" }}>
+                              No messages yet. Say hi 👋
+                            </Typography>
+                          ) : (
+                            videoChatState.map((msg, idx) => (
+                              <Box
+                                key={idx}
                                 sx={{
-                                  display: "inline-block",
-                                  p: 1,
-                                  borderRadius: 1,
-                                  bgcolor:
+                                  textAlign:
                                     msg.sender === studentName
-                                      ? "#d1e7dd"
-                                      : "#fff",
+                                      ? "right"
+                                      : "left",
+                                  mb: 0.5,
                                 }}
                               >
-                                <strong>{msg.sender}:</strong> {msg.text}
-                              </Typography>
-                            </Box>
-                          ))}
+                                <Typography
+                                  variant="body2"
+                                  sx={{
+                                    display: "inline-block",
+                                    p: 1,
+                                    borderRadius: 1,
+                                    bgcolor:
+                                      msg.sender === studentName
+                                        ? "#d1e7dd"
+                                        : "#fff",
+                                  }}
+                                >
+                                  <strong>{msg.sender}:</strong> {msg.text}
+                                </Typography>
+                              </Box>
+                            ))
+                          )}
                         </Box>
 
                         <Box sx={{ display: "flex", gap: 1 }}>
@@ -1278,755 +1783,729 @@ const CoachDashboard = () => {
                           </Button>
                         </Box>
                       </Paper>
-                    )}
-                  </Paper>
-                );
-              })
-            ) : (
-              <Typography sx={{ mt: 2 }}>No videos uploaded yet.</Typography>
-            )}
-          </Paper>
-        )}
+                    </Paper>
+                  );
+                })
+              ) : (
+                <Typography sx={{ mt: 2 }}>No videos uploaded yet.</Typography>
+              )}
+            </Paper>
+          )}
 
-        {/* Upload Document */}
-        {activeTab === "upload-doc" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-              📄 Upload Document
-            </Typography>
+          {/* Upload Document */}
+          {activeTab === "upload-doc" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+                📄 Upload Document
+              </Typography>
 
-            <form onSubmit={handleDocumentUpload}>
-              {/* Document Title */}
-              <TextField
-                label="Document Title"
-                fullWidth
-                required
-                sx={{ mb: 2 }}
-                value={docTitle}
-                onChange={(e) => setDocTitle(e.target.value)}
-              />
+              <form onSubmit={handleDocumentUpload}>
+                {/* Document Title */}
+                <TextField
+                  label="Document Title"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={docTitle}
+                  onChange={(e) => setDocTitle(e.target.value)}
+                />
 
-              {/* Unlock Date & Time */}
-              <TextField
-                label="Unlock Date & Time"
-                type="datetime-local"
-                fullWidth
-                required
-                sx={{ mb: 2 }}
-                InputLabelProps={{ shrink: true }}
-                value={unlockAt}
-                onChange={(e) => setUnlockAt(e.target.value)}
-              />
+                {/* Unlock Date & Time */}
+                <TextField
+                  label="Unlock Date & Time"
+                  type="datetime-local"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  InputLabelProps={{ shrink: true }}
+                  value={unlockAt}
+                  onChange={(e) => setUnlockAt(e.target.value)}
+                />
 
-              {/* Select Course */}
-              <TextField
-                select
-                label="Select Course"
-                fullWidth
-                required
-                sx={{ mb: 2 }}
-                value={selectedCourseId}
-                onChange={(e) => setSelectedCourseId(e.target.value)}
-              >
-                {courses.map((course) => (
-                  <MenuItem key={course._id} value={course._id}>
-                    {course.name}
-                  </MenuItem>
-                ))}
-              </TextField>
+                {/* Select Course */}
+                <TextField
+                  select
+                  label="Select Course"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                >
+                  {courses.map((course) => (
+                    <MenuItem key={course._id} value={course._id}>
+                      {course.name}
+                    </MenuItem>
+                  ))}
+                </TextField>
 
-              {/* File Upload Button */}
-              <Button
-                variant="contained"
-                component="label"
-                fullWidth
-                sx={{ mb: 2 }}
-              >
-                Choose Document (PDF, DOC, DOCX)
-                <input
-                  hidden
-                  type="file"
-                  accept="
+                {/* File Upload Button */}
+                <Button
+                  variant="contained"
+                  component="label"
+                  fullWidth
+                  sx={{ mb: 2 }}
+                >
+                  Choose Document (PDF, DOC, DOCX)
+                  <input
+                    hidden
+                    type="file"
+                    accept="
                         .pdf,application/pdf,
                         .doc,application/msword,
                         .docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document
                     "
-                  onChange={(e) => {
-                    const file = e.target.files[0];
-                    if (!file) return;
+                    onChange={(e) => {
+                      const file = e.target.files[0];
+                      if (!file) return;
 
-                    const allowedTypes = [
-                      "application/pdf",
-                      "application/msword",
-                      "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-                    ];
+                      const allowedTypes = [
+                        "application/pdf",
+                        "application/msword",
+                        "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                      ];
 
-                    if (!allowedTypes.includes(file.type)) {
-                      alert("❌ Only PDF, DOC, and DOCX files are allowed.");
-                      e.target.value = "";
-                      return;
-                    }
+                      if (!allowedTypes.includes(file.type)) {
+                        alert("❌ Only PDF, DOC, and DOCX files are allowed.");
+                        e.target.value = "";
+                        return;
+                      }
 
-                    setDocFile(file);
-                  }}
-                />
-              </Button>
+                      setDocFile(file);
+                    }}
+                  />
+                </Button>
 
-              {docFile && (
-                <Typography variant="body2" sx={{ mb: 2 }}>
-                  Selected file: {docFile.name}
-                </Typography>
-              )}
+                {docFile && (
+                  <Typography variant="body2" sx={{ mb: 2 }}>
+                    Selected file: {docFile.name}
+                  </Typography>
+                )}
 
-              {/* Submit Button */}
-              <Button
-                type="submit"
-                variant="contained"
-                fullWidth
-                disabled={loading || !docFile}
-              >
-                {loading ? <CircularProgress size={24} /> : "Upload Document"}
-              </Button>
-            </form>
+                {/* Submit Button */}
+                <Button
+                  type="submit"
+                  variant="contained"
+                  fullWidth
+                  disabled={loading || !docFile}
+                >
+                  {loading ? <CircularProgress size={24} /> : "Upload Document"}
+                </Button>
+              </form>
 
-            {/* Display uploaded documents */}
-            <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
-              📚 My Uploaded Documents
-            </Typography>
+              {/* Display uploaded documents */}
+              <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
+                📚 My Uploaded Documents
+              </Typography>
 
-            {myDocuments.length === 0 ? (
-              <Typography>No documents uploaded yet.</Typography>
-            ) : (
-              myDocuments.map((doc) => (
-                <Paper key={doc._id} sx={{ p: 2, mb: 2, position: "relative" }}>
-                  {/* Delete Icon */}
-                  <IconButton
-                    sx={{ position: "absolute", top: 8, right: 8 }}
-                    onClick={() => handleDeleteDocument(doc._id)}
+              {myDocuments.length === 0 ? (
+                <Typography>No documents uploaded yet.</Typography>
+              ) : (
+                myDocuments.map((doc) => (
+                  <Paper
+                    key={doc._id}
+                    sx={{ p: 2, mb: 2, position: "relative" }}
                   >
-                    <Delete color="error" />
-                  </IconButton>
-
-                  <Typography variant="subtitle1" fontWeight="bold">
-                    {doc.title}
-                  </Typography>
-
-                  <Typography variant="body2" color="text.secondary">
-                    Course:{" "}
-                    {doc.courseId?.name || doc.course?.name || "Unknown"}
-                  </Typography>
-
-                  <Typography variant="body2" color="text.secondary">
-                    Unlocks: {new Date(doc.unlockAt).toLocaleString()}
-                  </Typography>
-
-                  <Button
-                    variant="outlined"
-                    sx={{ mt: 1 }}
-                    href={doc.fileUrl}
-                    target="_blank"
-                  >
-                    View Document
-                  </Button>
-                </Paper>
-              ))
-            )}
-          </Paper>
-        )}
-
-        {/* All Videos */}
-        {/* {activeTab === "videos" && (
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="h6" sx={{ mb: 3 }}>
-              📺 All Uploaded Videos
-            </Typography>
-            <Grid container spacing={3}>
-              {videos.map((v) => (
-                <Grid item xs={12} sm={6} md={4} key={v._id}>
-                  <Paper sx={{ p: 2, position: "relative" }}>
-                    <Typography fontWeight="bold">{v.title}</Typography>
-                    <video
-                      width="100%"
-                      controls
-                      style={{ marginTop: "10px", borderRadius: 8 }}
-                    >
-                      <source src={v.videoUrl} type="video/mp4" />
-                    </video>
+                    {/* Delete Icon */}
                     <IconButton
-                      sx={{ position: "absolute", top: 5, right: 5 }}
-                      onClick={() => deleteVideo(v._id)}
+                      sx={{ position: "absolute", top: 8, right: 8 }}
+                      onClick={() => handleDeleteDocument(doc._id)}
                     >
                       <Delete color="error" />
                     </IconButton>
-                  </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        )} */}
-        {/* All Documents */}
-        {/* {activeTab === "documents" && (
-          <Box sx={{ mt: 4 }}>
-            <Typography variant="h6" sx={{ mb: 3 }}>
-              📄 All Uploaded Documents
-            </Typography>
-            <Grid container spacing={3}>
-              {documents.map((d) => (
-                <Grid item xs={12} sm={6} md={4} key={d._id}>
-                  <Paper sx={{ p: 2, position: "relative" }}>
-                    <Typography fontWeight="bold">{d.title}</Typography>
-                    <Typography variant="body2">
-                      <a
-                        href={d.fileUrl}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        View Document
-                      </a>
+
+                    <Typography variant="subtitle1" fontWeight="bold">
+                      {doc.title}
                     </Typography>
-                    <IconButton
-                      sx={{ position: "absolute", top: 5, right: 5 }}
-                      onClick={() => deleteDocument(d._id)}
+
+                    <Typography variant="body2" color="text.secondary">
+                      Course:{" "}
+                      {doc.courseId?.name || doc.course?.name || "Unknown"}
+                    </Typography>
+
+                    <Typography variant="body2" color="text.secondary">
+                      Unlocks: {new Date(doc.unlockAt).toLocaleString()}
+                    </Typography>
+
+                    <Button
+                      variant="outlined"
+                      sx={{ mt: 1 }}
+                      href={doc.fileUrl}
+                      target="_blank"
                     >
-                      <Delete color="error" />
-                    </IconButton>
+                      View Document
+                    </Button>
                   </Paper>
-                </Grid>
-              ))}
-            </Grid>
-          </Box>
-        )} */}
-        {/* Assignments */}
-        {activeTab === "assignments" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography
-              variant="h4"
-              color="green"
-              fontWeight="bold"
-              gutterBottom
-            >
-              🧾 Student Assignments
-            </Typography>
-            {/* Create Assignment Form */}
-            <Box
-              sx={{
-                display: "flex",
-                gap: 2,
-                mb: 3,
-                flexWrap: "wrap",
-                alignItems: "center",
-                "> .MuiTextField-root": { minWidth: 200 }, // remove flex: 1
-              }}
-            >
-              <TextField
-                select
-                label="Select Cohort"
-                value={selectedCohortId}
-                onChange={(e) => setSelectedCohortId(e.target.value)}
-                sx={{ minWidth: 250 }}
-              >
-                {(Array.isArray(cohorts) ? cohorts : []).map((c) => {
-                  const cohortId = (
-                    c._id ||
-                    c.cohortId?._id ||
-                    c.cohortId ||
-                    ""
-                  ).toString();
-                  const cohortName = c.cohortName || "No Cohort";
-                  return (
-                    <MenuItem key={cohortId} value={cohortId}>
-                      {cohortName}
-                    </MenuItem>
-                  );
-                })}
-              </TextField>
-              <TextField
-                label="Title"
-                value={newTitle}
-                onChange={(e) => setNewTitle(e.target.value)}
-              />
-              <TextField
-                label="Description"
-                value={newDescription}
-                onChange={(e) => setNewDescription(e.target.value)}
-              />
-              <TextField
-                type="date"
-                label="Due Date"
-                InputLabelProps={{ shrink: true }}
-                value={newDueDate}
-                onChange={(e) => setNewDueDate(e.target.value)}
-              />
-
-              <Button
-                variant="contained"
-                color="success"
-                onClick={createAssignment}
-                disabled={!newTitle || !newDueDate || !selectedCohortId}
-              >
-                Create Assignment
-              </Button>
-            </Box>
-
-            {/* Assignments Table */}
-
-            {assignmentsLoading ? (
-              <Box
-                sx={{
-                  height: 400,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <CircularProgress size={60} color="success" />
-              </Box>
-            ) : assignmentRows.length === 0 ? (
-              <Typography>No assignments available yet.</Typography>
-            ) : (
-              <div style={{ height: 500, width: "100%" }}>
-                <DataGrid
-                  rows={
-                    selectedCohortId
-                      ? assignmentRows.filter(
-                          (r) => r.cohortId === selectedCohortId
-                        )
-                      : assignmentRows
-                  }
-                  columns={[
-                    { field: "cohortName", headerName: "Cohort", width: 180 },
-                    { field: "studentName", headerName: "Student", width: 200 },
-                    { field: "title", headerName: "Assignment", width: 250 },
-                    {
-                      field: "description",
-                      headerName: "Description",
-                      width: 300,
-                    },
-                    { field: "dueDate", headerName: "Due Date", width: 150 },
-                    { field: "grade", headerName: "Grade", width: 120 },
-                    { field: "status", headerName: "Status", width: 150 },
-                    {
-                      field: "actions",
-                      headerName: "Actions",
-                      width: 180,
-                      renderCell: (params) => (
-                        <Button
-                          variant="contained"
-                          size="small"
-                          sx={{
-                            bgcolor: params.row.isGraded
-                              ? "#94a3b8"
-                              : "#10b981",
-                          }}
-                          disabled={params.row.isGraded}
-                          onClick={() =>
-                            handleOpenAssignmentModal(
-                              params.row,
-                              params.row.submission
-                            )
-                          }
-                        >
-                          {params.row.isGraded ? "Graded" : "View & Grade"}
-                        </Button>
-                      ),
-                    },
-                  ]}
-                  pageSize={5}
-                />
-              </div>
-            )}
-
-            {/* Assignments Grouped by Cohort */}
-            {studentAssignmentsLoading || assignmentsLoading ? (
-              <Box
-                sx={{
-                  height: 400,
-                  display: "flex",
-                  alignItems: "center",
-                  justifyContent: "center",
-                }}
-              >
-                <CircularProgress size={60} color="success" />
-              </Box>
-            ) : (!Array.isArray(studentAssignments) ||
-                studentAssignments.length === 0) &&
-              (!Array.isArray(assignments) || assignments.length === 0) ? (
-              <Typography>No assignments available yet.</Typography>
-            ) : (
-              // Filter assignments by selectedCohortId
-              (() => {
-                const safeAssignments = Array.isArray(assignments)
-                  ? assignments
-                  : [];
-                const filteredAssignments = selectedCohortId
-                  ? safeAssignments.filter(
-                      (a) => a.cohortId?._id === selectedCohortId
-                    )
-                  : safeAssignments; // if no cohort selected, show all
-
-                return filteredAssignments.length === 0 ? (
-                  <Typography>No assignments for this cohort.</Typography>
-                ) : (
-                  <div style={{ height: 500, width: "100%" }}>
-                    <DataGrid
-                      rows={filteredAssignments.flatMap((a) =>
-                        Array.isArray(a.submissions) && a.submissions.length > 0
-                          ? a.submissions.map((s, index) => {
-                              const student = s?.studentId ?? {
-                                fullName: "Unknown Student",
-                                _id: null,
-                              };
-                              const studentName = student.fullName;
-                              const gradeValue = s?.grade ?? null;
-
-                              let status = "Pending";
-                              if (gradeValue !== null) status = "Completed";
-                              else if (new Date(a.dueDate) < new Date())
-                                status = "Expired";
-
-                              return {
-                                id: s?._id || `${a._id}-${index}`,
-                                assignmentId: a._id,
-                                studentId: student?._id || null,
-                                studentName,
-                                title: a.title,
-                                description: a.description,
-                                grade:
-                                  gradeValue !== null
-                                    ? gradeValue
-                                    : "Not Graded",
-                                status,
-                                isGraded:
-                                  typeof gradeValue === "number" &&
-                                  !Number.isNaN(gradeValue),
-                                dueDate: a.dueDate
-                                  ? new Date(a.dueDate).toLocaleDateString()
-                                  : "N/A",
-                                submission: s || null,
-                              };
-                            })
-                          : [
-                              {
-                                id: `${a._id}-no-submission`,
-                                assignmentId: a._id,
-                                studentId: null,
-                                studentName: "-",
-                                title: a.title,
-                                description: a.description,
-                                grade: "No submission",
-                                status:
-                                  new Date(a.dueDate) < new Date()
-                                    ? "Expired"
-                                    : "Pending",
-                                isGraded: false,
-                                dueDate: a.dueDate
-                                  ? new Date(a.dueDate).toLocaleDateString()
-                                  : "N/A",
-                                submission: null,
-                              },
-                            ]
-                      )}
-                      columns={[
-                        {
-                          field: "studentName",
-                          headerName: "Student",
-                          width: 200,
-                        },
-                        {
-                          field: "title",
-                          headerName: "Assignment",
-                          width: 250,
-                        },
-                        {
-                          field: "description",
-                          headerName: "Description",
-                          width: 300,
-                        },
-                        {
-                          field: "dueDate",
-                          headerName: "Due Date",
-                          width: 150,
-                        },
-                        { field: "grade", headerName: "Grade", width: 120 },
-                        { field: "status", headerName: "Status", width: 150 },
-                        {
-                          field: "actions",
-                          headerName: "Actions",
-                          width: 180,
-                          renderCell: (params) => (
-                            <Button
-                              variant="contained"
-                              size="small"
-                              sx={{
-                                bgcolor: params.row.isGraded
-                                  ? "#94a3b8"
-                                  : "#10b981",
-                              }}
-                              disabled={params.row.isGraded}
-                              onClick={() =>
-                                handleOpenAssignmentModal(
-                                  safeAssignments.find(
-                                    (a) => a._id === params.row.assignmentId
-                                  ),
-                                  params.row.submission
-                                )
-                              }
-                            >
-                              {params.row.isGraded ? "Graded" : "View & Grade"}
-                            </Button>
-                          ),
-                        },
-                      ]}
-                      pageSize={5}
-                      rowsPerPageOptions={[5]}
-                    />
-                  </div>
-                );
-              })()
-            )}
-            {/* Assignment Modal */}
-            <Drawer
-              anchor="right"
-              open={openAssignmentModal}
-              onClose={handleCloseAssignmentModal}
-              PaperProps={{ sx: { width: { xs: "90%", md: 500 }, p: 3 } }}
-            >
-              {selectedAssignment && (
-                <>
-                  <Box
-                    sx={{
-                      display: "flex",
-                      justifyContent: "space-between",
-                      mb: 2,
-                    }}
-                  >
-                    <Typography variant="h6">Grade Assignment</Typography>
-                    <IconButton onClick={handleCloseAssignmentModal}>
-                      <CloseIcon />
-                    </IconButton>
-                  </Box>
-
-                  <Typography variant="subtitle1" sx={{ mb: 1 }}>
-                    {selectedAssignment.title}
-                  </Typography>
-
-                  {selectedAssignment.submission?.file ? (
-                    <Typography variant="body2" sx={{ mb: 2 }}>
-                      <a
-                        href={selectedAssignment.submission.file}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                      >
-                        View Submitted Document
-                      </a>
-                    </Typography>
-                  ) : (
-                    <Typography variant="body2" sx={{ mb: 2 }}>
-                      No submission available
-                    </Typography>
-                  )}
-
-                  {selectedAssignment.submission?.grade != null ? (
-                    <Alert severity="success" sx={{ mb: 2 }}>
-                      Grade: <b>{selectedAssignment.submission.grade}%</b>
-                    </Alert>
-                  ) : (
-                    <TextField
-                      label="Grade"
-                      fullWidth
-                      type="number"
-                      value={gradeInput}
-                      onChange={(e) => setGradeInput(e.target.value)}
-                      sx={{ mb: 2 }}
-                    />
-                  )}
-
-                  <Button
-                    variant="contained"
-                    color="success"
-                    fullWidth
-                    disabled={
-                      gradingLoading ||
-                      selectedAssignment.submission?.grade != null
-                    }
-                    onClick={async () => {
-                      await submitGrade(
-                        selectedAssignment.submission?.studentId ||
-                          selectedAssignment.studentId
-                      );
-                      // Refresh assignments instantly after grading
-                      await loadAssignments();
-                    }}
-                  >
-                    {gradingLoading ? (
-                      <CircularProgress size={24} />
-                    ) : (
-                      "Submit Grade"
-                    )}
-                  </Button>
-                </>
+                ))
               )}
-            </Drawer>
-          </Paper>
-        )}
-        {/* Students */}
-        {activeTab === "students" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography
-              variant="h4"
-              color="green"
-              fontWeight="bold"
-              gutterBottom
-            >
-              👩‍🎓 My Students ({students.length})
-            </Typography>
+            </Paper>
+          )}
 
-            {/* Loader */}
-            {studentsLoading ? (
+          {/* Assignments */}
+          {activeTab === "assignments" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                🧾 Student Assignments
+              </Typography>
+              {/* Create Assignment Form */}
               <Box
                 sx={{
-                  height: 400,
                   display: "flex",
+                  gap: 2,
+                  mb: 3,
+                  flexWrap: "wrap",
                   alignItems: "center",
-                  justifyContent: "center",
+                  "> .MuiTextField-root": { minWidth: 200 }, // remove flex: 1
                 }}
               >
-                <CircularProgress size={60} color="success" />
-              </Box>
-            ) : students.length === 0 ? (
-              <Typography>No students enrolled in your courses yet.</Typography>
-            ) : (
-              <div style={{ height: 500, width: "100%" }}>
-                <DataGrid
-                  rows={students.map((s) => ({
-                    id: s.studentId, // use studentId
-                    fullName: s.fullName,
-                    email: s.email,
-                    phoneNumber: s.phoneNumber || "-", // fallback if missing
-                    progress:
-                      s.enrollments && s.enrollments.length > 0
-                        ? `${s.enrollments.filter((e) => e.hasAccess).length}/${
-                            s.enrollments.length
-                          } courses`
-                        : "0 courses", // simple progress
-                  }))}
-                  columns={[
-                    { field: "fullName", headerName: "Full Name", width: 250 },
-                    { field: "email", headerName: "Email", width: 250 },
-                    { field: "phoneNumber", headerName: "Phone", width: 180 },
-                    { field: "progress", headerName: "Progress", width: 150 },
-                  ]}
-                  pageSize={5}
-                />
-              </div>
-            )}
-          </Paper>
-        )}
-        {/* Start or End Course */}
-        {activeTab === "course-control" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography
-              variant="h5"
-              fontWeight="bold"
-              color="green"
-              gutterBottom
-            >
-              🎓 Start or End Your Assigned Course
-            </Typography>
-
-            {loadingAssigned ? (
-              <CircularProgress />
-            ) : (
-              <>
                 <TextField
                   select
-                  label="Select Assigned Course"
-                  value={selectedCourse}
-                  onChange={(e) => setSelectedCourse(e.target.value)}
-                  fullWidth
+                  label="Select Cohort"
+                  value={selectedCohortId}
+                  onChange={(e) => setSelectedCohortId(e.target.value)}
+                  sx={{ minWidth: 250 }}
                 >
-                  {coursesArray.length === 0 ? (
-                    <MenuItem disabled>No assigned courses</MenuItem>
-                  ) : (
-                    coursesArray.map((course) => (
-                      <MenuItem
-                        key={course.cohortCourseId}
-                        value={course.cohortCourseId}
-                      >
-                        {course.cohortName} — {course.courseName} (
-                        {course.status})
+                  {(Array.isArray(cohorts) ? cohorts : []).map((c) => {
+                    const cohortId = (
+                      c._id ||
+                      c.cohortId?._id ||
+                      c.cohortId ||
+                      ""
+                    ).toString();
+                    const cohortName = c.cohortName || "No Cohort";
+                    return (
+                      <MenuItem key={cohortId} value={cohortId}>
+                        {cohortName}
                       </MenuItem>
-                    ))
-                  )}
+                    );
+                  })}
                 </TextField>
+                <TextField
+                  label="Title"
+                  value={newTitle}
+                  onChange={(e) => setNewTitle(e.target.value)}
+                />
+                <TextField
+                  label="Description"
+                  value={newDescription}
+                  onChange={(e) => setNewDescription(e.target.value)}
+                />
+                <TextField
+                  type="date"
+                  label="Due Date"
+                  InputLabelProps={{ shrink: true }}
+                  value={newDueDate}
+                  onChange={(e) => setNewDueDate(e.target.value)}
+                />
 
-                {selectedCourse && (
-                  <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
+                <Button
+                  variant="contained"
+                  color="success"
+                  onClick={createAssignment}
+                  disabled={!newTitle || !newDueDate || !selectedCohortId}
+                >
+                  Create Assignment
+                </Button>
+              </Box>
+
+              {/* Assignments Table */}
+
+              {assignmentsLoading ? (
+                <Box
+                  sx={{
+                    height: 400,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <CircularProgress size={60} color="success" />
+                </Box>
+              ) : assignmentRows.length === 0 ? (
+                <Typography>No assignments available yet.</Typography>
+              ) : (
+                <div style={{ height: 500, width: "100%" }}>
+                  <DataGrid
+                    rows={
+                      selectedCohortId
+                        ? assignmentRows.filter(
+                            (r) => r.cohortId === selectedCohortId
+                          )
+                        : assignmentRows
+                    }
+                    columns={[
+                      { field: "cohortName", headerName: "Cohort", width: 180 },
+                      {
+                        field: "studentName",
+                        headerName: "Student",
+                        width: 200,
+                      },
+                      { field: "title", headerName: "Assignment", width: 250 },
+                      {
+                        field: "description",
+                        headerName: "Description",
+                        width: 300,
+                      },
+                      { field: "dueDate", headerName: "Due Date", width: 150 },
+                      { field: "grade", headerName: "Grade", width: 120 },
+                      { field: "status", headerName: "Status", width: 150 },
+                      {
+                        field: "actions",
+                        headerName: "Actions",
+                        width: 180,
+                        renderCell: (params) => (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            sx={{
+                              bgcolor: params.row.isGraded
+                                ? "#94a3b8"
+                                : "#10b981",
+                            }}
+                            disabled={params.row.isGraded}
+                            onClick={() =>
+                              handleOpenAssignmentModal(
+                                params.row,
+                                params.row.submission
+                              )
+                            }
+                          >
+                            {params.row.isGraded ? "Graded" : "View & Grade"}
+                          </Button>
+                        ),
+                      },
+                    ]}
+                    pageSize={5}
+                  />
+                </div>
+              )}
+
+              {/* Assignments Grouped by Cohort */}
+              {studentAssignmentsLoading || assignmentsLoading ? (
+                <Box
+                  sx={{
+                    height: 400,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <CircularProgress size={60} color="success" />
+                </Box>
+              ) : (!Array.isArray(studentAssignments) ||
+                  studentAssignments.length === 0) &&
+                (!Array.isArray(assignments) || assignments.length === 0) ? (
+                <Typography>No assignments available yet.</Typography>
+              ) : (
+                // Filter assignments by selectedCohortId
+                (() => {
+                  const safeAssignments = Array.isArray(assignments)
+                    ? assignments
+                    : [];
+                  const filteredAssignments = selectedCohortId
+                    ? safeAssignments.filter(
+                        (a) => a.cohortId?._id === selectedCohortId
+                      )
+                    : safeAssignments; // if no cohort selected, show all
+
+                  return filteredAssignments.length === 0 ? (
+                    <Typography>No assignments for this cohort.</Typography>
+                  ) : (
+                    <div style={{ height: 500, width: "100%" }}>
+                      <DataGrid
+                        rows={filteredAssignments.flatMap((a) =>
+                          Array.isArray(a.submissions) &&
+                          a.submissions.length > 0
+                            ? a.submissions.map((s, index) => {
+                                const student = s?.studentId ?? {
+                                  fullName: "Unknown Student",
+                                  _id: null,
+                                };
+                                const studentName = student.fullName;
+                                const gradeValue = s?.grade ?? null;
+
+                                let status = "Pending";
+                                if (gradeValue !== null) status = "Completed";
+                                else if (new Date(a.dueDate) < new Date())
+                                  status = "Expired";
+
+                                return {
+                                  id: s?._id || `${a._id}-${index}`,
+                                  assignmentId: a._id,
+                                  studentId: student?._id || null,
+                                  studentName,
+                                  title: a.title,
+                                  description: a.description,
+                                  grade:
+                                    gradeValue !== null
+                                      ? gradeValue
+                                      : "Not Graded",
+                                  status,
+                                  isGraded:
+                                    typeof gradeValue === "number" &&
+                                    !Number.isNaN(gradeValue),
+                                  dueDate: a.dueDate
+                                    ? new Date(a.dueDate).toLocaleDateString()
+                                    : "N/A",
+                                  submission: s || null,
+                                };
+                              })
+                            : [
+                                {
+                                  id: `${a._id}-no-submission`,
+                                  assignmentId: a._id,
+                                  studentId: null,
+                                  studentName: "-",
+                                  title: a.title,
+                                  description: a.description,
+                                  grade: "No submission",
+                                  status:
+                                    new Date(a.dueDate) < new Date()
+                                      ? "Expired"
+                                      : "Pending",
+                                  isGraded: false,
+                                  dueDate: a.dueDate
+                                    ? new Date(a.dueDate).toLocaleDateString()
+                                    : "N/A",
+                                  submission: null,
+                                },
+                              ]
+                        )}
+                        columns={[
+                          {
+                            field: "studentName",
+                            headerName: "Student",
+                            width: 200,
+                          },
+                          {
+                            field: "title",
+                            headerName: "Assignment",
+                            width: 250,
+                          },
+                          {
+                            field: "description",
+                            headerName: "Description",
+                            width: 300,
+                          },
+                          {
+                            field: "dueDate",
+                            headerName: "Due Date",
+                            width: 150,
+                          },
+                          { field: "grade", headerName: "Grade", width: 120 },
+                          { field: "status", headerName: "Status", width: 150 },
+                          {
+                            field: "actions",
+                            headerName: "Actions",
+                            width: 180,
+                            renderCell: (params) => (
+                              <Button
+                                variant="contained"
+                                size="small"
+                                sx={{
+                                  bgcolor: params.row.isGraded
+                                    ? "#94a3b8"
+                                    : "#10b981",
+                                }}
+                                disabled={params.row.isGraded}
+                                onClick={() =>
+                                  handleOpenAssignmentModal(
+                                    safeAssignments.find(
+                                      (a) => a._id === params.row.assignmentId
+                                    ),
+                                    params.row.submission
+                                  )
+                                }
+                              >
+                                {params.row.isGraded
+                                  ? "Graded"
+                                  : "View & Grade"}
+                              </Button>
+                            ),
+                          },
+                        ]}
+                        pageSize={5}
+                        rowsPerPageOptions={[5]}
+                      />
+                    </div>
+                  );
+                })()
+              )}
+              {/* Assignment Modal */}
+              <Drawer
+                anchor="right"
+                open={openAssignmentModal}
+                onClose={handleCloseAssignmentModal}
+                PaperProps={{ sx: { width: { xs: "90%", md: 500 }, p: 3 } }}
+              >
+                {selectedAssignment && (
+                  <>
+                    <Box
+                      sx={{
+                        display: "flex",
+                        justifyContent: "space-between",
+                        mb: 2,
+                      }}
+                    >
+                      <Typography variant="h6">Grade Assignment</Typography>
+                      <IconButton onClick={handleCloseAssignmentModal}>
+                        <CloseIcon />
+                      </IconButton>
+                    </Box>
+
+                    <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                      {selectedAssignment.title}
+                    </Typography>
+
+                    {selectedAssignment.submission?.file ? (
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        <a
+                          href={selectedAssignment.submission.file}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                        >
+                          View Submitted Document
+                        </a>
+                      </Typography>
+                    ) : (
+                      <Typography variant="body2" sx={{ mb: 2 }}>
+                        No submission available
+                      </Typography>
+                    )}
+
+                    {selectedAssignment.submission?.grade != null ? (
+                      <Alert severity="success" sx={{ mb: 2 }}>
+                        Grade: <b>{selectedAssignment.submission.grade}%</b>
+                      </Alert>
+                    ) : (
+                      <TextField
+                        label="Grade"
+                        fullWidth
+                        type="number"
+                        value={gradeInput}
+                        onChange={(e) => setGradeInput(e.target.value)}
+                        sx={{ mb: 2 }}
+                      />
+                    )}
+
                     <Button
                       variant="contained"
                       color="success"
-                      onClick={handleStartCourse}
+                      fullWidth
                       disabled={
-                        actionLoading ||
-                        coursesArray.find(
-                          (c) => c.cohortCourseId === selectedCourse
-                        )?.status !== "not_started"
+                        gradingLoading ||
+                        selectedAssignment.submission?.grade != null
                       }
+                      onClick={async () => {
+                        await submitGrade(
+                          selectedAssignment.submission?.studentId ||
+                            selectedAssignment.studentId
+                        );
+                        // Refresh assignments instantly after grading
+                        await loadAssignments();
+                      }}
                     >
-                      {actionLoading ? (
-                        <CircularProgress size={22} />
+                      {gradingLoading ? (
+                        <CircularProgress size={24} />
                       ) : (
-                        "Start Course"
+                        "Submit Grade"
                       )}
                     </Button>
-
-                    <Button
-                      variant="contained"
-                      color="error"
-                      onClick={handleEndCourse}
-                      disabled={
-                        actionLoading ||
-                        coursesArray.find(
-                          (c) => c.cohortCourseId === selectedCourse
-                        )?.status !== "in_progress"
-                      }
-                    >
-                      {actionLoading ? (
-                        <CircularProgress size={22} />
-                      ) : (
-                        "End Course"
-                      )}
-                    </Button>
-                  </Box>
+                  </>
                 )}
-              </>
-            )}
-          </Paper>
-        )}
-        {/* ✅ Live Mode */}
-        {activeTab === "live" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography
-              variant="h4"
-              color="green"
-              fontWeight="bold"
-              gutterBottom
-            >
-              🔴 Live Mode
-            </Typography>
-            <Typography variant="body1" sx={{ mt: 2 }}>
-              Welcome to <strong>Live Mode</strong>. Here you can host live
-              coaching sessions, interact with students in real time, and manage
-              ongoing sessions.
-            </Typography>
-            <Button
-              variant="contained"
-              sx={{ mt: 3, bgcolor: "#10b981" }}
-              onClick={() => alert("Launching Live Session...")}
-            >
-              Go Live
-            </Button>
-          </Paper>
+              </Drawer>
+            </Paper>
+          )}
+          {/* Students */}
+          {activeTab === "students" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                👩‍🎓 My Students ({students.length})
+              </Typography>
+
+              {/* Loader */}
+              {studentsLoading ? (
+                <Box
+                  sx={{
+                    height: 400,
+                    display: "flex",
+                    alignItems: "center",
+                    justifyContent: "center",
+                  }}
+                >
+                  <CircularProgress size={60} color="success" />
+                </Box>
+              ) : students.length === 0 ? (
+                <Typography>
+                  No students enrolled in your courses yet.
+                </Typography>
+              ) : (
+                <div style={{ height: 500, width: "100%" }}>
+                  <DataGrid
+                    rows={students.map((s) => ({
+                      id: s.studentId, // use studentId
+                      fullName: s.fullName,
+                      email: s.email,
+                      phoneNumber: s.phoneNumber || "-", // fallback if missing
+                      progress:
+                        s.enrollments && s.enrollments.length > 0
+                          ? `${
+                              s.enrollments.filter((e) => e.hasAccess).length
+                            }/${s.enrollments.length} courses`
+                          : "0 courses", // simple progress
+                    }))}
+                    columns={[
+                      {
+                        field: "fullName",
+                        headerName: "Full Name",
+                        width: 250,
+                      },
+                      { field: "email", headerName: "Email", width: 250 },
+                      { field: "phoneNumber", headerName: "Phone", width: 180 },
+                      { field: "progress", headerName: "Progress", width: 150 },
+                    ]}
+                    pageSize={5}
+                  />
+                </div>
+              )}
+            </Paper>
+          )}
+          {/* Start or End Course */}
+          {activeTab === "course-control" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography
+                variant="h5"
+                fontWeight="bold"
+                color="green"
+                gutterBottom
+              >
+                🎓 Start or End Your Assigned Course
+              </Typography>
+
+              {loadingAssigned ? (
+                <CircularProgress />
+              ) : (
+                <>
+                  <TextField
+                    select
+                    label="Select Assigned Course"
+                    value={selectedCourse}
+                    onChange={(e) => setSelectedCourse(e.target.value)}
+                    fullWidth
+                  >
+                    {coursesArray.length === 0 ? (
+                      <MenuItem disabled>No assigned courses</MenuItem>
+                    ) : (
+                      coursesArray.map((course) => (
+                        <MenuItem
+                          key={course.cohortCourseId}
+                          value={course.cohortCourseId}
+                        >
+                          {course.cohortName} — {course.courseName} (
+                          {course.status})
+                        </MenuItem>
+                      ))
+                    )}
+                  </TextField>
+
+                  {selectedCourse && (
+                    <Box sx={{ display: "flex", gap: 2, mt: 2 }}>
+                      <Button
+                        variant="contained"
+                        color="success"
+                        onClick={handleStartCourse}
+                        disabled={
+                          actionLoading ||
+                          coursesArray.find(
+                            (c) => c.cohortCourseId === selectedCourse
+                          )?.status !== "not_started"
+                        }
+                      >
+                        {actionLoading ? (
+                          <CircularProgress size={22} />
+                        ) : (
+                          "Start Course"
+                        )}
+                      </Button>
+
+                      <Button
+                        variant="contained"
+                        color="error"
+                        onClick={handleEndCourse}
+                        disabled={
+                          actionLoading ||
+                          coursesArray.find(
+                            (c) => c.cohortCourseId === selectedCourse
+                          )?.status !== "in_progress"
+                        }
+                      >
+                        {actionLoading ? (
+                          <CircularProgress size={22} />
+                        ) : (
+                          "End Course"
+                        )}
+                      </Button>
+                    </Box>
+                  )}
+                </>
+              )}
+            </Paper>
+          )}
+          {/* ✅ Live Mode */}
+          {activeTab === "live" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                🔴 Live Mode
+              </Typography>
+              <Typography variant="body1" sx={{ mt: 2 }}>
+                Welcome to <strong>Live Mode</strong>. Here you can host live
+                coaching sessions, interact with students in real time, and
+                manage ongoing sessions.
+              </Typography>
+              <Button
+                variant="contained"
+                sx={{ mt: 3, bgcolor: "#10b981" }}
+                onClick={() => alert("Launching Live Session...")}
+              >
+                Go Live
+              </Button>
+            </Paper>
+          )}
+        </Box>
+        {!isMobile && (
+          <Box
+            sx={{
+              width: CHAT_SIDEBAR_WIDTH,
+              height: "100vh",
+              borderLeft: "1px solid #e5e7eb",
+              bgcolor: "#ffffff",
+              overflowY: "auto",
+              flexShrink: 0,
+            }}
+          >
+            <ChatSidebarLocal
+              videos={myVideos}
+              documents={myDocuments}
+              chatMessages={chatMessages}
+              updateChatMessages={updateChatMessages}
+              user={user}
+            />
+          </Box>
         )}
       </Box>
     </Box>
