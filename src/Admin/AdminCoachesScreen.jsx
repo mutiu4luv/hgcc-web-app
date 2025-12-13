@@ -48,7 +48,7 @@ import { useParams } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
 
 const drawerWidth = 250;
-const CHAT_SIDEBAR_WIDTH = 360;
+const CHAT_SIDEBAR_WIDTH = 300;
 const STORAGE_KEY = "classChats";
 
 function ChatSidebarLocal({
@@ -385,6 +385,16 @@ const CoachDashboard = () => {
 
   const [myVideos, setMyVideos] = useState([]);
   const [unlockAt, setUnlockAt] = useState("");
+  const CHAT_STORAGE_KEY = "coach_chat_open";
+
+  const [chatOpen, setChatOpen] = useState(() => {
+    return sessionStorage.getItem(CHAT_STORAGE_KEY) === "true";
+  });
+
+  useEffect(() => {
+    sessionStorage.setItem(CHAT_STORAGE_KEY, chatOpen ? "true" : "false");
+  }, [chatOpen]);
+
   const [chatMessages, setChatMessages] = useState(() => {
     const saved = localStorage.getItem("classChats");
     return saved ? JSON.parse(saved) : { video: {}, doc: {} };
@@ -1286,13 +1296,30 @@ const CoachDashboard = () => {
         </IconButton>
       )}
 
+      {/* Chat Button */}
+      <IconButton
+        onClick={() => setChatOpen(true)}
+        sx={{
+          position: "fixed",
+          bottom: 24,
+          right: 24,
+          bgcolor: "#10b981",
+          color: "#fff",
+          zIndex: 1600,
+          boxShadow: 4,
+          "&:hover": { bgcolor: "#059669" },
+        }}
+      >
+        💬
+      </IconButton>
+
       {/* Main Content */}
       <Box
         sx={{
           flex: 1,
           display: "flex",
           minHeight: "100vh",
-          overflow: "hidden",
+          overflow: "visible",
         }}
       >
         <Box
@@ -2490,24 +2517,63 @@ const CoachDashboard = () => {
         {!isMobile && (
           <Box
             sx={{
-              width: CHAT_SIDEBAR_WIDTH,
+              width: chatOpen ? CHAT_SIDEBAR_WIDTH : 0,
               height: "100vh",
-              borderLeft: "1px solid #e5e7eb",
+              borderLeft: chatOpen ? "1px solid #e5e7eb" : "none",
               bgcolor: "#ffffff",
-              overflowY: "auto",
+              overflow: "hidden",
+              transition: "width 0.3s ease",
               flexShrink: 0,
             }}
           >
-            <ChatSidebarLocal
-              videos={myVideos}
-              documents={myDocuments}
-              chatMessages={chatMessages}
-              updateChatMessages={updateChatMessages}
-              user={user}
-            />
+            {chatOpen && (
+              <ChatSidebarLocal
+                videos={myVideos}
+                documents={myDocuments}
+                chatMessages={chatMessages}
+                updateChatMessages={updateChatMessages}
+                user={user}
+                onClose={() => setChatOpen(false)}
+              />
+            )}
           </Box>
         )}
       </Box>
+      <Drawer
+        anchor="right"
+        open={isMobile && chatOpen}
+        onClose={() => setChatOpen(false)}
+        PaperProps={{
+          sx: {
+            width: "85%",
+            maxWidth: 360,
+          },
+        }}
+      >
+        <Box sx={{ p: 2 }}>
+          <Box
+            sx={{
+              display: "flex",
+              justifyContent: "space-between",
+              alignItems: "center",
+              mb: 2,
+            }}
+          >
+            <Typography fontWeight="bold">💬 Chat</Typography>
+            <IconButton onClick={() => setChatOpen(false)}>
+              <CloseIcon />
+            </IconButton>
+          </Box>
+
+          <ChatSidebarLocal
+            videos={myVideos}
+            documents={myDocuments}
+            chatMessages={chatMessages}
+            updateChatMessages={updateChatMessages}
+            user={user}
+          />
+        </Box>
+      </Drawer>
     </Box>
   );
 };
