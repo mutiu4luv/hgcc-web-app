@@ -91,6 +91,20 @@ const StudentDashboard = () => {
   const [chatMessages, setChatMessages] = useState([]);
   const socketRef = useRef(null);
   const [text, setText] = useState("");
+  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUserId = currentUser?._id || currentUser?.id;
+
+  const getSenderName = (m) => {
+    if (typeof m.senderId === "object") return m.senderId.fullName;
+    if (m.senderId === currentUserId) return currentUser.fullName || "You";
+    return "Coach";
+  };
+
+  const chatEndRef = useRef(null);
+
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages]);
 
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
@@ -1317,39 +1331,96 @@ const StudentDashboard = () => {
                     }
 
                     return (
-                      <Box sx={{ mt: 2 }}>
-                        <Typography fontWeight="bold">
+                      <Box
+                        sx={{
+                          mt: 2,
+                          border: "1px solid #e0e0e0",
+                          borderRadius: 3,
+                          p: 2,
+                          bgcolor: "#fafafa",
+                          maxWidth: 500,
+                        }}
+                      >
+                        <Typography fontWeight="bold" sx={{ mb: 1 }}>
                           💬 Cohort Chat
                         </Typography>
 
-                        <Box sx={{ maxHeight: 250, overflowY: "auto", mb: 1 }}>
+                        {/* Messages */}
+                        <Box
+                          sx={{
+                            maxHeight: 300,
+                            overflowY: "auto",
+                            p: 1,
+                            mb: 1,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 1,
+                          }}
+                        >
                           {chatMessages.length === 0 ? (
                             <Typography variant="body2" color="text.secondary">
-                              No messages yet
+                              No messages yet. Say hi 👋
                             </Typography>
                           ) : (
-                            chatMessages.map((m, i) => (
-                              <Typography key={m._id || i} sx={{ mb: 0.5 }}>
-                                <strong>
-                                  {typeof m.senderId === "object"
-                                    ? m.senderId.fullName
-                                    : m.senderId}
-                                </strong>
-                                : {m.text}
-                              </Typography>
-                            ))
+                            chatMessages.map((m, i) => {
+                              const isMe =
+                                (typeof m.senderId === "object"
+                                  ? m.senderId._id
+                                  : m.senderId) === currentUserId;
+
+                              return (
+                                <Box
+                                  key={m._id || i}
+                                  sx={{
+                                    display: "flex",
+                                    justifyContent: isMe
+                                      ? "flex-end"
+                                      : "flex-start",
+                                  }}
+                                >
+                                  <Box
+                                    sx={{
+                                      maxWidth: "75%",
+                                      p: 1.2,
+                                      borderRadius: 2,
+                                      bgcolor: isMe ? "#d1e7ff" : "#ffffff",
+                                      boxShadow: 1,
+                                    }}
+                                  >
+                                    <Typography
+                                      variant="caption"
+                                      sx={{
+                                        fontWeight: "bold",
+                                        display: "block",
+                                      }}
+                                    >
+                                      {getSenderName(m)}
+                                    </Typography>
+
+                                    <Typography variant="body2">
+                                      {m.text}
+                                    </Typography>
+                                  </Box>
+                                </Box>
+                              );
+                            })
                           )}
+                          <div ref={chatEndRef} />
                         </Box>
 
+                        {/* Input */}
                         <Box sx={{ display: "flex", gap: 1 }}>
                           <TextField
                             fullWidth
                             size="small"
                             value={text}
                             onChange={(e) => setText(e.target.value)}
-                            placeholder="Type message..."
+                            placeholder="Type a message..."
+                            onKeyDown={(e) =>
+                              e.key === "Enter" && sendMessage()
+                            }
                           />
-                          <Button onClick={sendMessage} variant="contained">
+                          <Button variant="contained" onClick={sendMessage}>
                             Send
                           </Button>
                         </Box>
