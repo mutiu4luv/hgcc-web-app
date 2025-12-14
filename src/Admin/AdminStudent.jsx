@@ -122,8 +122,6 @@ const StudentDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
         if (res.data?.cohorts?.length > 0) {
-          // setCohorts(res.data.cohorts);
-          // setSelectedCohortId(res.data.cohorts[0].cohortId);
           setCohortId(res.data.cohorts[0].cohortId);
         } else {
           console.warn("No cohorts found in response", res.data);
