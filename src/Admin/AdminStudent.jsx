@@ -44,166 +44,6 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.9.179/buil
 
 const drawerWidth = 250;
 
-// Chat component for student-coach chat
-function ClassChat({ coachId, studentId, baseUrl, coaches = [] }) {
-  const storageKey = `chat_${coachId}_${studentId}`;
-  const [messages, setMessages] = useState(() => {
-    // Load from localStorage initially
-    try {
-      const saved = localStorage.getItem(storageKey);
-      return saved ? JSON.parse(saved) : [];
-    } catch (e) {
-      return [];
-    }
-  });
-  const [newMsg, setNewMsg] = useState("");
-  const socketRef = useRef(null);
-  const seenRef = useRef(new Set(messages.map((m) => m._clientId))); // dedupe using existing messages
-
-  const getNameForId = (id) => {
-    if (!id) return "";
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
-    const myId = user?._id || user?.id;
-    if (id === myId) return user?.fullName || user?.name || "You";
-    const coach = Array.isArray(coaches)
-      ? coaches.find((c) => c._id === id || c.id === id)
-      : null;
-    if (coach) return coach.fullName || coach.name || "Coach";
-    return `${String(id).slice(0, 8)}...`;
-  };
-
-  useEffect(() => {
-    if (!coachId || !studentId) return;
-
-    const token = localStorage.getItem("token");
-    const socket = io(baseUrl || import.meta.env.VITE_BASE_URL, {
-      transports: ["websocket", "polling"],
-      auth: token ? { token } : undefined,
-    });
-    socketRef.current = socket;
-
-    socket.on("connect", () => {
-      console.debug("ClassChat socket connected", socket.id);
-      socket.emit("joinRoom", { coachId, studentId });
-    });
-
-    socket.on("receiveMessage", (msg) => {
-      const msgId =
-        msg._id ||
-        msg.id ||
-        `${msg.sender}:${msg.text}:${msg.createdAt || msg.ts || ""}`;
-      if (seenRef.current.has(msgId)) return;
-      seenRef.current.add(msgId);
-
-      const normalized = {
-        ...msg,
-        senderName: msg.senderName || getNameForId(msg.sender),
-        _clientId: msgId,
-      };
-
-      setMessages((prev) => {
-        const updated = [...prev, normalized];
-        localStorage.setItem(storageKey, JSON.stringify(updated));
-        return updated;
-      });
-    });
-
-    socket.on("connect_error", (err) =>
-      console.error("ClassChat connect_error:", err)
-    );
-    socket.on("disconnect", (reason) =>
-      console.debug("ClassChat disconnected:", reason)
-    );
-
-    return () => {
-      try {
-        socket.emit("leaveRoom", { coachId, studentId });
-      } catch {}
-      socket.off("receiveMessage");
-      socket.off("connect");
-      socket.disconnect();
-      socketRef.current = null;
-      seenRef.current.clear();
-      console.debug("ClassChat cleaned up socket");
-    };
-  }, [coachId, studentId, baseUrl, coaches, storageKey]);
-
-  const sendMessage = () => {
-    const text = (newMsg || "").trim();
-    if (!text) return;
-
-    const socket = socketRef.current;
-    if (!socket || !socket.connected) {
-      console.warn("ClassChat: socket not connected", { text });
-      setNewMsg("");
-      return;
-    }
-
-    socket.emit("sendMessage", { coachId, studentId, text });
-    setNewMsg("");
-  };
-
-  return (
-    <Box sx={{ mt: 2 }}>
-      <Typography variant="subtitle1" fontWeight="bold" sx={{ mb: 1 }}>
-        💬 Chat with your Coach
-      </Typography>
-      <Box
-        sx={{
-          maxHeight: 200,
-          overflowY: "auto",
-          mb: 1,
-          p: 1,
-          bgcolor: "#f1f8e9",
-          borderRadius: 1,
-        }}
-      >
-        {messages.length === 0 ? (
-          <Typography variant="body2" sx={{ color: "gray" }}>
-            No messages yet. Say hi 👋
-          </Typography>
-        ) : (
-          messages.map((m, i) => (
-            <Box
-              key={m._clientId || i}
-              sx={{
-                mb: 0.5,
-                textAlign: m.sender === studentId ? "right" : "left",
-              }}
-            >
-              <Typography
-                variant="body2"
-                sx={{
-                  display: "inline-block",
-                  p: 1,
-                  borderRadius: 1,
-                  bgcolor: m.sender === studentId ? "#d1e7dd" : "#fff",
-                }}
-              >
-                <strong>{m.senderName || getNameForId(m.sender)}</strong>:{" "}
-                {m.text}
-              </Typography>
-            </Box>
-          ))
-        )}
-      </Box>
-      <Box sx={{ display: "flex", gap: 1 }}>
-        <TextField
-          fullWidth
-          size="small"
-          placeholder="Type a message..."
-          value={newMsg}
-          onChange={(e) => setNewMsg(e.target.value)}
-          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-        />
-        <Button variant="contained" onClick={sendMessage}>
-          Send
-        </Button>
-      </Box>
-    </Box>
-  );
-}
-
 const StudentDashboard = () => {
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
@@ -248,6 +88,10 @@ const StudentDashboard = () => {
   const [countdown, setCountdown] = useState("");
   const [tick, setTick] = useState(0);
 
+  const [chatMessages, setChatMessages] = useState([]);
+  const socketRef = useRef(null);
+  const [text, setText] = useState("");
+
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
 
@@ -271,9 +115,34 @@ const StudentDashboard = () => {
     },
     { text: "Join Class", icon: <Videocam />, key: "join-class" },
   ];
+  useEffect(() => {
+    const fetchCohorts = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/cohort/available`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        if (res.data?.cohorts?.length > 0) {
+          // setCohorts(res.data.cohorts);
+          // setSelectedCohortId(res.data.cohorts[0].cohortId);
+          setCohortId(res.data.cohorts[0].cohortId);
+        } else {
+          console.warn("No cohorts found in response", res.data);
+        }
+      } catch (err) {
+        console.error("Failed to fetch cohorts:", err);
+      }
+    };
+
+    fetchCohorts();
+  }, []);
 
   // Send cohort chat message
   const sendMessage = async () => {
+    if (!cohortId) {
+      console.error("❌ cohortId is missing");
+      return;
+    }
+
     if (!text.trim()) return;
 
     const token = localStorage.getItem("token");
@@ -287,9 +156,13 @@ const StudentDashboard = () => {
       body: JSON.stringify({ text }),
     });
 
-    const savedMessage = await res.json();
+    const data = await res.json();
 
-    socket.emit("cohortMessage", savedMessage);
+    if (!res.ok) {
+      console.error("Send failed:", data);
+      return;
+    }
+
     setText("");
   };
 
@@ -299,21 +172,23 @@ const StudentDashboard = () => {
 
     const token = localStorage.getItem("token");
 
-    socketRef.current = io(BASE_URL, {
+    const socket = io(BASE_URL, {
       auth: { token },
+      transports: ["websocket"],
     });
 
-    socketRef.current.emit("joinCohort", { cohortId });
-    socketRef.current?.emit("cohortMessage", savedMessage);
+    socketRef.current = socket;
 
-    socketRef.current.on("cohortMessage", (msg) => {
-      updateChatMessages(msg.type, msg.roomId, [
-        ...(chatMessages[msg.type]?.[msg.roomId] || []),
-        msg,
-      ]);
+    socket.emit("joinCohort", { cohortId });
+
+    socket.on("cohortMessage", (msg) => {
+      setChatMessages((prev) => (Array.isArray(prev) ? [...prev, msg] : [msg]));
     });
 
-    return () => socketRef.current?.disconnect();
+    return () => {
+      socket.off("cohortMessage");
+      socket.disconnect();
+    };
   }, [cohortId]);
 
   // Fetch cohort chat messages
@@ -321,26 +196,18 @@ const StudentDashboard = () => {
   useEffect(() => {
     if (!cohortId) return;
 
-    const token = localStorage.getItem("token");
-
     fetch(`${BASE_URL}/api/cohort-chat/${cohortId}/messages`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
     })
       .then((res) => res.json())
-      .then(setMessages)
+      .then((data) => {
+        setChatMessages(Array.isArray(data.messages) ? data.messages : []);
+      })
       .catch(console.error);
   }, [cohortId]);
 
-  // Timer for join class countdown
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setTick((t) => t + 1);
-    }, 1000);
-
-    return () => clearInterval(interval);
-  }, []);
   // Fetch documents for student
 
   const fetchDocuments = async () => {
@@ -1452,14 +1319,43 @@ const StudentDashboard = () => {
                     }
 
                     return (
-                      // <ClassChat
-                      //   coachId={coachId}
-                      //   studentId={studentId}
-                      //   baseUrl={BASE_URL}
-                      //   coaches={coaches}
-                      // />
+                      <Box sx={{ mt: 2 }}>
+                        <Typography fontWeight="bold">
+                          💬 Cohort Chat
+                        </Typography>
 
-                      <ClassChat cohortId={nextClass.cohortId} />
+                        <Box sx={{ maxHeight: 250, overflowY: "auto", mb: 1 }}>
+                          {chatMessages.length === 0 ? (
+                            <Typography variant="body2" color="text.secondary">
+                              No messages yet
+                            </Typography>
+                          ) : (
+                            chatMessages.map((m, i) => (
+                              <Typography key={m._id || i} sx={{ mb: 0.5 }}>
+                                <strong>
+                                  {typeof m.senderId === "object"
+                                    ? m.senderId.fullName
+                                    : m.senderId}
+                                </strong>
+                                : {m.text}
+                              </Typography>
+                            ))
+                          )}
+                        </Box>
+
+                        <Box sx={{ display: "flex", gap: 1 }}>
+                          <TextField
+                            fullWidth
+                            size="small"
+                            value={text}
+                            onChange={(e) => setText(e.target.value)}
+                            placeholder="Type message..."
+                          />
+                          <Button onClick={sendMessage} variant="contained">
+                            Send
+                          </Button>
+                        </Box>
+                      </Box>
                     );
                   })()}
               </>
