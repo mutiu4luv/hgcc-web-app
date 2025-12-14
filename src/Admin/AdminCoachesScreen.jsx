@@ -61,6 +61,8 @@ function ChatSidebarLocal({
   chatMessages,
   updateChatMessages,
   setMessages,
+  socketRef,
+  messages,
 }) {
   const [selected, setSelected] = useState(() => {
     if (Array.isArray(videos) && videos.length > 0)
@@ -163,28 +165,11 @@ function ChatSidebarLocal({
       const savedMessage = await res.json();
 
       // socket emit (already connected globally)
-      socket.emit("cohortMessage", savedMessage);
+      socketRef.current?.emit("cohortMessage", savedMessage);
     } catch (err) {
       console.error("Send message failed:", err);
     }
   };
-
-  // Chat socket for cohort messages
-  useEffect(() => {
-    const token = localStorage.getItem("token");
-
-    const socket = io(BASE_URL, {
-      auth: { token },
-    });
-
-    socket.emit("joinCohort", { cohortId });
-
-    socket.on("cohortMessage", (msg) => {
-      setMessages((prev) => [...prev, msg]);
-    });
-
-    return () => socket.disconnect();
-  }, [cohortId]);
 
   // Fetch cohort chat messages
 
@@ -199,7 +184,9 @@ function ChatSidebarLocal({
       },
     })
       .then((res) => res.json())
-      .then(setMessages)
+      .then((data) => {
+        setMessages(data.messages || []);
+      })
       .catch(console.error);
   }, [cohortId]);
   return (
@@ -319,29 +306,30 @@ function ChatSidebarLocal({
                   borderRadius: 1,
                 }}
               >
-                {messagesForSelected.length === 0 ? (
+                {messages.length === 0 ? (
                   <Typography variant="body2" color="text.secondary">
                     No messages yet.
                   </Typography>
                 ) : (
-                  messagesForSelected.map((m, i) => (
-                    <Box
-                      key={i}
-                      sx={{ mb: 0.6, textAlign: m.isCoach ? "right" : "left" }}
-                    >
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          display: "inline-block",
-                          p: 1,
-                          borderRadius: 1,
-                          bgcolor: m.isCoach ? "#d1e7dd" : "#fff",
-                        }}
-                      >
-                        <strong>{m.sender}:</strong> {m.text}
-                      </Typography>
-                    </Box>
-                  ))
+                  <Box sx={{ flex: 1, overflowY: "auto" }}>
+                    {messages.length === 0 ? (
+                      <Typography>No messages yet</Typography>
+                    ) : (
+                      messages.map((msg, i) => (
+                        <Box key={i} sx={{ mb: 1 }}>
+                          <Typography variant="body2">
+                            <strong>
+                              {typeof msg.senderId === "object"
+                                ? msg.senderId.fullName
+                                : msg.senderId}
+                              :
+                            </strong>{" "}
+                            {msg.text}
+                          </Typography>
+                        </Box>
+                      ))
+                    )}
+                  </Box>
                 )}
               </Box>
 
@@ -392,6 +380,8 @@ function ChatInput({ onSend }) {
 }
 
 const CoachDashboard = () => {
+  const { cohortIds } = useParams();
+
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(false);
   const [globalLoading, setGlobalLoading] = useState(true);
@@ -508,7 +498,7 @@ const CoachDashboard = () => {
     };
 
     return (
-      <Paper sx={{ p: 2, mt: 2, borderRadius: 2 }}>
+      <Paper sx={{ p: 2, mt: 2, borderRadius: 2, position: "relative" }}>
         <IconButton
           sx={{ position: "absolute", top: 8, right: 8 }}
           color="error"
@@ -547,7 +537,6 @@ const CoachDashboard = () => {
 
   const coachName = "Coach";
 
-  const { cohortIds } = useParams();
   // console.log("COHORT ID FROM URL:", cohortId);
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
@@ -573,19 +562,29 @@ const CoachDashboard = () => {
   ];
 
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    socketRef.current = io(BASE_URL, { auth: { token } });
+    if (!cohortId) return;
 
+    const token = localStorage.getItem("token");
+
+    // Create socket connection
+    socketRef.current = io(BASE_URL, {
+      auth: { token },
+    });
+
+    // Join cohort room
     socketRef.current.emit("joinCohort", { cohortId });
 
-    socketRef.current.on("cohortMessage", (msg) => {
+    // Listen for messages from server
+    socketRef.current.on("newMessage", (msg) => {
       setMessages((prev) => [...prev, msg]);
     });
 
-    return () => socketRef.current.disconnect();
+    // Cleanup
+    return () => {
+      socketRef.current.off("newMessage");
+      socketRef.current.disconnect();
+    };
   }, [cohortId]);
-
-  socketRef.current?.emit("cohortMessage", savedMessage);
 
   useEffect(() => {
     const handleStorage = (e) => {
@@ -2395,13 +2394,15 @@ const CoachDashboard = () => {
           >
             {chatOpen && (
               <ChatSidebarLocal
-                cohortId={cohortId || cohortIds}
+                cohortId={cohortId}
                 videos={myVideos}
                 documents={myDocuments}
                 user={user}
                 chatMessages={chatMessages}
                 updateChatMessages={updateChatMessages}
                 setMessages={setMessages}
+                socketRef={socketRef}
+                messages={messages}
               />
             )}
           </Box>
@@ -2434,13 +2435,15 @@ const CoachDashboard = () => {
           </Box>
 
           <ChatSidebarLocal
-            cohortId={cohortIds}
+            cohortId={cohortId}
             videos={myVideos}
             documents={myDocuments}
             chatMessages={chatMessages}
             updateChatMessages={updateChatMessages}
             user={user}
             setMessages={setMessages}
+            socketRef={socketRef}
+            messages={messages}
           />
         </Box>
       </Drawer>
