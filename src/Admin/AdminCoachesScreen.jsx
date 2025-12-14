@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Box,
   Typography,
@@ -46,17 +46,21 @@ import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
 import { useParams } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
+import { io } from "socket.io-client";
 
 const drawerWidth = 250;
 const CHAT_SIDEBAR_WIDTH = 300;
 const STORAGE_KEY = "classChats";
+const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 function ChatSidebarLocal({
+  cohortId,
   videos,
   documents,
+  user,
   chatMessages,
   updateChatMessages,
-  user,
+  setMessages,
 }) {
   const [selected, setSelected] = useState(() => {
     if (Array.isArray(videos) && videos.length > 0)
@@ -132,19 +136,72 @@ function ChatSidebarLocal({
     }
   };
 
-  const sendMessage = (text, isCoach = true) => {
-    if (!selected || !text?.trim()) return;
-    const m = {
-      sender: user?.fullName || user?.name || (isCoach ? "Coach" : "Student"),
-      text: text.trim(),
-      ts: new Date().toISOString(),
-      isCoach: !!isCoach,
-    };
-    const next = [...(messagesForSelected || []), m];
-    updateChatMessages(selected.type, selected.id, next);
-    persist(selected.type, selected.id, next);
+  // Send cohort chat message
+  const sendMessage = async (text) => {
+    if (!text?.trim()) return;
+
+    if (!cohortId) {
+      console.error("Cannot send message: cohortId missing");
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem("token");
+
+      const res = await fetch(
+        `${import.meta.env.VITE_BASE_URL}/api/cohort-chat/${cohortId}/message`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ text }),
+        }
+      );
+
+      const savedMessage = await res.json();
+
+      // socket emit (already connected globally)
+      socket.emit("cohortMessage", savedMessage);
+    } catch (err) {
+      console.error("Send message failed:", err);
+    }
   };
 
+  // Chat socket for cohort messages
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+
+    const socket = io(BASE_URL, {
+      auth: { token },
+    });
+
+    socket.emit("joinCohort", { cohortId });
+
+    socket.on("cohortMessage", (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+
+    return () => socket.disconnect();
+  }, [cohortId]);
+
+  // Fetch cohort chat messages
+
+  useEffect(() => {
+    if (!cohortId) return;
+
+    const token = localStorage.getItem("token");
+
+    fetch(`${BASE_URL}/api/cohort-chat/${cohortId}/messages`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => res.json())
+      .then(setMessages)
+      .catch(console.error);
+  }, [cohortId]);
   return (
     <Box
       sx={{
@@ -339,6 +396,8 @@ const CoachDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [globalLoading, setGlobalLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [savedMessage, setSavedMessage] = useState(null);
+  const [messages, setMessages] = useState([]);
 
   const [videoTitle, setVideoTitle] = useState("");
   const [videoFile, setVideoFile] = useState(null);
@@ -386,6 +445,90 @@ const CoachDashboard = () => {
   const [myVideos, setMyVideos] = useState([]);
   const [unlockAt, setUnlockAt] = useState("");
   const CHAT_STORAGE_KEY = "coach_chat_open";
+  const user = JSON.parse(localStorage.getItem("user"));
+
+  const studentId = user?._id || user?.id;
+  const studentName = user?.name || user?.fullName || "Coach";
+
+  const sendStudentMessage = (type, videoId, text) => {
+    if (!text.trim()) return;
+
+    setChatMessages((prev) => {
+      const updated = {
+        ...prev,
+        [type]: {
+          ...(prev[type] || {}),
+          [videoId]: [
+            ...(prev[type]?.[videoId] || []),
+            {
+              senderId: studentId,
+              senderName: studentName,
+              text,
+              createdAt: new Date().toISOString(),
+            },
+          ],
+        },
+      };
+
+      // persist to localStorage
+      localStorage.setItem("chatMessages", JSON.stringify(updated));
+      return updated;
+    });
+
+    setNewMessages((prev) => ({
+      ...prev,
+      [videoId]: "",
+    }));
+  };
+  // Chat card component for videos
+  function VideoChatCard({
+    video,
+    chatMessages,
+    updateChatMessages,
+    handleDeleteVideo,
+  }) {
+    const [message, setMessage] = React.useState("");
+
+    const videoChat =
+      (chatMessages.video && chatMessages.video[video._id]) || [];
+
+    const sendMessage = () => {
+      if (!message.trim()) return;
+
+      const newMsg = {
+        sender: "Coach",
+        text: message,
+        createdAt: new Date().toISOString(),
+      };
+
+      const updatedChat = [...videoChat, newMsg];
+
+      updateChatMessages("video", video._id, updatedChat);
+      setMessage("");
+    };
+
+    return (
+      <Paper sx={{ p: 2, mt: 2, borderRadius: 2 }}>
+        <IconButton
+          sx={{ position: "absolute", top: 8, right: 8 }}
+          color="error"
+          onClick={() => handleDeleteVideo(video._id)}
+        >
+          <DeleteIcon />
+        </IconButton>
+
+        <Typography variant="subtitle1" fontWeight="bold">
+          {video.title}
+        </Typography>
+
+        <video
+          src={video.fileUrl}
+          controls
+          style={{ width: "100%", borderRadius: 8, marginTop: 10 }}
+        />
+      </Paper>
+    );
+  }
 
   const [chatOpen, setChatOpen] = useState(() => {
     return sessionStorage.getItem(CHAT_STORAGE_KEY) === "true";
@@ -400,15 +543,14 @@ const CoachDashboard = () => {
     return saved ? JSON.parse(saved) : { video: {}, doc: {} };
   });
   const [newMessages, setNewMessages] = useState({});
+  const socketRef = useRef(null);
 
-  const studentName = "Student";
   const coachName = "Coach";
 
   const { cohortIds } = useParams();
   // console.log("COHORT ID FROM URL:", cohortId);
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
-  const user = JSON.parse(localStorage.getItem("user"));
 
   const isMobile = useMediaQuery("(max-width:900px)");
 
@@ -429,6 +571,21 @@ const CoachDashboard = () => {
     },
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
   ];
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    socketRef.current = io(BASE_URL, { auth: { token } });
+
+    socketRef.current.emit("joinCohort", { cohortId });
+
+    socketRef.current.on("cohortMessage", (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    });
+
+    return () => socketRef.current.disconnect();
+  }, [cohortId]);
+
+  socketRef.current?.emit("cohortMessage", savedMessage);
 
   useEffect(() => {
     const handleStorage = (e) => {
@@ -1511,308 +1668,18 @@ const CoachDashboard = () => {
 
               <Typography variant="h6">🎬 My Uploaded Videos</Typography>
               {Array.isArray(myVideos) && myVideos.length > 0 ? (
-                myVideos.map((video) => {
-                  const unlockAt = new Date(
-                    video.classStartTime || video.createdAt
-                  );
-                  const expireTime = new Date(
-                    unlockAt.getTime() + 3 * 60 * 60 * 1000
-                  );
-                  const isUnlocked =
-                    new Date() >= unlockAt && new Date() <= expireTime;
-
-                  // Load chat messages from localStorage
-                  // place this inside myVideos.map(video => { ... }) where you render each video
-                  {
-                    videos.map((video) => {
-                      const videoChat =
-                        (chatMessages.video && chatMessages.video[video._id]) ||
-                        [];
-
-                      return (
-                        <Paper
-                          key={video._id}
-                          sx={{
-                            p: 2,
-                            mt: 2,
-                            position: "relative",
-                            borderRadius: 2,
-                          }}
-                        >
-                          {/* VIDEO DETAILS */}
-                          <Typography
-                            variant="subtitle1"
-                            sx={{ fontWeight: "bold" }}
-                          >
-                            {video.title}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Course: {video.course?.name || "Unknown"}
-                          </Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Uploaded:{" "}
-                            {new Date(video.createdAt).toLocaleString()}
-                          </Typography>
-
-                          <video
-                            src={video.fileUrl}
-                            controls
-                            style={{
-                              width: "100%",
-                              borderRadius: 8,
-                              marginTop: 10,
-                            }}
-                          />
-
-                          {/* ✅ PLACE STUDENT–COACH CHAT HERE */}
-                          <Paper sx={{ p: 2, mt: 2, bgcolor: "#e8f5e9" }}>
-                            <Typography
-                              variant="subtitle1"
-                              fontWeight="bold"
-                              sx={{ mb: 1 }}
-                            >
-                              💬 Class Chat (Video)
-                            </Typography>
-
-                            <Box
-                              sx={{
-                                maxHeight: 200,
-                                overflowY: "auto",
-                                mb: 1,
-                                p: 1,
-                                bgcolor: "#f1f8e9",
-                                borderRadius: 1,
-                              }}
-                            >
-                              {videoChat.length === 0 ? (
-                                <Typography
-                                  variant="body2"
-                                  sx={{ color: "gray" }}
-                                >
-                                  No messages yet.
-                                </Typography>
-                              ) : (
-                                videoChat.map((msg, idx) => (
-                                  <Box
-                                    key={idx}
-                                    sx={{
-                                      textAlign:
-                                        msg.senderId === studentId
-                                          ? "right"
-                                          : "left",
-                                      mb: 0.5,
-                                    }}
-                                  >
-                                    <Typography
-                                      variant="body2"
-                                      sx={{
-                                        display: "inline-block",
-                                        p: 1,
-                                        borderRadius: 1,
-                                        bgcolor:
-                                          msg.senderId === studentId
-                                            ? "#d1e7dd"
-                                            : "#fff",
-                                      }}
-                                    >
-                                      <strong>{msg.senderName}:</strong>{" "}
-                                      {msg.text}
-                                    </Typography>
-                                  </Box>
-                                ))
-                              )}
-                            </Box>
-
-                            {/* CHAT INPUT */}
-                            <Box sx={{ display: "flex", gap: 1 }}>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                placeholder="Type a message..."
-                                value={newMessages[video._id] || ""}
-                                onChange={(e) =>
-                                  setNewMessages((prev) => ({
-                                    ...prev,
-                                    [video._id]: e.target.value,
-                                  }))
-                                }
-                                onKeyDown={(e) => {
-                                  if (e.key === "Enter") {
-                                    const text = (
-                                      newMessages[video._id] || ""
-                                    ).trim();
-                                    if (text)
-                                      sendStudentMessage(
-                                        "video",
-                                        video._id,
-                                        text
-                                      );
-                                  }
-                                }}
-                              />
-                              <Button
-                                variant="contained"
-                                onClick={() => {
-                                  const text = (
-                                    newMessages[video._id] || ""
-                                  ).trim();
-                                  if (text)
-                                    sendStudentMessage(
-                                      "video",
-                                      video._id,
-                                      text
-                                    );
-                                }}
-                              >
-                                Send
-                              </Button>
-                            </Box>
-                          </Paper>
-                          {/* END CHAT */}
-                        </Paper>
-                      );
-                    });
-                  }
-
-                  const [videoMessage, setVideoMessage] = React.useState("");
-                  const [videoChatState, setVideoChatState] =
-                    React.useState(videoChat);
-
-                  const sendVideoChat = (vidId) => {
-                    if (!videoMessage.trim()) return;
-                    const newMsg = { sender: studentName, text: videoMessage };
-                    const updatedChat = [...videoChatState, newMsg];
-                    setVideoChatState(updatedChat);
-                    setVideoMessage("");
-
-                    // Save to localStorage
-                    const allChats = JSON.parse(
-                      localStorage.getItem("chatMessages")
-                    ) || { video: {}, doc: {} };
-                    allChats.video[vidId] = updatedChat;
-                    localStorage.setItem(
-                      "chatMessages",
-                      JSON.stringify(allChats)
-                    );
-                  };
-
-                  return (
-                    <Paper
-                      key={video._id}
-                      sx={{
-                        p: 2,
-                        mt: 2,
-                        position: "relative",
-                        borderRadius: 2,
-                      }}
-                    >
-                      <IconButton
-                        sx={{ position: "absolute", top: 8, right: 8 }}
-                        color="error"
-                        onClick={() => handleDeleteVideo(video._id)}
-                      >
-                        <DeleteIcon />
-                      </IconButton>
-
-                      <Typography
-                        variant="subtitle1"
-                        sx={{ fontWeight: "bold" }}
-                      >
-                        {video.title}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Course: {video.course?.name || "Unknown"}
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Uploaded: {new Date(video.createdAt).toLocaleString()}
-                      </Typography>
-                      <video
-                        src={video.fileUrl}
-                        controls
-                        style={{
-                          width: "100%",
-                          borderRadius: 8,
-                          marginTop: 10,
-                        }}
-                      />
-
-                      <Paper sx={{ p: 2, mt: 2, bgcolor: "#e8f5e9" }}>
-                        <Typography
-                          variant="subtitle1"
-                          fontWeight="bold"
-                          sx={{ mb: 1 }}
-                        >
-                          💬 Class Chat (Video)
-                        </Typography>
-
-                        <Box
-                          id={`chat-box-video-${video._id}`}
-                          sx={{
-                            maxHeight: 200,
-                            overflowY: "auto",
-                            mb: 1,
-                            p: 1,
-                            bgcolor: "#f1f8e9",
-                            borderRadius: 1,
-                          }}
-                        >
-                          {videoChatState.length === 0 ? (
-                            <Typography variant="body2" sx={{ color: "gray" }}>
-                              No messages yet. Say hi 👋
-                            </Typography>
-                          ) : (
-                            videoChatState.map((msg, idx) => (
-                              <Box
-                                key={idx}
-                                sx={{
-                                  textAlign:
-                                    msg.sender === studentName
-                                      ? "right"
-                                      : "left",
-                                  mb: 0.5,
-                                }}
-                              >
-                                <Typography
-                                  variant="body2"
-                                  sx={{
-                                    display: "inline-block",
-                                    p: 1,
-                                    borderRadius: 1,
-                                    bgcolor:
-                                      msg.sender === studentName
-                                        ? "#d1e7dd"
-                                        : "#fff",
-                                  }}
-                                >
-                                  <strong>{msg.sender}:</strong> {msg.text}
-                                </Typography>
-                              </Box>
-                            ))
-                          )}
-                        </Box>
-
-                        <Box sx={{ display: "flex", gap: 1 }}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            placeholder="Type a message..."
-                            value={videoMessage}
-                            onChange={(e) => setVideoMessage(e.target.value)}
-                            onKeyDown={(e) => {
-                              if (e.key === "Enter") sendVideoChat(video._id);
-                            }}
-                          />
-                          <Button
-                            variant="contained"
-                            onClick={() => sendVideoChat(video._id)}
-                          >
-                            Send
-                          </Button>
-                        </Box>
-                      </Paper>
-                    </Paper>
-                  );
-                })
+                myVideos.map((video) => (
+                  <VideoChatCard
+                    key={video._id}
+                    video={video}
+                    chatMessages={chatMessages}
+                    newMessages={newMessages}
+                    setNewMessages={setNewMessages}
+                    sendStudentMessage={sendStudentMessage}
+                    handleDeleteVideo={handleDeleteVideo}
+                    studentId={studentId}
+                  />
+                ))
               ) : (
                 <Typography sx={{ mt: 2 }}>No videos uploaded yet.</Typography>
               )}
@@ -2528,12 +2395,13 @@ const CoachDashboard = () => {
           >
             {chatOpen && (
               <ChatSidebarLocal
+                cohortId={cohortId || cohortIds}
                 videos={myVideos}
                 documents={myDocuments}
+                user={user}
                 chatMessages={chatMessages}
                 updateChatMessages={updateChatMessages}
-                user={user}
-                onClose={() => setChatOpen(false)}
+                setMessages={setMessages}
               />
             )}
           </Box>
@@ -2566,11 +2434,13 @@ const CoachDashboard = () => {
           </Box>
 
           <ChatSidebarLocal
+            cohortId={cohortIds}
             videos={myVideos}
             documents={myDocuments}
             chatMessages={chatMessages}
             updateChatMessages={updateChatMessages}
             user={user}
+            setMessages={setMessages}
           />
         </Box>
       </Drawer>

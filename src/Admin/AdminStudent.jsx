@@ -230,6 +230,7 @@ const StudentDashboard = () => {
   const [upcomingClass, setUpcomingClass] = useState(null);
   const [upcomingDocuments, setUpcomingDocuments] = useState([]);
   const [documents, setDocuments] = useState([]);
+  const [cohortId, setCohortId] = useState("");
 
   const [mobileOpen, setMobileOpen] = useState(false);
   const [activeCohorts, setActiveCohorts] = useState([]);
@@ -270,6 +271,67 @@ const StudentDashboard = () => {
     },
     { text: "Join Class", icon: <Videocam />, key: "join-class" },
   ];
+
+  // Send cohort chat message
+  const sendMessage = async () => {
+    if (!text.trim()) return;
+
+    const token = localStorage.getItem("token");
+
+    const res = await fetch(`${BASE_URL}/api/cohort-chat/${cohortId}/message`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+      body: JSON.stringify({ text }),
+    });
+
+    const savedMessage = await res.json();
+
+    socket.emit("cohortMessage", savedMessage);
+    setText("");
+  };
+
+  // Chat socket for cohort messages
+  useEffect(() => {
+    if (!cohortId) return;
+
+    const token = localStorage.getItem("token");
+
+    socketRef.current = io(BASE_URL, {
+      auth: { token },
+    });
+
+    socketRef.current.emit("joinCohort", { cohortId });
+    socketRef.current?.emit("cohortMessage", savedMessage);
+
+    socketRef.current.on("cohortMessage", (msg) => {
+      updateChatMessages(msg.type, msg.roomId, [
+        ...(chatMessages[msg.type]?.[msg.roomId] || []),
+        msg,
+      ]);
+    });
+
+    return () => socketRef.current?.disconnect();
+  }, [cohortId]);
+
+  // Fetch cohort chat messages
+
+  useEffect(() => {
+    if (!cohortId) return;
+
+    const token = localStorage.getItem("token");
+
+    fetch(`${BASE_URL}/api/cohort-chat/${cohortId}/messages`, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    })
+      .then((res) => res.json())
+      .then(setMessages)
+      .catch(console.error);
+  }, [cohortId]);
 
   // Timer for join class countdown
   useEffect(() => {
@@ -1390,12 +1452,14 @@ const StudentDashboard = () => {
                     }
 
                     return (
-                      <ClassChat
-                        coachId={coachId}
-                        studentId={studentId}
-                        baseUrl={BASE_URL}
-                        coaches={coaches}
-                      />
+                      // <ClassChat
+                      //   coachId={coachId}
+                      //   studentId={studentId}
+                      //   baseUrl={BASE_URL}
+                      //   coaches={coaches}
+                      // />
+
+                      <ClassChat cohortId={nextClass.cohortId} />
                     );
                   })()}
               </>
