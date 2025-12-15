@@ -71,6 +71,29 @@ function ChatSidebarLocal({
       return { type: "doc", id: documents[0]._id, title: documents[0].title };
     return null;
   });
+  const bottomRef = useRef(null);
+
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages]);
+  const myId = user?._id || user?.id;
+
+  const isMyMessage = (msg) => {
+    const senderId =
+      typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+
+    return senderId === myId;
+  };
+
+  const getSenderName = (msg) => {
+    if (isMyMessage(msg)) return "You";
+
+    if (typeof msg.senderId === "object") {
+      return msg.senderId.fullName;
+    }
+
+    return "Student";
+  };
 
   useEffect(() => {
     if (!selected) {
@@ -287,54 +310,85 @@ function ChatSidebarLocal({
               {selected.type === "video" ? "Video Chat" : "Document Chat"} —{" "}
               {selected.title || selected.id}
             </Typography>
-
-            <Paper
+            <Box
               sx={{
-                p: 2,
-                flex: 1,
+                height: "100%",
                 display: "flex",
                 flexDirection: "column",
-                gap: 1,
+                overflow: "hidden",
               }}
             >
-              <Box
+              <Paper
                 sx={{
                   flex: 1,
-                  overflowY: "auto",
-                  p: 1,
-                  bgcolor: "#f7faf7",
-                  borderRadius: 1,
+                  display: "flex",
+                  flexDirection: "column",
+                  overflow: "hidden",
                 }}
               >
-                {messages.length === 0 ? (
-                  <Typography variant="body2" color="text.secondary">
-                    No messages yet.
-                  </Typography>
-                ) : (
-                  <Box sx={{ flex: 1, overflowY: "auto" }}>
-                    {messages.length === 0 ? (
-                      <Typography>No messages yet</Typography>
-                    ) : (
-                      messages.map((msg, i) => (
-                        <Box key={i} sx={{ mb: 1 }}>
-                          <Typography variant="body2">
-                            <strong>
-                              {typeof msg.senderId === "object"
-                                ? msg.senderId.fullName
-                                : msg.senderId}
-                              :
-                            </strong>{" "}
-                            {msg.text}
-                          </Typography>
-                        </Box>
-                      ))
-                    )}
-                  </Box>
-                )}
-              </Box>
+                {/* MESSAGES */}
+                <Box
+                  sx={{
+                    flex: 1,
+                    overflowY: "auto",
+                    p: 1,
+                    bgcolor: "#f7faf7",
+                  }}
+                >
+                  {messages.map((msg, i) => {
+                    const mine = isMyMessage(msg);
 
-              <ChatInput onSend={(text) => sendMessage(text, true)} />
-            </Paper>
+                    return (
+                      <Box
+                        key={msg._id || i}
+                        sx={{
+                          display: "flex",
+                          justifyContent: mine ? "flex-end" : "flex-start",
+                          mb: 1,
+                        }}
+                      >
+                        <Box
+                          sx={{
+                            maxWidth: "70%",
+                            width: "fit-content",
+                            p: 1.2,
+                            borderRadius: 2,
+                            bgcolor: mine ? "#dbeafe" : "#ffffff",
+                            boxShadow: 1,
+                          }}
+                        >
+                          <Typography
+                            variant="caption"
+                            sx={{
+                              fontWeight: "bold",
+                              display: "block",
+                              mb: 0.3,
+                            }}
+                          >
+                            {getSenderName(msg)}
+                          </Typography>
+
+                          <Typography variant="body2">{msg.text}</Typography>
+                        </Box>
+                      </Box>
+                    );
+                  })}
+                </Box>
+                <div ref={bottomRef} />
+
+                {/* INPUT (ALWAYS VISIBLE) */}
+                <Box
+                  sx={{
+                    borderTop: "1px solid #e0e0e0",
+                    p: 1,
+                    bgcolor: "#fff",
+                    flexShrink: 0,
+                  }}
+                >
+                  <ChatInput onSend={(text) => sendMessage(text, true)} />
+                </Box>
+              </Paper>
+            </Box>
           </>
         ) : (
           <Typography variant="body2" color="text.secondary">
@@ -346,7 +400,6 @@ function ChatSidebarLocal({
   );
 }
 
-/* small ChatInput component used inside the sidebar */
 function ChatInput({ onSend }) {
   const [text, setText] = useState("");
   return (
