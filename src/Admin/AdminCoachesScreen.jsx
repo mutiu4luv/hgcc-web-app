@@ -55,6 +55,7 @@ const BASE_URL = import.meta.env.VITE_BASE_URL;
 
 function ChatSidebarLocal({
   cohortId,
+  courseId,
   videos,
   documents,
   user,
@@ -63,6 +64,8 @@ function ChatSidebarLocal({
   setMessages,
   socketRef,
   messages,
+  openChat,
+  unreadCount,
 }) {
   const [selected, setSelected] = useState(() => {
     if (Array.isArray(videos) && videos.length > 0)
@@ -72,6 +75,22 @@ function ChatSidebarLocal({
     return null;
   });
   const bottomRef = useRef(null);
+
+  const resolvedCourseId = React.useMemo(() => {
+    if (!selected) return null;
+
+    if (selected.type === "video") {
+      const v = videos?.find((v) => v._id === selected.id);
+      return typeof v?.courseId === "object" ? v.courseId._id : v?.courseId;
+    }
+
+    if (selected.type === "doc") {
+      const d = documents?.find((d) => d._id === selected.id);
+      return typeof d?.courseId === "object" ? d.courseId._id : d?.courseId;
+    }
+
+    return null;
+  }, [selected, videos, documents]);
 
   useEffect(() => {
     bottomRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -162,56 +181,58 @@ function ChatSidebarLocal({
   };
 
   // Send cohort chat message
+
   const sendMessage = async (text) => {
     if (!text?.trim()) return;
+    if (!cohortId || !resolvedCourseId) {
+      console.warn("Missing cohortId or resolvedCourseId");
+      return;
+    }
+    const token = localStorage.getItem("token");
 
-    if (!cohortId) {
-      console.error("Cannot send message: cohortId missing");
+    const res = await fetch(
+      `${BASE_URL}/api/cohort-chat/${cohortId}/${resolvedCourseId}/message`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text }),
+      }
+    );
+
+    if (!res.ok) {
+      console.error(await res.text());
       return;
     }
 
-    try {
-      const token = localStorage.getItem("token");
-
-      const res = await fetch(
-        `${import.meta.env.VITE_BASE_URL}/api/cohort-chat/${cohortId}/message`,
-        {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-          body: JSON.stringify({ text }),
-        }
-      );
-
-      const savedMessage = await res.json();
-
-      // socket emit (already connected globally)
-      socketRef.current?.emit("cohortMessage", savedMessage);
-    } catch (err) {
-      console.error("Send message failed:", err);
-    }
+    const savedMessage = await res.json();
+    setMessages((prev) => [...prev, savedMessage]);
   };
 
   // Fetch cohort chat messages
 
   useEffect(() => {
-    if (!cohortId) return;
-
+    if (!cohortId || !resolvedCourseId) {
+      console.warn("Missing cohortId or resolvedCourseId");
+      return;
+    }
     const token = localStorage.getItem("token");
 
-    fetch(`${BASE_URL}/api/cohort-chat/${cohortId}/messages`, {
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    })
+    fetch(
+      `${BASE_URL}/api/cohort-chat/${cohortId}/${resolvedCourseId}/message`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    )
       .then((res) => res.json())
       .then((data) => {
-        setMessages(data.messages || []);
+        setMessages(Array.isArray(data.messages) ? data.messages : []);
       })
       .catch(console.error);
-  }, [cohortId]);
+  }, [cohortId, resolvedCourseId]);
+
   return (
     <Box
       sx={{
@@ -235,8 +256,14 @@ function ChatSidebarLocal({
         }}
       >
         <Typography variant="h6">Class Chats</Typography>
-        <IconButton size="small">
-          <ChatIcon />
+        <IconButton onClick={openChat}>
+          <Badge
+            badgeContent={unreadCount}
+            color="error"
+            invisible={unreadCount === 0}
+          >
+            <ChatIcon />
+          </Badge>
         </IconButton>
       </Box>
 
@@ -385,7 +412,7 @@ function ChatSidebarLocal({
                     flexShrink: 0,
                   }}
                 >
-                  <ChatInput onSend={(text) => sendMessage(text, true)} />
+                  <ChatInput onSend={sendMessage} />
                 </Box>
               </Paper>
             </Box>
@@ -434,6 +461,7 @@ function ChatInput({ onSend }) {
 
 const CoachDashboard = () => {
   const { cohortIds } = useParams();
+  const { courseId } = useParams();
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [loading, setLoading] = useState(false);
@@ -484,9 +512,12 @@ const CoachDashboard = () => {
   const [loadingAssigned, setLoadingAssigned] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [coursesArray, setCoursesArray] = useState([]);
+  const [selected, setSelected] = useState("");
 
   const [myVideos, setMyVideos] = useState([]);
   const [unlockAt, setUnlockAt] = useState("");
+  const [unreadCount, setUnreadCount] = useState(0);
+
   const CHAT_STORAGE_KEY = "coach_chat_open";
   const user = JSON.parse(localStorage.getItem("user"));
 
@@ -615,29 +646,42 @@ const CoachDashboard = () => {
   ];
 
   useEffect(() => {
-    if (!cohortId) return;
+    if (!cohortId || !courseId) return;
 
     const token = localStorage.getItem("token");
 
-    // Create socket connection
+    // create socket
     socketRef.current = io(BASE_URL, {
       auth: { token },
     });
 
-    // Join cohort room
-    socketRef.current.emit("joinCohort", { cohortId });
-
-    // Listen for messages from server
-    socketRef.current.on("newMessage", (msg) => {
-      setMessages((prev) => [...prev, msg]);
+    // join room (emit ONLY)
+    socketRef.current.emit("joinCohort", {
+      room: `${cohortId}:${courseId}`,
     });
 
-    // Cleanup
+    // cleanup
     return () => {
-      socketRef.current.off("newMessage");
-      socketRef.current.disconnect();
+      if (socketRef.current) {
+        socketRef.current.disconnect();
+        socketRef.current = null;
+      }
     };
-  }, [cohortId]);
+  }, [cohortId, courseId]);
+
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const handleIncoming = (msg) => {
+      setMessages((prev) => [...prev, msg]);
+    };
+
+    socketRef.current.on("cohortMessage", handleIncoming);
+
+    return () => {
+      socketRef.current.off("cohortMessage", handleIncoming);
+    };
+  }, []);
 
   useEffect(() => {
     const handleStorage = (e) => {
@@ -687,6 +731,36 @@ const CoachDashboard = () => {
       }
       return next;
     });
+  };
+
+  // Listen for incoming messages
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const handleIncoming = (msg) => {
+      const senderId =
+        typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+
+      if (senderId === user?._id) return;
+
+      if (!chatOpen) {
+        setUnreadCount((prev) => prev + 1);
+      }
+
+      setMessages((prev) => [...prev, msg]);
+    };
+
+    socketRef.current.on("cohortMessage", handleIncoming);
+
+    return () => {
+      socketRef.current.off("cohortMessage", handleIncoming);
+    };
+  }, [chatOpen]);
+
+  // Open chat sidebar
+  const openChat = () => {
+    setChatOpen(true);
+    setUnreadCount(0);
   };
 
   // helper to update parent chatMessages state
@@ -748,6 +822,22 @@ const CoachDashboard = () => {
   useEffect(() => {
     fetchMyVideos();
   }, []);
+  // ✅ AUTO-SELECT FIRST COURSE WHEN VIDEOS LOAD
+  useEffect(() => {
+    if (!selectedCourseId && myVideos?.length) {
+      const firstVideo = myVideos[0];
+
+      // SAFETY: some APIs nest courseId
+      const courseId =
+        typeof firstVideo.courseId === "object"
+          ? firstVideo.courseId._id
+          : firstVideo.courseId;
+
+      if (courseId) {
+        setSelectedCourseId(courseId);
+      }
+    }
+  }, [myVideos, selectedCourseId]);
 
   // DELETE DOCUMENT
   const handleDeleteDocument = async (documentId) => {
@@ -2448,6 +2538,7 @@ const CoachDashboard = () => {
             {chatOpen && (
               <ChatSidebarLocal
                 cohortId={cohortId}
+                courseId={selectedCourseId}
                 videos={myVideos}
                 documents={myDocuments}
                 user={user}
@@ -2456,6 +2547,8 @@ const CoachDashboard = () => {
                 setMessages={setMessages}
                 socketRef={socketRef}
                 messages={messages}
+                openChat={openChat}
+                unreadCount={unreadCount}
               />
             )}
           </Box>
@@ -2489,6 +2582,7 @@ const CoachDashboard = () => {
 
           <ChatSidebarLocal
             cohortId={cohortId}
+            courseId={selectedCourseId}
             videos={myVideos}
             documents={myDocuments}
             chatMessages={chatMessages}
@@ -2497,6 +2591,8 @@ const CoachDashboard = () => {
             setMessages={setMessages}
             socketRef={socketRef}
             messages={messages}
+            openChat={openChat}
+            unreadCount={unreadCount}
           />
         </Box>
       </Drawer>

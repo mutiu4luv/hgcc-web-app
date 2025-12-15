@@ -53,7 +53,6 @@ const StudentDashboard = () => {
   const [upcomingClasses, setUpcomingClasses] = useState([]);
   const [myDocuments, setMyDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
-
   const [assignments, setAssignments] = useState([]);
   const [mySubmissions, setMySubmissions] = useState([]);
   const [coaches, setCoaches] = useState([]);
@@ -89,18 +88,42 @@ const StudentDashboard = () => {
   const [tick, setTick] = useState(0);
 
   const [chatMessages, setChatMessages] = useState([]);
-  const socketRef = useRef(null);
   const [text, setText] = useState("");
+  const chatEndRef = useRef(null);
+
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUserId = user?._id || user?.id;
+
+  const socketRef = useRef(null);
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
-  const currentUserId = currentUser?._id || currentUser?.id;
+
+  const now = new Date();
+
+  const unlockedVideo = videos.find((v) => {
+    const unlockAt = new Date(v.unlockAt);
+    const expireAt = new Date(unlockAt.getTime() + 3 * 60 * 60 * 1000);
+    return now >= unlockAt && now <= expireAt;
+  });
+
+  const unlockedDocument = documents.find((d) => new Date(d.unlockAt) <= now);
+
+  // video has priority
+  const activeMaterial = unlockedVideo || unlockedDocument;
+
+  // extract REAL courseId
+  const activeCourseId =
+    activeMaterial &&
+    (typeof activeMaterial.courseId === "object"
+      ? activeMaterial.courseId._id
+      : activeMaterial.courseId);
+
+  const canShowChat = Boolean(cohortId && activeCourseId);
 
   const getSenderName = (m) => {
     if (typeof m.senderId === "object") return m.senderId.fullName;
     if (m.senderId === currentUserId) return currentUser.fullName || "You";
     return "Coach";
   };
-
-  const chatEndRef = useRef(null);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -150,23 +173,19 @@ const StudentDashboard = () => {
 
   // Send cohort chat message
   const sendMessage = async () => {
-    if (!cohortId) {
-      console.error("❌ cohortId is missing");
-      return;
-    }
+    if (!canShowChat || !text.trim()) return;
 
-    if (!text.trim()) return;
-
-    const token = localStorage.getItem("token");
-
-    const res = await fetch(`${BASE_URL}/api/cohort-chat/${cohortId}/message`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({ text }),
-    });
+    const res = await fetch(
+      `${BASE_URL}/api/cohort-chat/${cohortId}/${activeCourseId}/message`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify({ text }),
+      }
+    );
 
     const data = await res.json();
 
@@ -175,14 +194,13 @@ const StudentDashboard = () => {
       return;
     }
 
+    setChatMessages((prev) => [...prev, data]);
     setText("");
   };
 
   // Chat socket for cohort messages
   useEffect(() => {
-    if (!cohortId) return;
-
-    const token = localStorage.getItem("token");
+    if (!canShowChat) return;
 
     const socket = io(BASE_URL, {
       auth: { token },
@@ -191,24 +209,25 @@ const StudentDashboard = () => {
 
     socketRef.current = socket;
 
-    socket.emit("joinCohort", { cohortId });
+    socket.emit("joinCohort", {
+      room: `${cohortId}:${activeCourseId}`,
+    });
 
     socket.on("cohortMessage", (msg) => {
-      setChatMessages((prev) => (Array.isArray(prev) ? [...prev, msg] : [msg]));
+      setChatMessages((prev) => [...prev, msg]);
     });
 
     return () => {
-      socket.off("cohortMessage");
       socket.disconnect();
     };
-  }, [cohortId]);
+  }, [cohortId, activeCourseId]);
 
   // Fetch cohort chat messages
 
   useEffect(() => {
-    if (!cohortId) return;
+    if (!canShowChat) return;
 
-    fetch(`${BASE_URL}/api/cohort-chat/${cohortId}/messages`, {
+    fetch(`${BASE_URL}/api/cohort-chat/${cohortId}/${activeCourseId}/message`, {
       headers: {
         Authorization: `Bearer ${token}`,
       },
@@ -218,7 +237,7 @@ const StudentDashboard = () => {
         setChatMessages(Array.isArray(data.messages) ? data.messages : []);
       })
       .catch(console.error);
-  }, [cohortId]);
+  }, [cohortId, activeCourseId]);
 
   // Fetch documents for student
 
@@ -1204,7 +1223,6 @@ const StudentDashboard = () => {
                     </Paper>
                   );
                 })}
-
                 {/* Render documents */}
                 {documents.map((doc) => {
                   const unlockDateUTC = new Date(doc.unlockAt);
@@ -1302,131 +1320,97 @@ const StudentDashboard = () => {
                     </Paper>
                   );
                 })}
-
                 {/* Class chat - only if any material is unlocked */}
-                {(videos.some(
-                  (v) =>
-                    new Date(v.unlockAt) <= new Date() &&
-                    new Date() <=
-                      new Date(
-                        new Date(v.unlockAt).getTime() + 3 * 60 * 60 * 1000
-                      )
-                ) ||
-                  documents.some((d) => new Date(d.unlockAt) <= new Date())) &&
-                  nextClass &&
-                  nextClass.courseId &&
-                  (() => {
-                    const user = JSON.parse(
-                      localStorage.getItem("user") || "{}"
-                    );
-                    const studentId = user?._id || user?.id;
-                    const coachId = nextClass.coachId?._id || nextClass.coachId;
+                {canShowChat && (
+                  <Box
+                    sx={{
+                      mt: 2,
+                      border: "1px solid #e0e0e0",
+                      borderRadius: 3,
+                      p: 2,
+                      bgcolor: "#fafafa",
+                      maxWidth: 500,
+                    }}
+                  >
+                    <Typography fontWeight="bold" sx={{ mb: 1 }}>
+                      💬 Cohort Chat
+                    </Typography>
 
-                    if (!coachId || !studentId) {
-                      console.debug(
-                        "Chat not shown: missing coachId or studentId",
-                        { coachId, studentId, nextClass }
-                      );
-                      return null;
-                    }
-
-                    return (
-                      <Box
-                        sx={{
-                          mt: 2,
-                          border: "1px solid #e0e0e0",
-                          borderRadius: 3,
-                          p: 2,
-                          bgcolor: "#fafafa",
-                          maxWidth: 500,
-                        }}
-                      >
-                        <Typography fontWeight="bold" sx={{ mb: 1 }}>
-                          💬 Cohort Chat
+                    {/* Messages */}
+                    <Box
+                      sx={{
+                        maxHeight: 300,
+                        overflowY: "auto",
+                        p: 1,
+                        mb: 1,
+                        display: "flex",
+                        flexDirection: "column",
+                        gap: 1,
+                      }}
+                    >
+                      {chatMessages.length === 0 ? (
+                        <Typography variant="body2" color="text.secondary">
+                          No messages yet. Say hi 👋
                         </Typography>
+                      ) : (
+                        chatMessages.map((m, i) => {
+                          const isMe =
+                            (typeof m.senderId === "object"
+                              ? m.senderId._id
+                              : m.senderId) === currentUserId;
 
-                        {/* Messages */}
-                        <Box
-                          sx={{
-                            maxHeight: 300,
-                            overflowY: "auto",
-                            p: 1,
-                            mb: 1,
-                            display: "flex",
-                            flexDirection: "column",
-                            gap: 1,
-                          }}
-                        >
-                          {chatMessages.length === 0 ? (
-                            <Typography variant="body2" color="text.secondary">
-                              No messages yet. Say hi 👋
-                            </Typography>
-                          ) : (
-                            chatMessages.map((m, i) => {
-                              const isMe =
-                                (typeof m.senderId === "object"
-                                  ? m.senderId._id
-                                  : m.senderId) === currentUserId;
-
-                              return (
-                                <Box
-                                  key={m._id || i}
-                                  sx={{
-                                    display: "flex",
-                                    justifyContent: isMe
-                                      ? "flex-end"
-                                      : "flex-start",
-                                  }}
+                          return (
+                            <Box
+                              key={m._id || i}
+                              sx={{
+                                display: "flex",
+                                justifyContent: isMe
+                                  ? "flex-end"
+                                  : "flex-start",
+                              }}
+                            >
+                              <Box
+                                sx={{
+                                  maxWidth: "75%",
+                                  p: 1.2,
+                                  borderRadius: 2,
+                                  bgcolor: isMe ? "#d1e7ff" : "#ffffff",
+                                  boxShadow: 1,
+                                }}
+                              >
+                                <Typography
+                                  variant="caption"
+                                  sx={{ fontWeight: "bold", display: "block" }}
                                 >
-                                  <Box
-                                    sx={{
-                                      maxWidth: "75%",
-                                      p: 1.2,
-                                      borderRadius: 2,
-                                      bgcolor: isMe ? "#d1e7ff" : "#ffffff",
-                                      boxShadow: 1,
-                                    }}
-                                  >
-                                    <Typography
-                                      variant="caption"
-                                      sx={{
-                                        fontWeight: "bold",
-                                        display: "block",
-                                      }}
-                                    >
-                                      {getSenderName(m)}
-                                    </Typography>
+                                  {getSenderName(m)}
+                                </Typography>
+                                <Typography variant="body2">
+                                  {m.text}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          );
+                        })
+                      )}
+                      <div ref={chatEndRef} />
+                    </Box>
 
-                                    <Typography variant="body2">
-                                      {m.text}
-                                    </Typography>
-                                  </Box>
-                                </Box>
-                              );
-                            })
-                          )}
-                          <div ref={chatEndRef} />
-                        </Box>
-
-                        {/* Input */}
-                        <Box sx={{ display: "flex", gap: 1 }}>
-                          <TextField
-                            fullWidth
-                            size="small"
-                            value={text}
-                            onChange={(e) => setText(e.target.value)}
-                            placeholder="Type a message..."
-                            onKeyDown={(e) =>
-                              e.key === "Enter" && sendMessage()
-                            }
-                          />
-                          <Button variant="contained" onClick={sendMessage}>
-                            Send
-                          </Button>
-                        </Box>
-                      </Box>
-                    );
-                  })()}
+                    {/* Input */}
+                    <Box sx={{ display: "flex", gap: 1 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        value={text}
+                        onChange={(e) => setText(e.target.value)}
+                        placeholder="Type a message..."
+                        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                      />
+                      <Button variant="contained" onClick={sendMessage}>
+                        Send
+                      </Button>
+                    </Box>
+                  </Box>
+                )}
               </>
             )}
           </Paper>
