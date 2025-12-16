@@ -113,43 +113,27 @@ function ChatSidebarLocal({
 
     return "Student";
   };
-
+  // AUTO-SELECT FIRST ROOM IF NONE SELECTED
   useEffect(() => {
     if (!selected) {
-      if (videos?.length)
+      if (videos?.length > 0) {
         setSelected({
           type: "video",
           id: videos[0]._id,
           title: videos[0].title,
         });
-      else if (documents?.length)
+        return;
+      }
+
+      if (documents?.length > 0) {
         setSelected({
           type: "doc",
           id: documents[0]._id,
           title: documents[0].title,
         });
-    } else {
-      const exists =
-        selected.type === "video"
-          ? videos?.some((v) => v._id === selected.id)
-          : documents?.some((d) => d._id === selected.id);
-      if (!exists) {
-        if (videos?.length)
-          setSelected({
-            type: "video",
-            id: videos[0]._id,
-            title: videos[0].title,
-          });
-        else if (documents?.length)
-          setSelected({
-            type: "doc",
-            id: documents[0]._id,
-            title: documents[0].title,
-          });
-        else setSelected(null);
       }
     }
-  }, [videos, documents, selected]);
+  }, [videos, documents]);
 
   const getCount = (type, id) => {
     return (
@@ -184,10 +168,12 @@ function ChatSidebarLocal({
 
   const sendMessage = async (text) => {
     if (!text?.trim()) return;
+
     if (!cohortId || !resolvedCourseId) {
-      console.warn("Missing cohortId or resolvedCourseId");
+      console.warn("Chat not ready yet", { cohortId, resolvedCourseId });
       return;
     }
+
     const token = localStorage.getItem("token");
 
     const res = await fetch(
@@ -214,10 +200,8 @@ function ChatSidebarLocal({
   // Fetch cohort chat messages
 
   useEffect(() => {
-    if (!cohortId || !resolvedCourseId) {
-      console.warn("Missing cohortId or resolvedCourseId");
-      return;
-    }
+    if (!cohortId || !resolvedCourseId) return;
+
     const token = localStorage.getItem("token");
 
     fetch(
@@ -412,7 +396,10 @@ function ChatSidebarLocal({
                     flexShrink: 0,
                   }}
                 >
-                  <ChatInput onSend={sendMessage} />
+                  <ChatInput
+                    onSend={sendMessage}
+                    disabled={!cohortId || !resolvedCourseId}
+                  />
                 </Box>
               </Paper>
             </Box>
@@ -427,18 +414,22 @@ function ChatSidebarLocal({
   );
 }
 
-function ChatInput({ onSend }) {
+function ChatInput({ onSend, disabled }) {
   const [text, setText] = useState("");
+
   return (
     <Box sx={{ display: "flex", gap: 1 }}>
       <TextField
         fullWidth
         size="small"
-        placeholder="Type a message..."
+        disabled={disabled}
+        placeholder={
+          disabled ? "Select a class to start chatting" : "Type a message..."
+        }
         value={text}
         onChange={(e) => setText(e.target.value)}
         onKeyDown={(e) => {
-          if (e.key === "Enter") {
+          if (e.key === "Enter" && !disabled) {
             onSend(text);
             setText("");
           }
@@ -446,8 +437,9 @@ function ChatInput({ onSend }) {
       />
       <Button
         variant="contained"
+        disabled={disabled}
         onClick={() => {
-          if (text.trim()) {
+          if (!disabled && text.trim()) {
             onSend(text);
             setText("");
           }
@@ -668,13 +660,18 @@ const CoachDashboard = () => {
       }
     };
   }, [cohortId, courseId]);
-
+  // Listen for incoming messages
   useEffect(() => {
     if (!socketRef.current) return;
 
     const handleIncoming = (msg) => {
       setMessages((prev) => [...prev, msg]);
     };
+    socketRef.current.on("cohortMessage", (msg) => {
+      if (!document.hasFocus()) {
+        setUnreadCount((c) => c + 1);
+      }
+    });
 
     socketRef.current.on("cohortMessage", handleIncoming);
 
@@ -737,23 +734,20 @@ const CoachDashboard = () => {
   useEffect(() => {
     if (!socketRef.current) return;
 
-    const handleIncoming = (msg) => {
-      const senderId =
-        typeof msg.senderId === "object" ? msg.senderId._id : msg.senderId;
+    const socket = socketRef.current;
 
-      if (senderId === user?._id) return;
+    const handleIncoming = (msg) => {
+      setMessages((prev) => [...prev, msg]);
 
       if (!chatOpen) {
-        setUnreadCount((prev) => prev + 1);
+        setUnreadCount((c) => c + 1);
       }
-
-      setMessages((prev) => [...prev, msg]);
     };
 
-    socketRef.current.on("cohortMessage", handleIncoming);
+    socket.on("cohortMessage", handleIncoming);
 
     return () => {
-      socketRef.current.off("cohortMessage", handleIncoming);
+      socket.off("cohortMessage", handleIncoming);
     };
   }, [chatOpen]);
 
