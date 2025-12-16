@@ -27,6 +27,7 @@ import {
   Close as CloseIcon,
   Logout,
   StarRate,
+  LiveTv,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
@@ -86,10 +87,19 @@ const StudentDashboard = () => {
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [countdown, setCountdown] = useState("");
   const [tick, setTick] = useState(0);
+  const [liveSession, setLiveSession] = useState(null);
+  const [loadingLive, setLoadingLive] = useState(false);
+  const [liveCourseId, setLiveCourseId] = useState(null);
 
   const [chatMessages, setChatMessages] = useState([]);
   const [text, setText] = useState("");
   const chatEndRef = useRef(null);
+  // set default live course id
+  useEffect(() => {
+    if (courses.length > 0) {
+      setLiveCourseId(courses[0].courseId);
+    }
+  }, [courses]);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = user?._id || user?.id;
@@ -125,6 +135,43 @@ const StudentDashboard = () => {
     return "Coach";
   };
 
+  // fetch live class status
+  useEffect(() => {
+    if (activeTab !== "join-live") return;
+    if (!cohortId || !liveCourseId) return;
+
+    const token = localStorage.getItem("token");
+
+    const fetchLiveSession = async () => {
+      try {
+        setLoadingLive(true);
+
+        const res = await fetch(
+          `${BASE_URL}/api/live/${cohortId}/${liveCourseId}`,
+          {
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        if (!res.ok) {
+          throw new Error("Failed to fetch live session");
+        }
+
+        const data = await res.json();
+        setLiveSession(data);
+      } catch (err) {
+        console.error("Live session error:", err);
+        setLiveSession({ isLive: false });
+      } finally {
+        setLoadingLive(false);
+      }
+    };
+
+    fetchLiveSession();
+  }, [activeTab, cohortId, liveCourseId]);
+
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
@@ -143,7 +190,6 @@ const StudentDashboard = () => {
       icon: <AssignmentTurnedIn />,
       key: "assignments",
     },
-    { text: "Upload Submission", icon: <UploadFile />, key: "upload" },
     { text: "Rate Coach", icon: <StarRate />, key: "rate-coach" },
     {
       text: "Register Course",
@@ -151,6 +197,7 @@ const StudentDashboard = () => {
       key: "register-course",
     },
     { text: "Join Class", icon: <Videocam />, key: "join-class" },
+    { text: "Join Live Class", icon: <LiveTv />, key: "join-live" },
   ];
   useEffect(() => {
     const fetchCohorts = async () => {
@@ -197,6 +244,26 @@ const StudentDashboard = () => {
     setChatMessages((prev) => [...prev, data]);
     setText("");
   };
+
+  // for live video google meet link
+  useEffect(() => {
+    if (!socketRef.current) return;
+
+    const handleLiveStarted = (payload) => {
+      console.log("🔴 Live started:", payload);
+
+      setLiveSession({
+        isLive: true,
+        meetLink: payload.meetLink,
+      });
+    };
+
+    socketRef.current.on("liveStarted", handleLiveStarted);
+
+    return () => {
+      socketRef.current.off("liveStarted", handleLiveStarted);
+    };
+  }, []);
 
   // Chat socket for cohort messages
   useEffect(() => {
@@ -1119,34 +1186,7 @@ const StudentDashboard = () => {
             </Box>
           </Paper>
         )}
-        {/* Upload Submission */}
-        {activeTab === "upload" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography variant="h6" sx={{ mt: 4 }}>
-              📄 Submit Assignment
-            </Typography>
-            <form onSubmit={handleSubmitAssignment}>
-              <TextField
-                label="Submission Title"
-                fullWidth
-                sx={{ mb: 2 }}
-                value={submissionTitle}
-                onChange={(e) => setSubmissionTitle(e.target.value)}
-              />
-              <Button variant="contained" component="label" sx={{ mb: 2 }}>
-                Choose File
-                <input
-                  type="file"
-                  hidden
-                  onChange={(e) => setSubmissionFile(e.target.files[0])}
-                />
-              </Button>
-              <Button type="submit" variant="contained">
-                Upload Submission
-              </Button>
-            </form>
-          </Paper>
-        )}
+
         {/* Join Class Tab */}
         {activeTab === "join-class" && (
           <Paper sx={{ p: 4 }}>
@@ -1790,6 +1830,44 @@ const StudentDashboard = () => {
                       </>
                     );
                   })()}
+              </>
+            )}
+          </Paper>
+        )}
+
+        {/* JOIN LIVE CLASS */}
+        {activeTab === "join-live" && (
+          <Paper sx={{ p: 4 }}>
+            <Typography variant="h5" fontWeight="bold" color="error">
+              🔴 Live Class
+            </Typography>
+
+            {loadingLive ? (
+              <Typography sx={{ mt: 2 }}>Checking live session...</Typography>
+            ) : !liveSession?.isLive ? (
+              <Typography sx={{ mt: 2 }}>
+                ⏳ No live class is currently running.
+              </Typography>
+            ) : (
+              <>
+                <Typography sx={{ mt: 2 }}>
+                  Your instructor has started a live class.
+                </Typography>
+
+                <Button
+                  variant="contained"
+                  color="success"
+                  sx={{ mt: 3 }}
+                  onClick={() =>
+                    window.open(
+                      liveSession.meetLink,
+                      "_blank",
+                      "noopener,noreferrer"
+                    )
+                  }
+                >
+                  Join Google Meet
+                </Button>
               </>
             )}
           </Paper>
