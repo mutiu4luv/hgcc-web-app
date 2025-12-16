@@ -18,6 +18,9 @@ import {
   Grid,
   MenuItem,
   Badge,
+  FormControl,
+  InputLabel,
+  Select,
 } from "@mui/material";
 import {
   Dashboard,
@@ -509,12 +512,66 @@ const CoachDashboard = () => {
   const [myVideos, setMyVideos] = useState([]);
   const [unlockAt, setUnlockAt] = useState("");
   const [unreadCount, setUnreadCount] = useState(0);
-
+  const [meetLink, setMeetLink] = useState("");
+  const [startingLive, setStartingLive] = useState(false);
   const CHAT_STORAGE_KEY = "coach_chat_open";
   const user = JSON.parse(localStorage.getItem("user"));
 
   const studentId = user?._id || user?.id;
   const studentName = user?.name || user?.fullName || "Coach";
+  useEffect(() => {
+    if (activeTab === "course-control" || activeTab === "live") {
+      fetchAssignedCourses();
+    }
+  }, [activeTab]);
+
+  // Start live class
+  const startLiveVideo = async () => {
+    if (!cohortId || !selectedCourse) {
+      alert("Cohort or course not selected.");
+      return;
+    }
+
+    if (!meetLink.trim()) {
+      alert("Please provide a Google Meet link.");
+      return;
+    }
+
+    if (!token) {
+      alert("Session expired. Please log in again.");
+      return;
+    }
+
+    try {
+      setStartingLive(true);
+
+      await axios.post(
+        `${BASE_URL}/api/live/${cohortId}/${selectedCourse}`,
+        { meetLink },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      alert("Live class started successfully ✅");
+      let url = meetLink.trim();
+      if (!url.startsWith("http://") && !url.startsWith("https://")) {
+        url = `https://${url}`;
+      }
+
+      window.open(url, "_blank", "noopener,noreferrer");
+    } catch (err) {
+      console.error("Live start failed:", err);
+      alert(
+        err.response?.data?.message ||
+          "Failed to start live class. Please try again."
+      );
+    } finally {
+      setStartingLive(false);
+    }
+  };
 
   const sendStudentMessage = (type, videoId, text) => {
     if (!text.trim()) return;
@@ -2494,25 +2551,66 @@ const CoachDashboard = () => {
           {/* ✅ Live Mode */}
           {activeTab === "live" && (
             <Paper sx={{ p: 4 }}>
-              <Typography
-                variant="h4"
-                color="green"
-                fontWeight="bold"
-                gutterBottom
-              >
-                🔴 Live Mode
+              <Typography variant="h4" fontWeight="bold" color="error">
+                🔴 Live Class
               </Typography>
-              <Typography variant="body1" sx={{ mt: 2 }}>
-                Welcome to <strong>Live Mode</strong>. Here you can host live
-                coaching sessions, interact with students in real time, and
-                manage ongoing sessions.
-              </Typography>
+
+              {/* Cohort dropdown */}
+              <FormControl fullWidth sx={{ mt: 3 }}>
+                <InputLabel>Select Cohort</InputLabel>
+                <Select
+                  value={cohortId}
+                  label="Select Cohort"
+                  onChange={(e) => {
+                    setCohortId(e.target.value);
+                    setSelectedCourseId("");
+                  }}
+                >
+                  {cohorts.map((cohort) => (
+                    <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                      {cohort.cohortName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* Course dropdown */}
+              <FormControl fullWidth sx={{ mt: 2 }} disabled={!cohortId}>
+                <InputLabel>Select Course</InputLabel>
+                <Select
+                  value={selectedCourse}
+                  label="Select Course"
+                  onChange={(e) => setSelectedCourse(e.target.value)}
+                >
+                  {coursesArray.map((course) => (
+                    <MenuItem
+                      key={course.cohortCourseId}
+                      value={course.cohortCourseId}
+                    >
+                      {course.courseName} ({course.cohortName})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              {/* Meet link */}
+              <TextField
+                fullWidth
+                label="Google Meet Link"
+                value={meetLink}
+                onChange={(e) => setMeetLink(e.target.value)}
+                sx={{ mt: 3 }}
+              />
+
+              {/* Start button */}
               <Button
                 variant="contained"
-                sx={{ mt: 3, bgcolor: "#10b981" }}
-                onClick={() => alert("Launching Live Session...")}
+                color="success"
+                sx={{ mt: 3 }}
+                disabled={startingLive}
+                onClick={startLiveVideo}
               >
-                Go Live
+                {startingLive ? "Starting..." : "Start Live Class"}
               </Button>
             </Paper>
           )}
