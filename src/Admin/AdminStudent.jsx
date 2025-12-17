@@ -28,6 +28,7 @@ import {
   Logout,
   StarRate,
   LiveTv,
+  School,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
@@ -91,9 +92,71 @@ const StudentDashboard = () => {
   const [loadingLive, setLoadingLive] = useState(false);
   const [liveCourseId, setLiveCourseId] = useState(null);
 
+  const [selfLearningCourses, setSelfLearningCourses] = useState([]);
+  const [loadingSelfLearning, setLoadingSelfLearning] = useState(false);
+  const [registeringCourseId, setRegisteringCourseId] = useState(null);
+  const [registeredCourses, setRegisteredCourses] = useState([]);
+  const [selectedSelfLearningCourse, setSelectedSelfLearningCourse] =
+    useState("");
+  const [registeringCourse, setRegisteringCourse] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
   const [text, setText] = useState("");
   const chatEndRef = useRef(null);
+
+  // FETCH SELF-LEARNING COURSES
+  useEffect(() => {
+    if (activeTab !== "self-learning") return;
+
+    const fetchSelfLearningCourses = async () => {
+      try {
+        setLoadingSelfLearning(true);
+        const res = await axios.get(`${BASE_URL}/api/self-learning/courses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSelfLearningCourses(res.data.courses || []);
+      } catch (err) {
+        setMessage("Failed to load self-learning courses");
+      } finally {
+        setLoadingSelfLearning(false);
+      }
+    };
+
+    fetchSelfLearningCourses();
+  }, [activeTab]);
+  // REGISTER FOR SELF-LEARNING COURSE
+  const handleRegisterSelfLearning = async () => {
+    if (!selectedSelfLearningCourse) {
+      setMessage("Please select a course first");
+      return;
+    }
+
+    if (registeredCourses.includes(selectedSelfLearningCourse)) {
+      setMessage("You are already registered for this course");
+      return;
+    }
+
+    try {
+      setRegisteringCourse(true);
+
+      await axios.post(
+        `${BASE_URL}/api/self-learning/course/${selectedSelfLearningCourse}/register`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // mark as registered locally
+      setRegisteredCourses((prev) => [...prev, selectedSelfLearningCourse]);
+
+      setMessage("✅ Registered successfully. Proceed to payment.");
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Registration failed");
+    } finally {
+      setRegisteringCourse(false);
+    }
+  };
+
   // set default live course id
   useEffect(() => {
     if (courses.length > 0) {
@@ -196,6 +259,8 @@ const StudentDashboard = () => {
       icon: <AssignmentTurnedIn />,
       key: "register-course",
     },
+    { text: "Self Learning", icon: <School />, key: "self-learning" }, // ✅ NEW
+
     { text: "Join Class", icon: <Videocam />, key: "join-class" },
     { text: "Join Live Class", icon: <LiveTv />, key: "join-live" },
   ];
@@ -1867,6 +1932,104 @@ const StudentDashboard = () => {
                   }
                 >
                   Join Google Meet
+                </Button>
+              </>
+            )}
+          </Paper>
+        )}
+
+        {/* SELF LEARNING TAB */}
+        {activeTab === "self-learning" && (
+          <Paper sx={{ p: 4 }}>
+            <Typography
+              variant="h4"
+              color="green"
+              fontWeight="bold"
+              gutterBottom
+            >
+              📚 Self-Learning Courses
+            </Typography>
+
+            {message && (
+              <Alert sx={{ mb: 2 }} severity="info">
+                {message}
+              </Alert>
+            )}
+
+            {loadingSelfLearning ? (
+              <CircularProgress />
+            ) : selfLearningCourses.length === 0 ? (
+              <Typography color="gray" sx={{ mt: 2 }}>
+                No self-learning courses available at the moment.
+              </Typography>
+            ) : (
+              <>
+                {/* COURSE DROPDOWN */}
+                <TextField
+                  select
+                  fullWidth
+                  label="Select Self-Learning Course"
+                  value={selectedSelfLearningCourse}
+                  onChange={(e) =>
+                    setSelectedSelfLearningCourse(e.target.value)
+                  }
+                  sx={{ mb: 3 }}
+                >
+                  <MenuItem value="">-- Select Course --</MenuItem>
+
+                  {selfLearningCourses.map((course) => (
+                    <MenuItem key={course._id} value={course._id}>
+                      {course.title} — ₦{course.price}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                {/* COURSE DETAILS */}
+                {selectedSelfLearningCourse &&
+                  (() => {
+                    const course = selfLearningCourses.find(
+                      (c) => c._id === selectedSelfLearningCourse
+                    );
+
+                    if (!course) return null;
+
+                    return (
+                      <Paper sx={{ p: 3, mb: 3, backgroundColor: "#f9f9f9" }}>
+                        <Typography variant="h6" fontWeight="bold">
+                          {course.title}
+                        </Typography>
+
+                        <Typography sx={{ mt: 1 }}>
+                          {course.description}
+                        </Typography>
+
+                        <Typography sx={{ mt: 1, fontWeight: "bold" }}>
+                          Price: ₦{course.price}
+                        </Typography>
+                      </Paper>
+                    );
+                  })()}
+
+                {/* REGISTER BUTTON */}
+                <Button
+                  variant="contained"
+                  color={
+                    registeredCourses.includes(selectedSelfLearningCourse)
+                      ? "success"
+                      : "primary"
+                  }
+                  disabled={
+                    !selectedSelfLearningCourse ||
+                    registeringCourse ||
+                    registeredCourses.includes(selectedSelfLearningCourse)
+                  }
+                  onClick={handleRegisterSelfLearning}
+                >
+                  {registeredCourses.includes(selectedSelfLearningCourse)
+                    ? "Registered"
+                    : registeringCourse
+                    ? "Registering..."
+                    : "Register"}
                 </Button>
               </>
             )}
