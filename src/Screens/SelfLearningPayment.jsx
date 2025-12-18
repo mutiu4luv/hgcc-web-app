@@ -8,6 +8,7 @@ import {
 import { useParams } from "react-router-dom";
 import { useState } from "react";
 import axios from "axios";
+import { useNavigate } from "react-router-dom";
 
 export default function StudentPaymentProof() {
   const { courseId } = useParams();
@@ -16,6 +17,7 @@ export default function StudentPaymentProof() {
   const [message, setMessage] = useState("");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const token = localStorage.getItem("token");
+  const navigate = useNavigate();
 
   const handleSubmitProof = async () => {
     if (!file) {
@@ -43,6 +45,7 @@ export default function StudentPaymentProof() {
 
       console.log(res.data);
       setMessage("✅ Payment proof submitted. Await admin approval.");
+      navigate("/student/dashboard");
     } catch (err) {
       console.error(err.response?.data || err.message);
       setMessage(
