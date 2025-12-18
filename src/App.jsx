@@ -13,6 +13,7 @@ import AdminOwner from "./Admin/AdminOwner";
 import AdminCoach from "./Admin/AdminCoachesScreen";
 import AdminStudent from "./Admin/AdminStudent";
 import PaymentScreen from "./Screens/Payment";
+import SelfLearningPayment from "./Screens/SelfLearningPayment";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -53,6 +54,10 @@ function App() {
               <AdminStudent />
             </ProtectedRoute>
           }
+        />
+        <Route
+          path="/student/payment/:courseId"
+          element={<SelfLearningPayment />}
         />
       </Routes>
     </>

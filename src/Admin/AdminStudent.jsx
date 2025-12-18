@@ -123,39 +123,6 @@ const StudentDashboard = () => {
 
     fetchSelfLearningCourses();
   }, [activeTab]);
-  // REGISTER FOR SELF-LEARNING COURSE
-  const handleRegisterSelfLearning = async () => {
-    if (!selectedSelfLearningCourse) {
-      setMessage("Please select a course first");
-      return;
-    }
-
-    if (registeredCourses.includes(selectedSelfLearningCourse)) {
-      setMessage("You are already registered for this course");
-      return;
-    }
-
-    try {
-      setRegisteringCourse(true);
-
-      await axios.post(
-        `${BASE_URL}/api/self-learning/course/${selectedSelfLearningCourse}/register`,
-        {},
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
-      );
-
-      // mark as registered locally
-      setRegisteredCourses((prev) => [...prev, selectedSelfLearningCourse]);
-
-      setMessage("✅ Registered successfully. Proceed to payment.");
-    } catch (err) {
-      setMessage(err.response?.data?.message || "Registration failed");
-    } finally {
-      setRegisteringCourse(false);
-    }
-  };
 
   // set default live course id
   useEffect(() => {
@@ -245,6 +212,41 @@ const StudentDashboard = () => {
   const isMobile = useMediaQuery("(max-width:900px)");
 
   const navigate = useNavigate();
+
+  // REGISTER FOR SELF-LEARNING COURSE
+  const handleRegisterSelfLearning = async () => {
+    if (!selectedSelfLearningCourse) {
+      setMessage("Please select a course first");
+      return;
+    }
+
+    if (registeredCourses.includes(selectedSelfLearningCourse)) {
+      setMessage("You are already registered for this course");
+      return;
+    }
+
+    try {
+      setRegisteringCourse(true);
+
+      await axios.post(
+        `${BASE_URL}/api/self-learning/course/${selectedSelfLearningCourse}/register`,
+        {},
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // mark as registered locally
+      setRegisteredCourses((prev) => [...prev, selectedSelfLearningCourse]);
+
+      setMessage("✅ Registered successfully. Proceed to payment.");
+      navigate(`/student/payment/${selectedSelfLearningCourse}`);
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Registration failed");
+    } finally {
+      setRegisteringCourse(false);
+    }
+  };
 
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
