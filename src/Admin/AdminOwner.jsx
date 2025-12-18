@@ -221,6 +221,7 @@ const AdminOwner = () => {
           title,
           description,
           price: Number(price),
+          coachId: assignedCoach,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -1327,6 +1328,22 @@ const AdminOwner = () => {
                   onChange={(e) => setTitle(e.target.value)}
                   required
                 />
+                <TextField
+                  select
+                  SelectProps={{ native: true }}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  value={assignedCoach}
+                  onChange={(e) => setAssignedCoach(e.target.value)}
+                  required
+                >
+                  <option value="">-- Assign Coach --</option>
+                  {safeCoachesList.map((coach) => (
+                    <option key={coach._id} value={coach._id}>
+                      {coach.fullName}
+                    </option>
+                  ))}
+                </TextField>
 
                 <TextField
                   label="Description"
@@ -1386,6 +1403,13 @@ const AdminOwner = () => {
                       <Typography fontWeight="bold">{course.title}</Typography>
                       <Typography>{course.description}</Typography>
                       <Typography fontWeight="bold">₦{course.price}</Typography>
+
+                      {/* 👇 Coach info (if populated) */}
+                      {course.coachId?.fullName && (
+                        <Typography sx={{ fontSize: 13, color: "gray" }}>
+                          Coach: {course.coachId.fullName}
+                        </Typography>
+                      )}
                     </Box>
 
                     <IconButton
