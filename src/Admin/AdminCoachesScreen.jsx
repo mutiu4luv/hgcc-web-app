@@ -519,6 +519,8 @@ const CoachDashboard = () => {
   const [title, setTitle] = useState("");
   const [file, setFile] = useState(null);
   const [url, setUrl] = useState("");
+  const [slContents, setSlContents] = useState([]);
+  const [slLoading, setSlLoading] = useState(false);
 
   const [selfLearningCourses, setSelfLearningCourses] = useState([]);
   const [selectedSelfLearningCourseId, setSelectedSelfLearningCourseId] =
@@ -533,28 +535,50 @@ const CoachDashboard = () => {
   // FETCH SELF LEARNING COURSE CONTENT (DOCUMENTS)
 
   const fetchMyCourseContent = async () => {
-    const { data } = await axios.get(
-      `${BASE_URL}/api/self-learning/course/${courseId}/content`,
-      {
-        headers: { Authorization: `Bearer ${token}` },
-      }
-    );
+    if (!selectedSelfLearningCourseId) return;
 
-    setDocuments(data.contents.filter((c) => c.type === "document"));
-    setVideos(data.contents.filter((c) => c.type === "video"));
+    try {
+      setSlLoading(true);
+
+      const { data } = await axios.get(
+        `${BASE_URL}/api/self-learning/course/${selectedSelfLearningCourseId}/content`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      console.log("✅ fetched content:", data.contents);
+      setSlContents(data.contents || []);
+    } catch (err) {
+      console.error("❌ Failed to fetch content", err);
+      setSlContents([]);
+    } finally {
+      setSlLoading(false);
+    }
   };
 
   useEffect(() => {
-    if (activeTab === "course-control" || activeTab === "live") {
-      fetchAssignedCourses();
+    if (selectedSelfLearningCourseId) {
+      fetchMyCourseContent();
     }
-  }, [activeTab]);
+  }, [selectedSelfLearningCourseId]);
 
   useEffect(() => {
     if (activeTab === "upload-sl-doc") {
       fetchSelfLearningCourses();
     }
   }, [activeTab]);
+
+  // delete content for self learning
+  const handleDeleteContent = async (id) => {
+    if (!window.confirm("Delete this content?")) return;
+
+    await axios.delete(`${BASE_URL}/api/self-learning/content/${id}`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+
+    fetchMyCourseContent();
+  };
 
   // fetch self learning courses
 
@@ -2161,7 +2185,7 @@ const CoachDashboard = () => {
                 >
                   <MenuItem value="document">Document</MenuItem>
                   <MenuItem value="video">Video</MenuItem>
-                  <MenuItem value="link">External Link</MenuItem>
+                  {/* <MenuItem value="link">External Link</MenuItem> */}
                 </TextField>
 
                 {/* Title */}
@@ -2244,6 +2268,51 @@ const CoachDashboard = () => {
                   {loading ? <CircularProgress size={24} /> : "Upload Content"}
                 </Button>
               </form>
+
+              <Typography variant="h6" sx={{ mt: 4 }}>
+                📂 Uploaded Contents
+              </Typography>
+
+              {slLoading ? (
+                <CircularProgress />
+              ) : slContents.length === 0 ? (
+                <Typography>No content uploaded yet.</Typography>
+              ) : (
+                slContents.map((item) => (
+                  <Paper
+                    key={item._id}
+                    sx={{ p: 2, mb: 2, position: "relative" }}
+                  >
+                    <IconButton
+                      sx={{ position: "absolute", top: 8, right: 8 }}
+                      onClick={async () => {
+                        if (!window.confirm("Delete this content?")) return;
+
+                        await axios.delete(
+                          `${BASE_URL}/api/self-learning/content/${item._id}`,
+                          { headers: { Authorization: `Bearer ${token}` } }
+                        );
+
+                        fetchMyCourseContent();
+                      }}
+                    >
+                      <Delete color="error" />
+                    </IconButton>
+
+                    <Typography fontWeight="bold">{item.title}</Typography>
+                    <Typography variant="body2">Type: {item.type}</Typography>
+
+                    <Button
+                      href={item.url}
+                      target="_blank"
+                      variant="outlined"
+                      sx={{ mt: 1 }}
+                    >
+                      Open
+                    </Button>
+                  </Paper>
+                ))
+              )}
             </Paper>
           )}
 
