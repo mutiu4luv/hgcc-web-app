@@ -514,17 +514,80 @@ const CoachDashboard = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [meetLink, setMeetLink] = useState("");
   const [startingLive, setStartingLive] = useState(false);
+
+  const [contentType, setContentType] = useState("");
+  const [title, setTitle] = useState("");
+  const [file, setFile] = useState(null);
+  const [url, setUrl] = useState("");
+
+  const [selfLearningCourses, setSelfLearningCourses] = useState([]);
+  const [selectedSelfLearningCourseId, setSelectedSelfLearningCourseId] =
+    useState("");
+  const [selfLearningLoading, setSelfLearningLoading] = useState(false);
+
   const CHAT_STORAGE_KEY = "coach_chat_open";
   const user = JSON.parse(localStorage.getItem("user"));
 
   const studentId = user?._id || user?.id;
   const studentName = user?.name || user?.fullName || "Coach";
+  // FETCH SELF LEARNING COURSE CONTENT (DOCUMENTS)
+
+  const fetchMyCourseContent = async () => {
+    const { data } = await axios.get(
+      `${BASE_URL}/api/self-learning/course/${courseId}/content`,
+      {
+        headers: { Authorization: `Bearer ${token}` },
+      }
+    );
+
+    setDocuments(data.contents.filter((c) => c.type === "document"));
+    setVideos(data.contents.filter((c) => c.type === "video"));
+  };
+
   useEffect(() => {
     if (activeTab === "course-control" || activeTab === "live") {
       fetchAssignedCourses();
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    if (activeTab === "upload-sl-doc") {
+      fetchSelfLearningCourses();
+    }
+  }, [activeTab]);
+
+  // fetch self learning courses
+
+  const fetchSelfLearningCourses = async () => {
+    try {
+      setSelfLearningLoading(true);
+
+      const { data } = await axios.get(
+        `${BASE_URL}/api/self-learning/courses`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      // backend may return { courses } or array
+      const list = Array.isArray(data) ? data : data.courses || [];
+      setSelfLearningCourses(list);
+
+      // auto-select first course
+      if (list.length && !selectedSelfLearningCourseId) {
+        setSelectedSelfLearningCourseId(list[0]._id);
+      }
+    } catch (err) {
+      console.error("Failed to fetch self-learning courses", err);
+    } finally {
+      setSelfLearningLoading(false);
+    }
+  };
+  useEffect(() => {
+    if (activeTab === "upload-sl-doc") {
+      fetchSelfLearningCourses();
+    }
+  }, [activeTab]);
   // Start live class
   const startLiveVideo = async () => {
     if (!cohortId || !selectedCourse) {
@@ -683,7 +746,11 @@ const CoachDashboard = () => {
     { text: "Upload Video", icon: <UploadFile />, key: "upload-video" },
     { text: "Upload Document", icon: <UploadFile />, key: "upload-doc" },
     // { text: "All Videos", icon: <UploadFile />, key: "videos" },
-    // { text: "All Documents", icon: <UploadFile />, key: "documents" },
+    {
+      text: "Upload Self Learning Doc",
+      icon: <UploadFile />,
+      key: "upload-sl-doc",
+    },
     { text: "Assignments", icon: <AssignmentTurnedIn />, key: "assignments" },
     { text: "Students", icon: <School />, key: "students" },
     {
@@ -2025,6 +2092,158 @@ const CoachDashboard = () => {
                   </Paper>
                 ))
               )}
+            </Paper>
+          )}
+          {/* upload self learning documents, video */}
+          {activeTab === "upload-sl-doc" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                📚 Upload Self-Learning Content
+              </Typography>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+
+                  if (
+                    !contentType ||
+                    !title ||
+                    !selectedSelfLearningCourseId ||
+                    (!file && !url)
+                  ) {
+                    return alert("All required fields must be filled");
+                  }
+
+                  const formData = new FormData();
+                  formData.append("type", contentType);
+                  formData.append("title", title);
+
+                  if (file) formData.append("file", file);
+                  if (url) formData.append("url", url);
+
+                  try {
+                    setLoading(true);
+
+                    await axios.post(
+                      `${BASE_URL}/api/self-learning/course/${selectedSelfLearningCourseId}/content`,
+                      formData,
+                      {
+                        headers: {
+                          Authorization: `Bearer ${token}`,
+                        },
+                      }
+                    );
+
+                    alert("Content uploaded successfully ✅");
+
+                    // reset
+                    setTitle("");
+                    setFile(null);
+                    setUrl("");
+
+                    // reload content
+                    fetchMyCourseContent();
+                  } catch (err) {
+                    alert(err.response?.data?.message || "Upload failed");
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                {/* Content Type */}
+                <TextField
+                  select
+                  label="Content Type"
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  value={contentType}
+                  onChange={(e) => setContentType(e.target.value)}
+                >
+                  <MenuItem value="document">Document</MenuItem>
+                  <MenuItem value="video">Video</MenuItem>
+                  <MenuItem value="link">External Link</MenuItem>
+                </TextField>
+
+                {/* Title */}
+                <TextField
+                  label="Title"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                />
+
+                {/* Self-Learning Course */}
+                <TextField
+                  select
+                  label="Select Self-Learning Course"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={selectedSelfLearningCourseId}
+                  onChange={(e) =>
+                    setSelectedSelfLearningCourseId(e.target.value)
+                  }
+                >
+                  {selfLearningCourses.map((course) => (
+                    <MenuItem key={course._id} value={course._id}>
+                      {course.title}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                {/* File picker */}
+                {(contentType === "document" || contentType === "video") && (
+                  <>
+                    <Button
+                      variant="contained"
+                      component="label"
+                      fullWidth
+                      sx={{ mb: 1 }}
+                    >
+                      Choose {contentType === "video" ? "Video" : "Document"}
+                      <input
+                        hidden
+                        type="file"
+                        accept={
+                          contentType === "video"
+                            ? "video/*"
+                            : ".pdf,.doc,.docx"
+                        }
+                        onChange={(e) => setFile(e.target.files[0])}
+                      />
+                    </Button>
+
+                    {file && (
+                      <Typography variant="body2" color="text.secondary">
+                        Selected file: <strong>{file.name}</strong>
+                      </Typography>
+                    )}
+                  </>
+                )}
+
+                {/* Link input */}
+                {contentType === "link" && (
+                  <TextField
+                    label="Content URL"
+                    fullWidth
+                    required
+                    sx={{ mb: 2 }}
+                    value={url}
+                    onChange={(e) => setUrl(e.target.value)}
+                  />
+                )}
+
+                <Button
+                  type="submit"
+                  variant="contained"
+                  fullWidth
+                  disabled={loading}
+                >
+                  {loading ? <CircularProgress size={24} /> : "Upload Content"}
+                </Button>
+              </form>
             </Paper>
           )}
 
