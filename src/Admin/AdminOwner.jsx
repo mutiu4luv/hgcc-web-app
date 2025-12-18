@@ -109,9 +109,12 @@ const AdminOwner = () => {
 
   const [loadingCohorts, setLoadingCohorts] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [buttonType, setButtonType] = useState(""); // whatsapp / telegram / youtube
+  const [buttonType, setButtonType] = useState("");
   const [buttonLink, setButtonLink] = useState("");
   const [success, setSuccess] = useState("");
+  const [selfLearningCourses, setSelfLearningCourses] = useState([]);
+  const [description, setDescription] = useState("");
+  const [price, setPrice] = useState("");
 
   const [announcements, setAnnouncements] = useState([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
@@ -119,6 +122,72 @@ const AdminOwner = () => {
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+  // fetch self-learning courses
+  const fetchSelfLearningCourses = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${BASE_URL}/api/self-learning/courses`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setSelfLearningCourses(res.data.courses || []);
+      console.log(res.data.courses);
+    } catch (err) {
+      setMessage("Failed to load courses");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "create-self-learning-course") {
+      fetchSelfLearningCourses();
+    }
+  }, [activeTab]);
+  // Delete Self-Learning Course
+  const handleDeleteCourse = async (courseId) => {
+    if (!window.confirm("Delete this course?")) return;
+
+    try {
+      await axios.delete(`${BASE_URL}/api/self-learning/course/${courseId}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      fetchSelfLearningCourses(); // 🔄 reload
+    } catch (err) {
+      alert("Failed to delete course");
+    }
+  };
+
+  // Create Self-Learning Course
+
+  const handleCreateCourse = async (e) => {
+    e.preventDefault();
+
+    try {
+      setLoading(true);
+      await axios.post(
+        `${BASE_URL}/api/self-learning/course`,
+        {
+          title,
+          description,
+          price: Number(price),
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setTitle("");
+      setDescription("");
+      setPrice("");
+      setMessage("✅ Course created successfully");
+
+      // 🔄 Reload courses
+      fetchSelfLearningCourses();
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Failed to create course");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // fetch announcements
   useEffect(() => {
@@ -438,7 +507,7 @@ const AdminOwner = () => {
       setMessage(err.response?.data?.message || "Failed to delete cohort");
     }
   };
-
+  // 📥 Fetch Analytics
   useEffect(() => {
     const fetchAnalytics = async () => {
       try {
@@ -578,6 +647,12 @@ const AdminOwner = () => {
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
     { text: "Create Course", icon: <ManageAccounts />, key: "create-course" },
+    {
+      text: "Create Self Learning Course",
+      icon: <ManageAccounts />,
+      key: "create-self-learning-course",
+    },
+
     { text: "All Cohorts", icon: <School />, key: "all-cohorts" },
     { text: "All Courses", icon: <School />, key: "courses" },
 
@@ -1172,6 +1247,104 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
+        {/* === Create Self-Learning Course === */}
+        {activeTab === "create-self-learning-course" && (
+          <Container>
+            <Paper sx={{ p: 4, mb: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                📚 Create Self-Learning Course
+              </Typography>
+
+              <Box
+                component="form"
+                onSubmit={handleCreateCourse}
+                sx={{ display: "flex", flexDirection: "column", gap: 3 }}
+              >
+                <TextField
+                  label="Course Title"
+                  value={title}
+                  onChange={(e) => setTitle(e.target.value)}
+                  required
+                />
+
+                <TextField
+                  label="Description"
+                  multiline
+                  rows={3}
+                  value={description}
+                  onChange={(e) => setDescription(e.target.value)}
+                  required
+                />
+
+                <TextField
+                  label="Price (₦)"
+                  type="number"
+                  value={price}
+                  onChange={(e) => setPrice(e.target.value)}
+                  required
+                />
+
+                <Button
+                  type="submit"
+                  variant="contained"
+                  color="success"
+                  sx={{ width: 220 }}
+                  disabled={loading}
+                >
+                  {loading ? "Creating..." : "Create Course"}
+                </Button>
+
+                {message && <Alert severity="info">{message}</Alert>}
+              </Box>
+            </Paper>
+
+            {/* ===== EXISTING COURSES ===== */}
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
+                📋 Existing Self-Learning Courses
+              </Typography>
+
+              {loading ? (
+                <CircularProgress />
+              ) : selfLearningCourses.length === 0 ? (
+                <Typography color="gray">No courses created yet.</Typography>
+              ) : (
+                selfLearningCourses.map((course) => (
+                  <Paper
+                    key={course._id}
+                    sx={{
+                      p: 2,
+                      mb: 2,
+                      display: "flex",
+                      justifyContent: "space-between",
+                      alignItems: "center",
+                      border: "1px solid #d1fae5",
+                    }}
+                  >
+                    <Box>
+                      <Typography fontWeight="bold">{course.title}</Typography>
+                      <Typography>{course.description}</Typography>
+                      <Typography fontWeight="bold">₦{course.price}</Typography>
+                    </Box>
+
+                    <IconButton
+                      color="error"
+                      onClick={() => handleDeleteCourse(course._id)}
+                    >
+                      <Delete />
+                    </IconButton>
+                  </Paper>
+                ))
+              )}
+            </Paper>
+          </Container>
+        )}
+
         {/* === All Cohorts === */}
         {activeTab === "all-cohorts" && (
           <Container>
