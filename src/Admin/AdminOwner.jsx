@@ -115,13 +115,63 @@ const AdminOwner = () => {
   const [selfLearningCourses, setSelfLearningCourses] = useState([]);
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
+  const [payments, setPayments] = useState([]);
 
   const [announcements, setAnnouncements] = useState([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
 
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+  // Confirm or Reject Self-Learning Payment Proof
+  const handleAction = async (studentId, courseId, action) => {
+    if (!window.confirm("Are you sure you want to proceed?")) return;
+
+    try {
+      setActionLoading(true);
+
+      await axios.post(
+        `${BASE_URL}/api/self-learning/payment/confirm`,
+        { studentId, courseId, action },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setMessage(
+        `Payment ${action === "approve" ? "approved" : "rejected"} successfully`
+      );
+      fetchPayments();
+    } catch (err) {
+      setMessage(err.response?.data?.message || "Action failed");
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  // fetch self-learning payment proofs
+  const fetchPayments = async () => {
+    try {
+      setLoading(true);
+      const res = await axios.get(`${BASE_URL}/api/self-learning/payments`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPayments(res.data.payments || []);
+    } catch (err) {
+      setMessage("Failed to load payment proofs");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === "confirm-self-learning-payment") {
+      fetchPayments();
+    }
+  }, [activeTab]);
+
   // fetch self-learning courses
   const fetchSelfLearningCourses = async () => {
     try {
@@ -661,6 +711,12 @@ const AdminOwner = () => {
     { text: "Coaches", icon: <School />, key: "coaches" },
     { text: "Create Cohort", icon: <School />, key: "create-cohort" },
     { text: "Confirm Payment", icon: <School />, key: "confirm-payment" },
+    {
+      text: "Confirm Self-Learning Payment",
+      icon: <School />,
+      key: "confirm-self-learning-payment",
+    },
+
     {
       text: "Create Announcement",
       icon: <Announcement />,
@@ -1990,6 +2046,122 @@ const AdminOwner = () => {
                 <Typography color="error" mt={2}>
                   {error}
                 </Typography>
+              )}
+            </Paper>
+          </Container>
+        )}
+        {/*CONFIRM SELF LEARNING COURSES PAYMENT */}
+        {activeTab === "confirm-self-learning-payment" && (
+          <Container>
+            <Paper sx={{ p: 4, borderRadius: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                💳 Confirm Self-Learning Payments
+              </Typography>
+
+              {message && (
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  {message}
+                </Alert>
+              )}
+
+              {loading ? (
+                <Box sx={{ display: "flex", justifyContent: "center", my: 4 }}>
+                  <CircularProgress />
+                </Box>
+              ) : payments.length === 0 ? (
+                <Typography sx={{ textAlign: "center", color: "gray" }}>
+                  No pending payment proofs.
+                </Typography>
+              ) : (
+                <Box sx={{ overflowX: "auto" }}>
+                  <Table sx={{ minWidth: 900 }}>
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>Student</TableCell>
+                        <TableCell>Email</TableCell>
+                        <TableCell>Course</TableCell>
+                        <TableCell>Proof</TableCell>
+                        <TableCell>Status</TableCell>
+                        <TableCell align="center">Action</TableCell>
+                      </TableRow>
+                    </TableHead>
+
+                    <TableBody>
+                      {payments.map((p) => (
+                        <TableRow key={p._id}>
+                          <TableCell>{p.student.fullName}</TableCell>
+                          <TableCell>{p.student.email}</TableCell>
+                          <TableCell>{p.course.title}</TableCell>
+
+                          <TableCell>
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              href={p.proofUrl}
+                              target="_blank"
+                            >
+                              View Proof
+                            </Button>
+                          </TableCell>
+
+                          <TableCell>
+                            <Chip
+                              label={p.status}
+                              color={
+                                p.status === "approved"
+                                  ? "success"
+                                  : p.status === "rejected"
+                                  ? "error"
+                                  : "warning"
+                              }
+                            />
+                          </TableCell>
+
+                          <TableCell align="center">
+                            {p.status === "pending" && (
+                              <Box sx={{ display: "flex", gap: 1 }}>
+                                <Button
+                                  variant="contained"
+                                  color="success"
+                                  disabled={actionLoading}
+                                  onClick={() =>
+                                    handleAction(
+                                      p.student._id,
+                                      p.course._id,
+                                      "approve"
+                                    )
+                                  }
+                                >
+                                  Approve
+                                </Button>
+
+                                <Button
+                                  variant="contained"
+                                  color="error"
+                                  disabled={actionLoading}
+                                  onClick={() =>
+                                    handleAction(
+                                      p.student._id,
+                                      p.course._id,
+                                      "reject"
+                                    )
+                                  }
+                                >
+                                  Reject
+                                </Button>
+                              </Box>
+                            )}
+                          </TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </Box>
               )}
             </Paper>
           </Container>
