@@ -50,6 +50,7 @@ import axios from "axios";
 import { useParams } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { io } from "socket.io-client";
+import { toast } from "react-toastify";
 
 const drawerWidth = 250;
 const CHAT_SIDEBAR_WIDTH = 300;
@@ -527,11 +528,65 @@ const CoachDashboard = () => {
     useState("");
   const [selfLearningLoading, setSelfLearningLoading] = useState(false);
   const [slError, setSlError] = useState("");
+
+  const [freeContentType, setFreeContentType] = useState("");
+  const [freeTitle, setFreeTitle] = useState("");
+  const [freeFile, setFreeFile] = useState(null);
+  const [freeUrl, setFreeUrl] = useState("");
+  const [selectedFreeCourseId, setSelectedFreeCourseId] = useState("");
+  const [freeCourses, setFreeCourses] = useState([]);
+  const [freeContents, setFreeContents] = useState([]);
+  const [loadingFreeContent, setLoadingFreeContent] = useState(false);
+
   const CHAT_STORAGE_KEY = "coach_chat_open";
   const user = JSON.parse(localStorage.getItem("user"));
 
   const studentId = user?._id || user?.id;
   const studentName = user?.name || user?.fullName || "Coach";
+
+  // fetch free courses
+
+  const fetchMyFreeCourses = async () => {
+    try {
+      const res = await axios.get(
+        `${BASE_URL}/api/free-learning/free-courses`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setFreeCourses(res.data.courses || []);
+    } catch {
+      toast.error("Failed to load free courses");
+    }
+  };
+  // 🔹 Fetch contents for selected free course
+  const fetchFreeCourseContents = async () => {
+    if (!selectedFreeCourseId) return;
+
+    try {
+      setLoadingFreeContent(true);
+      const res = await axios.get(
+        `${BASE_URL}/api/free-learning/free-courses/${selectedFreeCourseId}/contents`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setFreeContents(res.data.contents || []);
+    } catch {
+      toast.error("Failed to load course contents");
+    } finally {
+      setLoadingFreeContent(false);
+    }
+  };
+  // auto reload
+  useEffect(() => {
+    if (activeTab === "upload-free-learning-doc") {
+      fetchMyFreeCourses();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    fetchFreeCourseContents();
+  }, [selectedFreeCourseId]);
+
   // FETCH SELF LEARNING COURSE CONTENT (DOCUMENTS)
 
   const fetchMyCourseContent = async () => {
@@ -781,6 +836,12 @@ const CoachDashboard = () => {
       icon: <UploadFile />,
       key: "upload-sl-doc",
     },
+    {
+      text: "Upload Free Learning Doc",
+      icon: <UploadFile />,
+      key: "upload-free-learning-doc",
+    },
+
     { text: "Assignments", icon: <AssignmentTurnedIn />, key: "assignments" },
     { text: "Students", icon: <School />, key: "students" },
     {
@@ -2304,6 +2365,190 @@ const CoachDashboard = () => {
                         );
 
                         fetchMyCourseContent();
+                      }}
+                    >
+                      <Delete color="error" />
+                    </IconButton>
+
+                    <Typography fontWeight="bold">{item.title}</Typography>
+                    <Typography variant="body2">Type: {item.type}</Typography>
+
+                    <Button
+                      href={item.url}
+                      target="_blank"
+                      variant="outlined"
+                      sx={{ mt: 1 }}
+                    >
+                      Open
+                    </Button>
+                  </Paper>
+                ))
+              )}
+            </Paper>
+          )}
+          {/* upload free course */}
+          {activeTab === "upload-free-learning-doc" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h6" sx={{ mb: 2 }}>
+                🎁 Upload Free Learning Content
+              </Typography>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+
+                  if (
+                    !freeContentType ||
+                    !freeTitle ||
+                    !selectedFreeCourseId ||
+                    (!freeFile && !freeUrl)
+                  ) {
+                    toast.warning("All fields are required");
+                    return;
+                  }
+
+                  const formData = new FormData();
+                  formData.append("type", freeContentType);
+                  formData.append("title", freeTitle);
+                  if (freeFile) formData.append("file", freeFile);
+                  if (freeUrl) formData.append("url", freeUrl);
+
+                  try {
+                    setLoadingFreeContent(true);
+
+                    await axios.post(
+                      `${BASE_URL}/api/free-learning/free-courses/${selectedFreeCourseId}/content`,
+                      formData,
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+
+                    toast.success("Content uploaded successfully ✅");
+
+                    setFreeTitle("");
+                    setFreeFile(null);
+                    setFreeUrl("");
+
+                    fetchFreeCourseContents();
+                  } catch (err) {
+                    toast.error(err.response?.data?.message || "Upload failed");
+                  } finally {
+                    setLoadingFreeContent(false);
+                  }
+                }}
+              >
+                {/* Content Type */}
+                <TextField
+                  select
+                  label="Content Type"
+                  fullWidth
+                  sx={{ mb: 2 }}
+                  value={freeContentType}
+                  onChange={(e) => setFreeContentType(e.target.value)}
+                >
+                  <MenuItem value="document">Document</MenuItem>
+                  <MenuItem value="video">Video</MenuItem>
+                </TextField>
+
+                {/* Title */}
+                <TextField
+                  label="Title"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={freeTitle}
+                  onChange={(e) => setFreeTitle(e.target.value)}
+                />
+
+                {/* Free Course Selector */}
+                <TextField
+                  select
+                  label="Select Free Course"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={selectedFreeCourseId}
+                  onChange={(e) => setSelectedFreeCourseId(e.target.value)}
+                >
+                  {freeCourses.map((course) => (
+                    <MenuItem key={course._id} value={course._id}>
+                      {course.title}
+                    </MenuItem>
+                  ))}
+                </TextField>
+
+                {/* File Upload */}
+                {(freeContentType === "document" ||
+                  freeContentType === "video") && (
+                  <>
+                    <Button
+                      variant="contained"
+                      component="label"
+                      fullWidth
+                      sx={{ mb: 1 }}
+                    >
+                      Choose{" "}
+                      {freeContentType === "video" ? "Video" : "Document"}
+                      <input
+                        hidden
+                        type="file"
+                        accept={
+                          freeContentType === "video"
+                            ? "video/*"
+                            : ".pdf,.doc,.docx"
+                        }
+                        onChange={(e) => setFreeFile(e.target.files[0])}
+                      />
+                    </Button>
+
+                    {freeFile && (
+                      <Typography variant="body2">
+                        Selected: <strong>{freeFile.name}</strong>
+                      </Typography>
+                    )}
+                  </>
+                )}
+
+                <Button
+                  type="submit"
+                  variant="contained"
+                  fullWidth
+                  disabled={loadingFreeContent}
+                >
+                  {loadingFreeContent ? (
+                    <CircularProgress size={24} />
+                  ) : (
+                    "Upload Content"
+                  )}
+                </Button>
+              </form>
+
+              {/* Uploaded Contents */}
+              <Typography variant="h6" sx={{ mt: 4 }}>
+                📂 Uploaded Contents
+              </Typography>
+
+              {loadingFreeContent ? (
+                <CircularProgress />
+              ) : freeContents.length === 0 ? (
+                <Typography>No content uploaded yet.</Typography>
+              ) : (
+                freeContents.map((item) => (
+                  <Paper
+                    key={item._id}
+                    sx={{ p: 2, mb: 2, position: "relative" }}
+                  >
+                    <IconButton
+                      sx={{ position: "absolute", top: 8, right: 8 }}
+                      onClick={async () => {
+                        if (!window.confirm("Delete this content?")) return;
+
+                        await axios.delete(
+                          `${BASE_URL}/api/free-learning/free-content/${item._id}`,
+                          { headers: { Authorization: `Bearer ${token}` } }
+                        );
+
+                        toast.success("Content deleted");
+                        fetchFreeCourseContents();
                       }}
                     >
                       <Delete color="error" />
