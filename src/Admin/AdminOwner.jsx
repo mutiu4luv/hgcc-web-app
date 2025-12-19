@@ -64,6 +64,7 @@ import {
 
 import { motion } from "framer-motion";
 import axios from "axios";
+import { toast } from "react-toastify";
 
 const AdminOwner = () => {
   const [title, setTitle] = useState("");
@@ -121,9 +122,108 @@ const AdminOwner = () => {
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
   const [actionLoading, setActionLoading] = useState(false);
 
+  const [freeTitle, setFreeTitle] = useState("");
+  const [freeDescription, setFreeDescription] = useState("");
+  const [freeCourses, setFreeCourses] = useState([]);
+  const [loadingFree, setLoadingFree] = useState(false);
+  const [freeCoachId, setFreeCoachId] = useState("");
+  const [creatingFree, setCreatingFree] = useState(false);
+  const [loadingFreeCourses, setLoadingFreeCourses] = useState(false);
+
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+  // get all coaches
+  const fetchCoaches = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/api/users/coaches`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      // Access res.data.coaches based on your controller structure
+      setSafeCoachesList(res.data.coaches || []);
+    } catch (err) {
+      console.error("Error fetching coaches:", err);
+      toast.error("Could not load coaches list");
+    }
+  };
+
+  // CREATE FREE COURSE HANDLER
+  const handleCreateFreeCourse = async (e) => {
+    e.preventDefault();
+
+    if (!freeTitle || !freeDescription || !freeCoachId) {
+      toast.warning("All fields are required");
+      return;
+    }
+
+    try {
+      setCreatingFree(true);
+
+      await axios.post(
+        `${BASE_URL}/api/free-learning/free-courses`,
+        {
+          title: freeTitle,
+          description: freeDescription,
+          coachId: freeCoachId,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      toast.success("Free course created successfully 🎉");
+
+      // CLEAR FORM
+      setFreeTitle("");
+      setFreeDescription("");
+      setFreeCoachId("");
+
+      fetchFreeCourses();
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Failed to create free course"
+      );
+    } finally {
+      setCreatingFree(false);
+    }
+  };
+
+  // FETCH FREE COURSES
+  const fetchFreeCourses = async () => {
+    try {
+      setLoadingFreeCourses(true);
+
+      const res = await axios.get(
+        `${BASE_URL}/api/free-learning/free-courses`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setFreeCourses(res.data.courses || []);
+    } catch {
+      toast.error("Failed to load free courses");
+    } finally {
+      setLoadingFreeCourses(false);
+    }
+  };
+
+  // DELETE COURSE
+  const handleDeleteFreeCourse = async (courseId) => {
+    if (!window.confirm("Delete this free course?")) return;
+
+    try {
+      await axios.delete(
+        `${BASE_URL}/api/free-learning/free-courses/${courseId}`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success("Free course deleted");
+      fetchFreeCourses();
+    } catch {
+      toast.error("Failed to delete free course");
+    }
+  };
 
   // Confirm or Reject Self-Learning Payment Proof
   const handleAction = async (studentId, courseId, action) => {
@@ -150,6 +250,14 @@ const AdminOwner = () => {
       setActionLoading(false);
     }
   };
+
+  // fetch when tab is open
+
+  useEffect(() => {
+    if (activeTab === "create-free-learning-course") {
+      fetchFreeCourses();
+    }
+  }, [activeTab]);
 
   // fetch self-learning payment proofs
   const fetchPayments = async () => {
@@ -702,6 +810,11 @@ const AdminOwner = () => {
       text: "Create Self Learning Course",
       icon: <ManageAccounts />,
       key: "create-self-learning-course",
+    },
+    {
+      text: "Create Free Learning Course",
+      icon: <ManageAccounts />,
+      key: "create-free-learning-course",
     },
 
     { text: "All Cohorts", icon: <School />, key: "all-cohorts" },
@@ -1424,6 +1537,120 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
+        {/* create free learning class */}
+        <Container
+          sx={{
+            display:
+              activeTab === "create-free-learning-course" ? "block" : "none",
+          }}
+        >
+          {/* ===== CREATE FREE COURSE ===== */}
+          <Paper sx={{ p: 4, mb: 4 }}>
+            <Typography
+              variant="h4"
+              color="green"
+              fontWeight="bold"
+              gutterBottom
+            >
+              🎁 Create Free Course
+            </Typography>
+
+            <Box
+              component="form"
+              onSubmit={handleCreateFreeCourse}
+              sx={{ display: "flex", flexDirection: "column", gap: 3 }}
+            >
+              <TextField
+                label="Course Title"
+                value={freeTitle}
+                onChange={(e) => setFreeTitle(e.target.value)}
+                required
+              />
+
+              {/* ASSIGN COACH */}
+              <TextField
+                select
+                SelectProps={{ native: true }}
+                fullWidth
+                value={freeCoachId}
+                onChange={(e) => setFreeCoachId(e.target.value)}
+                required
+                helperText="Please select a coach to assign to this course"
+              >
+                <option value="">-- Assign Coach --</option>
+                {safeCoachesList.map((coach) => (
+                  <option key={coach._id} value={coach._id}>
+                    {coach.fullName} ({coach.email})
+                  </option>
+                ))}
+              </TextField>
+
+              <TextField
+                label="Description"
+                multiline
+                rows={3}
+                value={freeDescription}
+                onChange={(e) => setFreeDescription(e.target.value)}
+                required
+              />
+
+              <Button
+                type="submit"
+                variant="contained"
+                color="success"
+                sx={{ width: 220 }}
+                disabled={creatingFree}
+              >
+                {creatingFree ? "Creating..." : "Create Free Course"}
+              </Button>
+            </Box>
+          </Paper>
+
+          {/* ===== EXISTING FREE COURSES ===== */}
+          <Paper sx={{ p: 4 }}>
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              📋 Existing Free Courses
+            </Typography>
+
+            {loadingFreeCourses ? (
+              <CircularProgress />
+            ) : freeCourses.length === 0 ? (
+              <Typography color="gray">No free courses created yet.</Typography>
+            ) : (
+              freeCourses.map((course) => (
+                <Paper
+                  key={course._id}
+                  sx={{
+                    p: 2,
+                    mb: 2,
+                    display: "flex",
+                    justifyContent: "space-between",
+                    alignItems: "center",
+                    border: "1px solid #d1fae5",
+                  }}
+                >
+                  <Box>
+                    <Typography fontWeight="bold">{course.title}</Typography>
+                    <Typography>{course.description}</Typography>
+
+                    {course.coachId?.fullName && (
+                      <Typography sx={{ fontSize: 13, color: "gray" }}>
+                        Coach: {course.coachId.fullName}
+                      </Typography>
+                    )}
+                  </Box>
+
+                  <IconButton
+                    color="error"
+                    onClick={() => handleDeleteFreeCourse(course._id)}
+                  >
+                    <Delete />
+                  </IconButton>
+                </Paper>
+              ))
+            )}
+          </Paper>
+        </Container>
 
         {/* === All Cohorts === */}
         {activeTab === "all-cohorts" && (

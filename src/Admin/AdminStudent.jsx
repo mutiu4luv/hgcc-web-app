@@ -111,9 +111,88 @@ const StudentDashboard = () => {
     useState("");
   const [selectedPaidCourse, setSelectedPaidCourse] = useState("");
 
+  const [freeCourses, setFreeCourses] = useState([]);
+  const [myFreeCourses, setMyFreeCourses] = useState([]);
+  const [selectedMyFreeCourse, setSelectedMyFreeCourse] = useState("");
+  const [freeCourseContents, setFreeCourseContents] = useState([]);
+
   const hasPaid = paidCourses.some(
     (c) => String(c.courseId) === String(selectedMarketplaceCourse)
   );
+  // FETCH FREE COURSES (MARKETPLACE)
+  const fetchFreeCourses = async () => {
+    try {
+      const res = await axios.get(
+        `${BASE_URL}/api/free-learning/free-courses`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setFreeCourses(res.data.courses || []);
+    } catch {
+      toast.error("Failed to load free courses");
+    }
+  };
+
+  // FETCH MY FREE COURSES (REGISTERED)
+  const fetchMyFreeCourses = async () => {
+    try {
+      const res = await axios.get(
+        `${BASE_URL}/api/free-learning/free-courses/my`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+      setMyFreeCourses(res.data.courses || []);
+    } catch {
+      toast.error("Failed to load your free courses");
+    }
+  };
+  // REGISTER FREE COURSE
+  const handleRegisterFreeCourse = async () => {
+    if (!selectedMarketplaceCourse) {
+      toast.warning("Select a course first");
+      return;
+    }
+
+    try {
+      await axios.post(
+        `${BASE_URL}/api/free-learning/free-courses/${selectedMarketplaceCourse}/register`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      toast.success("Registered successfully 🎉");
+      setSelectedMarketplaceCourse("");
+      fetchMyFreeCourses(); // auto refresh
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Registration failed");
+    }
+  };
+
+  // FETCH FREE COURSE CONTENT (REGISTERED ONLY)
+  const fetchFreeCourseContents = async (courseId) => {
+    try {
+      setLoadingContents(true);
+      const res = await axios.get(
+        `${BASE_URL}/api/free-learning/free-courses/${courseId}/contents`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+      setFreeCourseContents(res.data.contents || []);
+    } catch {
+      toast.error("Failed to load course materials");
+    } finally {
+      setLoadingContents(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedMyFreeCourse) {
+      fetchFreeCourseContents(selectedMyFreeCourse);
+    } else {
+      setFreeCourseContents([]);
+    }
+  }, [selectedMyFreeCourse]);
 
   const [text, setText] = useState("");
   const chatEndRef = useRef(null);
@@ -394,8 +473,8 @@ const StudentDashboard = () => {
       icon: <AssignmentTurnedIn />,
       key: "register-course",
     },
-    { text: "Self Learning", icon: <School />, key: "self-learning" }, // ✅ NEW
-
+    { text: "Self Learning", icon: <School />, key: "self-learning" },
+    { text: "Free Learning", icon: <School />, key: "free-learning" },
     { text: "Join Class", icon: <Videocam />, key: "join-class" },
     { text: "Join Live Class", icon: <LiveTv />, key: "join-live" },
   ];
@@ -2218,6 +2297,121 @@ const StudentDashboard = () => {
                           src={item.url}
                           controls
                           controlsList="nodownload"
+                          style={{ width: "100%", marginTop: 10 }}
+                        />
+                      )}
+                    </Paper>
+                  ))
+                )}
+              </Paper>
+            )}
+          </Paper>
+        )}
+
+        {activeTab === "free-learning" && (
+          <Paper sx={{ p: 4 }}>
+            <Typography variant="h4" fontWeight="bold" gutterBottom>
+              🎁 Free Courses
+            </Typography>
+
+            {/* ================= MARKETPLACE ================= */}
+            <Typography fontWeight="bold" sx={{ mb: 1 }}>
+              Browse & Register
+            </Typography>
+
+            <TextField
+              select
+              fullWidth
+              label="Select Free Course"
+              value={selectedMarketplaceCourse}
+              onChange={(e) => setSelectedMarketplaceCourse(e.target.value)}
+              sx={{ mb: 3 }}
+            >
+              <MenuItem value="">-- Select Course --</MenuItem>
+              {freeCourses.map((course) => (
+                <MenuItem key={course._id} value={course._id}>
+                  {course.title}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            {selectedMarketplaceCourse &&
+              (() => {
+                const course = freeCourses.find(
+                  (c) => c._id === selectedMarketplaceCourse
+                );
+                if (!course) return null;
+
+                return (
+                  <Paper sx={{ p: 3, mb: 3 }}>
+                    <Typography fontWeight="bold">{course.title}</Typography>
+                    <Typography>{course.description}</Typography>
+                    <Typography sx={{ mt: 1 }}>
+                      Coach: {course.coachId?.fullName}
+                    </Typography>
+                  </Paper>
+                );
+              })()}
+
+            <Button
+              variant="contained"
+              color="primary"
+              onClick={handleRegisterFreeCourse}
+              sx={{ mb: 5 }}
+            >
+              Register (Free)
+            </Button>
+
+            {/* ================= MY FREE COURSES ================= */}
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              📚 My Free Courses
+            </Typography>
+
+            <TextField
+              select
+              fullWidth
+              label="Select My Course"
+              value={selectedMyFreeCourse}
+              onChange={(e) => setSelectedMyFreeCourse(e.target.value)}
+              sx={{ mb: 3 }}
+            >
+              <MenuItem value="">-- Select Course --</MenuItem>
+              {myFreeCourses.map((course) => (
+                <MenuItem key={course.courseId} value={course.courseId}>
+                  {course.title}
+                </MenuItem>
+              ))}
+            </TextField>
+
+            {/* ================= CONTENT ================= */}
+            {selectedMyFreeCourse && (
+              <Paper sx={{ mt: 4, p: 3 }}>
+                <Typography variant="h6" fontWeight="bold">
+                  📂 Course Materials
+                </Typography>
+
+                {loadingContents ? (
+                  <CircularProgress />
+                ) : freeCourseContents.length === 0 ? (
+                  <Typography color="gray">No materials yet</Typography>
+                ) : (
+                  freeCourseContents.map((item) => (
+                    <Paper key={item._id} sx={{ p: 2, mb: 2 }}>
+                      <Typography fontWeight="bold">{item.title}</Typography>
+
+                      {item.type === "document" && (
+                        <iframe
+                          src={`${item.url}#toolbar=0`}
+                          width="100%"
+                          height="400"
+                          style={{ border: "none", marginTop: 10 }}
+                        />
+                      )}
+
+                      {item.type === "video" && (
+                        <video
+                          src={item.url}
+                          controls
                           style={{ width: "100%", marginTop: 10 }}
                         />
                       )}
