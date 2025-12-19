@@ -526,7 +526,7 @@ const CoachDashboard = () => {
   const [selectedSelfLearningCourseId, setSelectedSelfLearningCourseId] =
     useState("");
   const [selfLearningLoading, setSelfLearningLoading] = useState(false);
-
+  const [slError, setSlError] = useState("");
   const CHAT_STORAGE_KEY = "coach_chat_open";
   const user = JSON.parse(localStorage.getItem("user"));
 
@@ -539,6 +539,7 @@ const CoachDashboard = () => {
 
     try {
       setSlLoading(true);
+      setSlError("");
 
       const { data } = await axios.get(
         `${BASE_URL}/api/self-learning/course/${selectedSelfLearningCourseId}/content`,
@@ -551,6 +552,11 @@ const CoachDashboard = () => {
       setSlContents(data.contents || []);
     } catch (err) {
       console.error("❌ Failed to fetch content", err);
+
+      const message =
+        err.response?.data?.message || "Failed to load course content";
+
+      setSlError(message);
       setSlContents([]);
     } finally {
       setSlLoading(false);
@@ -2275,6 +2281,10 @@ const CoachDashboard = () => {
 
               {slLoading ? (
                 <CircularProgress />
+              ) : slError ? (
+                <Alert severity="error" sx={{ mt: 2 }}>
+                  {slError}
+                </Alert>
               ) : slContents.length === 0 ? (
                 <Typography>No content uploaded yet.</Typography>
               ) : (
