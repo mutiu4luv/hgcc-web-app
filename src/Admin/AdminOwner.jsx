@@ -2120,7 +2120,9 @@ const AdminOwner = () => {
                         <TableRow key={p._id}>
                           <TableCell>{p.student.fullName}</TableCell>
                           <TableCell>{p.student.email}</TableCell>
-                          <TableCell>{p.course.title}</TableCell>
+                          <TableCell>
+                            {p.course?.title || "Course removed"}
+                          </TableCell>
 
                           <TableCell>
                             <Button

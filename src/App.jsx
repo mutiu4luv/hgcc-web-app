@@ -14,6 +14,8 @@ import AdminCoach from "./Admin/AdminCoachesScreen";
 import AdminStudent from "./Admin/AdminStudent";
 import PaymentScreen from "./Screens/Payment";
 import SelfLearningPayment from "./Screens/SelfLearningPayment";
+import { ToastContainer } from "react-toastify";
+import "react-toastify/dist/ReactToastify.css";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -22,6 +24,15 @@ function App() {
   return (
     <>
       <Navbar />
+      <ToastContainer
+        position="top-right"
+        autoClose={3000}
+        hideProgressBar={false}
+        closeOnClick
+        pauseOnHover
+        draggable
+        theme="colored"
+      />
       <Routes>
         <Route path="/" element={<LandingPage />} />
         <Route path="/register" element={<Register />} />

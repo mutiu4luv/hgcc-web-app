@@ -42,6 +42,8 @@ import { pdfjs } from "react-pdf";
 import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
 import "../Admin/AdninStudent.css";
 import io from "socket.io-client";
+import { toast } from "react-toastify";
+
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js`;
 
 const drawerWidth = 250;
@@ -100,8 +102,130 @@ const StudentDashboard = () => {
     useState("");
   const [registeringCourse, setRegisteringCourse] = useState(false);
   const [chatMessages, setChatMessages] = useState([]);
+
+  const [courseContents, setCourseContents] = useState([]);
+  const [loadingContents, setLoadingContents] = useState(false);
+  const [contentError, setContentError] = useState("");
+  const [paidCourses, setPaidCourses] = useState([]);
+  const [selectedMarketplaceCourse, setSelectedMarketplaceCourse] =
+    useState("");
+  const [selectedPaidCourse, setSelectedPaidCourse] = useState("");
+
+  const hasPaid = paidCourses.some(
+    (c) => String(c.courseId) === String(selectedMarketplaceCourse)
+  );
+
   const [text, setText] = useState("");
   const chatEndRef = useRef(null);
+
+  const fetchMyPaidCourses = async () => {
+    try {
+      const res = await axios.get(`${BASE_URL}/api/self-learning/my-courses`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setPaidCourses(res.data.courses || []);
+      console.log(res);
+    } catch (err) {
+      console.error("Failed to load paid courses");
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedPaidCourse) return;
+    fetchCourseContents(selectedPaidCourse);
+  }, [selectedPaidCourse]);
+
+  useEffect(() => {
+    if (activeTab !== "self-learning") return;
+
+    fetchMyPaidCourses();
+
+    const fetchSelfLearningCourses = async () => {
+      try {
+        setLoadingSelfLearning(true);
+        const res = await axios.get(`${BASE_URL}/api/self-learning/courses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSelfLearningCourses(res.data.courses || []);
+      } catch (err) {
+        setMessage("Failed to load self-learning courses");
+      } finally {
+        setLoadingSelfLearning(false);
+      }
+    };
+
+    fetchSelfLearningCourses();
+  }, [activeTab]);
+
+  // fetch students content
+  useEffect(() => {
+    if (activeTab !== "self-learning") return;
+
+    fetchMyPaidCourses();
+
+    const fetchSelfLearningCourses = async () => {
+      try {
+        setLoadingSelfLearning(true);
+        const res = await axios.get(`${BASE_URL}/api/self-learning/courses`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        setSelfLearningCourses(res.data.courses || []);
+      } catch (err) {
+        setMessage("Failed to load self-learning courses");
+      } finally {
+        setLoadingSelfLearning(false);
+      }
+    };
+
+    fetchSelfLearningCourses();
+  }, [activeTab]);
+
+  const fetchCourseContents = async (courseId) => {
+    try {
+      setLoadingContents(true);
+      setContentError("");
+
+      const res = await axios.get(
+        `${BASE_URL}/api/self-learning/course/${courseId}/contents`,
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      setCourseContents(res.data.contents || []);
+    } catch (err) {
+      setContentError(
+        err.response?.data?.message || "Failed to load course materials"
+      );
+      setCourseContents([]);
+    } finally {
+      setLoadingContents(false);
+    }
+  };
+
+  useEffect(() => {
+    if (!selectedSelfLearningCourse) {
+      setCourseContents([]);
+      return;
+    }
+
+    if (!hasPaid) {
+      setCourseContents([]);
+      return;
+    }
+
+    fetchCourseContents(selectedSelfLearningCourse);
+  }, [selectedSelfLearningCourse, hasPaid]);
+
+  //  Trigger fetch when student selects a course AND is registered
+  useEffect(() => {
+    if (
+      selectedSelfLearningCourse &&
+      registeredCourses.includes(selectedSelfLearningCourse)
+    ) {
+      fetchCourseContents(selectedSelfLearningCourse);
+    } else {
+      setCourseContents([]);
+    }
+  }, [selectedSelfLearningCourse, registeredCourses]);
 
   // FETCH SELF-LEARNING COURSES
   useEffect(() => {
@@ -215,12 +339,12 @@ const StudentDashboard = () => {
 
   // REGISTER FOR SELF-LEARNING COURSE
   const handleRegisterSelfLearning = async () => {
-    if (!selectedSelfLearningCourse) {
+    if (!selectedMarketplaceCourse) {
       setMessage("Please select a course first");
       return;
     }
 
-    if (registeredCourses.includes(selectedSelfLearningCourse)) {
+    if (registeredCourses.includes(selectedMarketplaceCourse)) {
       setMessage("You are already registered for this course");
       return;
     }
@@ -228,20 +352,29 @@ const StudentDashboard = () => {
     try {
       setRegisteringCourse(true);
 
+      console.log("Registering course:", selectedMarketplaceCourse);
+
       await axios.post(
-        `${BASE_URL}/api/self-learning/course/${selectedSelfLearningCourse}/register`,
+        `${BASE_URL}/api/self-learning/course/${selectedMarketplaceCourse}/register`,
         {},
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      // mark as registered locally
-      setRegisteredCourses((prev) => [...prev, selectedSelfLearningCourse]);
-
+      setRegisteredCourses((prev) => [...prev, selectedMarketplaceCourse]);
+      toast.update("register", {
+        render: "✅ Registered successfully. Proceed to payment.",
+        type: "success",
+        isLoading: false,
+        autoClose: 3000,
+      });
       setMessage("✅ Registered successfully. Proceed to payment.");
-      navigate(`/student/payment/${selectedSelfLearningCourse}`);
+      navigate(`/student/payment/${selectedMarketplaceCourse}`);
     } catch (err) {
+      console.error(err);
+      toast.error("Failed to load self-learning courses");
+
       setMessage(err.response?.data?.message || "Registration failed");
     } finally {
       setRegisteringCourse(false);
@@ -1943,97 +2076,155 @@ const StudentDashboard = () => {
         {/* SELF LEARNING TAB */}
         {activeTab === "self-learning" && (
           <Paper sx={{ p: 4 }}>
-            <Typography
-              variant="h4"
-              color="green"
-              fontWeight="bold"
-              gutterBottom
-            >
+            <Typography variant="h4" fontWeight="bold" gutterBottom>
               📚 Self-Learning Courses
             </Typography>
 
-            {message && (
-              <Alert sx={{ mb: 2 }} severity="info">
-                {message}
-              </Alert>
-            )}
+            {/* ===================== */}
+            {/* 🔹 REGISTER NEW COURSE */}
+            {/* ===================== */}
+            <Typography fontWeight="bold" sx={{ mb: 1 }}>
+              Browse & Register
+            </Typography>
 
-            {loadingSelfLearning ? (
-              <CircularProgress />
-            ) : selfLearningCourses.length === 0 ? (
-              <Typography color="gray" sx={{ mt: 2 }}>
-                No self-learning courses available at the moment.
-              </Typography>
-            ) : (
-              <>
-                {/* COURSE DROPDOWN */}
-                <TextField
-                  select
-                  fullWidth
-                  label="Select Self-Learning Course"
-                  value={selectedSelfLearningCourse}
-                  onChange={(e) =>
-                    setSelectedSelfLearningCourse(e.target.value)
-                  }
-                  sx={{ mb: 3 }}
-                >
-                  <MenuItem value="">-- Select Course --</MenuItem>
+            <TextField
+              select
+              fullWidth
+              label="Select Course"
+              value={selectedMarketplaceCourse}
+              onChange={(e) => setSelectedMarketplaceCourse(e.target.value)}
+              sx={{ mb: 3 }}
+            >
+              <MenuItem value="">-- Select Course --</MenuItem>
+              {selfLearningCourses.map((course) => (
+                <MenuItem key={course._id} value={course._id}>
+                  {course.title} — ₦{course.price}
+                </MenuItem>
+              ))}
+            </TextField>
 
-                  {selfLearningCourses.map((course) => (
-                    <MenuItem key={course._id} value={course._id}>
-                      {course.title} — ₦{course.price}
-                    </MenuItem>
-                  ))}
-                </TextField>
+            {selectedMarketplaceCourse &&
+              (() => {
+                const course = selfLearningCourses.find(
+                  (c) => c._id === selectedMarketplaceCourse
+                );
+                if (!course) return null;
 
-                {/* COURSE DETAILS */}
-                {selectedSelfLearningCourse &&
-                  (() => {
-                    const course = selfLearningCourses.find(
-                      (c) => c._id === selectedSelfLearningCourse
-                    );
+                return (
+                  <Paper sx={{ p: 3, mb: 3 }}>
+                    <Typography fontWeight="bold">{course.title}</Typography>
+                    <Typography>{course.description}</Typography>
+                    <Typography fontWeight="bold">₦{course.price}</Typography>
+                  </Paper>
+                );
+              })()}
 
-                    if (!course) return null;
+            <Button
+              variant="contained"
+              color={hasPaid ? "success" : "primary"}
+              disabled={
+                !selectedMarketplaceCourse || hasPaid || registeringCourse
+              }
+              onClick={handleRegisterSelfLearning}
+              sx={{ mb: 5 }}
+            >
+              {registeringCourse
+                ? "Registering..."
+                : hasPaid
+                ? "Paid & Active"
+                : "Register"}
+            </Button>
 
-                    return (
-                      <Paper sx={{ p: 3, mb: 3, backgroundColor: "#f9f9f9" }}>
-                        <Typography variant="h6" fontWeight="bold">
-                          {course.title}
-                        </Typography>
+            {/* ===================== */}
+            {/* 🔹 PAID COURSES AREA */}
+            {/* ===================== */}
+            <Typography variant="h5" fontWeight="bold" gutterBottom>
+              🎓 My Paid Courses
+            </Typography>
 
-                        <Typography sx={{ mt: 1 }}>
-                          {course.description}
-                        </Typography>
+            <TextField
+              select
+              fullWidth
+              label="Select Paid Course"
+              value={selectedPaidCourse}
+              onChange={(e) => setSelectedPaidCourse(e.target.value)}
+              sx={{ mb: 3 }}
+            >
+              <MenuItem value="">-- Select Course --</MenuItem>
 
-                        <Typography sx={{ mt: 1, fontWeight: "bold" }}>
-                          Price: ₦{course.price}
-                        </Typography>
-                      </Paper>
-                    );
-                  })()}
+              {paidCourses.map((course) => (
+                <MenuItem key={course.courseId} value={course.courseId}>
+                  {course.title}
+                </MenuItem>
+              ))}
+            </TextField>
 
-                {/* REGISTER BUTTON */}
-                <Button
-                  variant="contained"
-                  color={
-                    registeredCourses.includes(selectedSelfLearningCourse)
-                      ? "success"
-                      : "primary"
-                  }
-                  disabled={
-                    !selectedSelfLearningCourse ||
-                    registeringCourse ||
-                    registeredCourses.includes(selectedSelfLearningCourse)
-                  }
-                  onClick={handleRegisterSelfLearning}
-                >
-                  {registeredCourses.includes(selectedSelfLearningCourse)
-                    ? "Registered"
-                    : registeringCourse
-                    ? "Registering..."
-                    : "Register"}
-                </Button>
-              </>
+            {/* PAID COURSE DETAILS */}
+            {selectedPaidCourse &&
+              (() => {
+                const course = paidCourses.find(
+                  (c) => String(c.courseId) === String(selectedPaidCourse)
+                );
+                if (!course) return null;
+
+                return (
+                  <Paper sx={{ p: 3, mb: 3, backgroundColor: "#f9f9f9" }}>
+                    <Typography fontWeight="bold">{course.title}</Typography>
+                    <Typography>{course.description}</Typography>
+                    <Typography fontWeight="bold">₦{course.price}</Typography>
+
+                    <Typography sx={{ mt: 1 }}>
+                      Coach: {course.coach?.fullName}
+                    </Typography>
+
+                    <Typography sx={{ mt: 1 }} color="green">
+                      Payment: {course.payment?.status || "approved"}
+                    </Typography>
+                  </Paper>
+                );
+              })()}
+
+            {/* COURSE CONTENTS */}
+            {selectedPaidCourse && (
+              <Paper sx={{ mt: 4, p: 3 }}>
+                <Typography variant="h6" fontWeight="bold" gutterBottom>
+                  📂 Course Materials
+                </Typography>
+
+                {loadingContents ? (
+                  <CircularProgress />
+                ) : contentError ? (
+                  <Alert severity="warning">{contentError}</Alert>
+                ) : courseContents.length === 0 ? (
+                  <Typography color="gray">
+                    No materials uploaded yet.
+                  </Typography>
+                ) : (
+                  courseContents.map((item) => (
+                    <Paper key={item._id} sx={{ p: 2, mb: 2 }}>
+                      <Typography fontWeight="bold">{item.title}</Typography>
+
+                      {item.type === "document" && (
+                        <iframe
+                          src={`${item.url}#toolbar=0`}
+                          width="100%"
+                          height="400"
+                          style={{ border: "none", marginTop: 10 }}
+                        />
+                      )}
+
+                      {item.type === "video" && (
+                        <video
+                          src={item.url}
+                          controls
+                          controlsList="nodownload"
+                          style={{ width: "100%", marginTop: 10 }}
+                        />
+                      )}
+                    </Paper>
+                  ))
+                )}
+              </Paper>
             )}
           </Paper>
         )}
