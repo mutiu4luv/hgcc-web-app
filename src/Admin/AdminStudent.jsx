@@ -129,10 +129,18 @@ const StudentDashboard = () => {
         }
       );
       setFreeCourses(res.data.courses || []);
+      console.log("free course fetched", res);
     } catch {
       toast.error("Failed to load free courses");
     }
   };
+
+  useEffect(() => {
+    if (activeTab === "free-learning") {
+      fetchFreeCourses();
+      fetchMyFreeCourses();
+    }
+  }, [activeTab]);
 
   // FETCH MY FREE COURSES (REGISTERED)
   const fetchMyFreeCourses = async () => {
@@ -164,7 +172,7 @@ const StudentDashboard = () => {
 
       toast.success("Registered successfully 🎉");
       setSelectedMarketplaceCourse("");
-      fetchMyFreeCourses(); // auto refresh
+      fetchMyFreeCourses();
     } catch (err) {
       toast.error(err.response?.data?.message || "Registration failed");
     }
