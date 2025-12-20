@@ -544,38 +544,41 @@ const CoachDashboard = () => {
   const studentId = user?._id || user?.id;
   const studentName = user?.name || user?.fullName || "Coach";
 
-  // fetch free courses
+  // fetch Coaches free courses
 
   const fetchMyFreeCourses = async () => {
     try {
       const res = await axios.get(
-        `${BASE_URL}/api/free-learning/free-courses`,
-        {
-          headers: { Authorization: `Bearer ${token}` },
-        }
+        `${BASE_URL}/api/free-learning/free-courses/coach/my`,
+        { headers: { Authorization: `Bearer ${token}` } }
       );
+
       setFreeCourses(res.data.courses || []);
+      console.log(res);
     } catch {
-      toast.error("Failed to load free courses");
+      toast.error("Failed to load your free courses");
     }
   };
-  // 🔹 Fetch contents for selected free course
+  // 🔹 Fetch coach contents for selected free course
   const fetchFreeCourseContents = async () => {
     if (!selectedFreeCourseId) return;
 
     try {
       setLoadingFreeContent(true);
+
       const res = await axios.get(
-        `${BASE_URL}/api/free-learning/free-courses/${selectedFreeCourseId}/contents`,
+        `${BASE_URL}/api/free-learning/free-courses/${selectedFreeCourseId}/contents/coach`,
         { headers: { Authorization: `Bearer ${token}` } }
       );
+
       setFreeContents(res.data.contents || []);
-    } catch {
-      toast.error("Failed to load course contents");
+    } catch (err) {
+      toast.error(err.response?.data?.message || "Failed to load contents");
     } finally {
       setLoadingFreeContent(false);
     }
   };
+
   // auto reload
   useEffect(() => {
     if (activeTab === "upload-free-learning-doc") {
@@ -585,6 +588,18 @@ const CoachDashboard = () => {
 
   useEffect(() => {
     fetchFreeCourseContents();
+  }, [selectedFreeCourseId]);
+
+  useEffect(() => {
+    if (activeTab === "upload-free-learning-doc") {
+      fetchMyFreeCourses();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (selectedFreeCourseId) {
+      fetchFreeCourseContents();
+    }
   }, [selectedFreeCourseId]);
 
   // FETCH SELF LEARNING COURSE CONTENT (DOCUMENTS)
