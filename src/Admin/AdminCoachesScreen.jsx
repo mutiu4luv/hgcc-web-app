@@ -991,18 +991,30 @@ const CoachDashboard = () => {
 
   const handleDocumentUpload = async (e) => {
     e.preventDefault();
-    if (!docFile || !docTitle || !unlockAt) return;
+
+    if (!docFile || !docTitle || !unlockAt) {
+      toast.warning("All fields are required, including the unlock time.");
+      return;
+    }
 
     setLoading(true);
     const token = localStorage.getItem("token");
-    const formData = new FormData();
-    formData.append("title", docTitle);
-    formData.append("courseId", selectedCourseId);
-    formData.append("unlockAt", unlockAt);
-    formData.append("file", docFile);
-    // ✅ required field
 
     try {
+      // 🔥 User selects Nigeria time (WAT)
+      const localDate = new Date(unlockAt);
+
+      // 🔥 Convert WAT (UTC+1) → UTC
+      const adjustedDate = new Date(localDate.getTime() - 60 * 60 * 1000);
+      const utcUnlockTime = adjustedDate.toISOString();
+
+      // Prepare FormData
+      const formData = new FormData();
+      formData.append("title", docTitle);
+      formData.append("courseId", selectedCourseId);
+      formData.append("unlockAt", utcUnlockTime);
+      formData.append("file", docFile);
+
       const res = await fetch(`${BASE_URL}/api/coach/upload-document`, {
         method: "POST",
         headers: {
@@ -1012,20 +1024,73 @@ const CoachDashboard = () => {
       });
 
       const data = await res.json();
-      if (!res.ok) throw new Error(data.message || "Upload failed");
 
-      alert("Document uploaded successfully!");
-      // Optionally refresh the document list
+      if (!res.ok) {
+        throw new Error(data.message || "Upload failed");
+      }
+
+      toast.success(
+        `✅ Document uploaded! It will unlock at ${localDate.toLocaleTimeString(
+          "en-NG",
+          {
+            hour: "2-digit",
+            minute: "2-digit",
+          }
+        )} (Nigeria Time)`
+      );
+
+      // Clear form
       setDocTitle("");
       setDocFile(null);
       setUnlockAt("");
+
+      // Optional refresh
+      // if (typeof fetchDocuments === "function") fetchDocuments();
     } catch (err) {
-      console.error(err);
-      alert(err.message);
+      console.error("❌ Document Upload Error:", err);
+      toast.error(err.message || "Document upload failed");
     } finally {
       setLoading(false);
     }
   };
+
+  // const handleDocumentUpload = async (e) => {
+  //   e.preventDefault();
+  //   if (!docFile || !docTitle || !unlockAt) return;
+
+  //   setLoading(true);
+  //   const token = localStorage.getItem("token");
+  //   const formData = new FormData();
+  //   formData.append("title", docTitle);
+  //   formData.append("courseId", selectedCourseId);
+  //   formData.append("unlockAt", unlockAt);
+  //   formData.append("file", docFile);
+  //   // ✅ required field
+
+  //   try {
+  //     const res = await fetch(`${BASE_URL}/api/coach/upload-document`, {
+  //       method: "POST",
+  //       headers: {
+  //         Authorization: `Bearer ${token}`,
+  //       },
+  //       body: formData,
+  //     });
+
+  //     const data = await res.json();
+  //     if (!res.ok) throw new Error(data.message || "Upload failed");
+
+  //     alert("Document uploaded successfully!");
+  //     // Optionally refresh the document list
+  //     setDocTitle("");
+  //     setDocFile(null);
+  //     setUnlockAt("");
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert(err.message);
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
   // FETCH  VIDEOS UPLOADED BY THE COACH
   const fetchMyVideos = async () => {
     try {

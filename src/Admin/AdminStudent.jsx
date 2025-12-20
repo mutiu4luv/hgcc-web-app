@@ -89,7 +89,6 @@ const StudentDashboard = () => {
   const [videos, setVideos] = useState([]);
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [countdown, setCountdown] = useState("");
-  const [tick, setTick] = useState(0);
   const [liveSession, setLiveSession] = useState(null);
   const [loadingLive, setLoadingLive] = useState(false);
   const [liveCourseId, setLiveCourseId] = useState(null);
@@ -592,33 +591,70 @@ const StudentDashboard = () => {
       })
       .catch(console.error);
   }, [cohortId, activeCourseId]);
+  // for time in documents
+  const formatNigeriaTime = (date) =>
+    new Date(date).toLocaleString("en-NG", {
+      timeZone: "Africa/Lagos",
+      weekday: "short",
+      year: "numeric",
+      month: "short",
+      day: "numeric",
+      hour: "2-digit",
+      minute: "2-digit",
+      second: "2-digit",
+    });
 
   // Fetch documents for student
 
   const fetchDocuments = async () => {
     try {
       setLoadingDocuments(true);
+
       const { data } = await axios.get(`${BASE_URL}/api/coach/doc`, {
         headers: { Authorization: `Bearer ${token}` },
       });
 
       console.log("📄 Fetched documents", data);
 
-      // Normalize documents: make sure courseName is always available
       const allDocs = [
         ...(data.unlockedMaterials || []),
         ...(data.upcomingMaterials || []),
-      ].map((doc) => ({
-        ...doc,
-        courseName:
-          typeof doc.courseId === "object"
-            ? doc.courseId.name
-            : courses.find((c) => c._id === doc.courseId)?.name || "Unknown",
-      }));
+      ].map((doc) => {
+        // 1. Create Date objects from UTC strings
+        const unlockDate = new Date(doc.unlockAt);
+        const createdDate = new Date(doc.createdAt);
+
+        return {
+          ...doc,
+          courseName:
+            typeof doc.courseId === "object"
+              ? doc.courseId.name
+              : courses.find((c) => c._id === doc.courseId)?.name || "Unknown",
+
+          // 🔑 THE FIX: Convert back to Nigeria Time for display
+          // This will show exactly what you chose in the upload form
+          displayUnlockAt: unlockDate.toLocaleString("en-GB", {
+            timeZone: "Africa/Lagos",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+
+          // 🔑 THE FIX: Get the original post time in Nigeria Time
+          displayPostedAt: createdDate.toLocaleString("en-GB", {
+            timeZone: "Africa/Lagos",
+            day: "2-digit",
+            month: "short",
+            hour: "2-digit",
+            minute: "2-digit",
+          }),
+
+          // Normalize timestamps for logic comparisons
+          unlockAtMs: unlockDate.getTime(),
+          createdAtMs: createdDate.getTime(),
+        };
+      });
 
       setDocuments(allDocs);
-
-      // ✅ Grab next class info
       setNextClass(data.nextClass || null);
       setNextClassCountdown(data.nextClassCountdown || "");
     } catch (err) {
@@ -630,6 +666,44 @@ const StudentDashboard = () => {
       setLoadingDocuments(false);
     }
   };
+
+  // const fetchDocuments = async () => {
+  //   try {
+  //     setLoadingDocuments(true);
+
+  //     const { data } = await axios.get(`${BASE_URL}/api/coach/doc`, {
+  //       headers: { Authorization: `Bearer ${token}` },
+  //     });
+
+  //     console.log("📄 Fetched documents", data);
+
+  //     const allDocs = [
+  //       ...(data.unlockedMaterials || []),
+  //       ...(data.upcomingMaterials || []),
+  //     ].map((doc) => ({
+  //       ...doc,
+  //       courseName:
+  //         typeof doc.courseId === "object"
+  //           ? doc.courseId.name
+  //           : courses.find((c) => c._id === doc.courseId)?.name || "Unknown",
+
+  //       // 🔑 normalize timestamps once
+  //       unlockAtMs: new Date(doc.unlockAt).getTime(),
+  //       createdAtMs: new Date(doc.createdAt).getTime(),
+  //     }));
+
+  //     setDocuments(allDocs);
+  //     setNextClass(data.nextClass || null);
+  //     setNextClassCountdown(data.nextClassCountdown || "");
+  //   } catch (err) {
+  //     console.error("❌ Error fetching documents:", err);
+  //     setDocuments([]);
+  //     setNextClass(null);
+  //     setNextClassCountdown("");
+  //   } finally {
+  //     setLoadingDocuments(false);
+  //   }
+  // };
 
   useEffect(() => {
     fetchDocuments();
@@ -1551,102 +1625,39 @@ const StudentDashboard = () => {
                   );
                 })}
                 {/* Render documents */}
-                {documents.map((doc) => {
-                  const unlockDateUTC = new Date(doc.unlockAt);
-                  const nowUTC = new Date(new Date().toISOString()); // updates because tick changes
+                {documents.map((doc) => (
+                  <Paper key={doc._id} sx={{ p: 2, mb: 2 }}>
+                    <Typography variant="h6" fontWeight="bold">
+                      {doc.title}
+                    </Typography>
 
-                  const isUnlocked = nowUTC >= unlockDateUTC;
+                    {/* Displaying the original post time */}
+                    <Typography
+                      variant="caption"
+                      color="text.secondary"
+                      display="block"
+                    >
+                      Posted on: {doc.displayPostedAt} (WAT)
+                    </Typography>
 
-                  // Countdown calc
-                  let countdownText = "";
-                  if (!isUnlocked) {
-                    const diffMs = unlockDateUTC - nowUTC;
-                    if (diffMs <= 0) {
-                      countdownText = "Few seconds...";
-                    } else {
-                      const totalSeconds = Math.floor(diffMs / 1000);
-                      const hours = Math.floor(totalSeconds / 3600);
-                      const minutes = Math.floor((totalSeconds % 3600) / 60);
-                      const seconds = totalSeconds % 60;
-                      countdownText = `${hours}h ${minutes}m ${seconds}s`;
-                    }
-                  }
-
-                  const unlockUTCString =
-                    unlockDateUTC.toLocaleString("en-US", {
-                      timeZone: "UTC",
-                      weekday: "short",
-                      year: "numeric",
-                      month: "short",
-                      day: "numeric",
-                      hour: "2-digit",
-                      minute: "2-digit",
-                    }) + " UTC";
-
-                  return (
-                    <Paper
-                      key={doc._id}
+                    <Typography
+                      variant="body2"
                       sx={{
-                        p: 2,
-                        mb: 2,
-                        borderLeft: isUnlocked
-                          ? "4px solid green"
-                          : "4px solid orange",
+                        mt: 1,
+                        color:
+                          Date.now() >= doc.unlockAtMs ? "green" : "orange",
+                        fontWeight: "bold",
                       }}
                     >
-                      <Typography variant="h6">{doc.title}</Typography>
+                      {Date.now() >= doc.unlockAtMs
+                        ? "✅ Content Available"
+                        : `🔒 Unlocks at: ${doc.displayUnlockAt} Nigeria Time`}
+                    </Typography>
 
-                      <Typography variant="body2">
-                        Course: {doc.courseId?.name || "Unknown"}
-                      </Typography>
+                    {/* ... rest of your code ... */}
+                  </Paper>
+                ))}
 
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          mt: 1,
-                          color: isUnlocked ? "green" : "orange",
-                          fontWeight: 700,
-                        }}
-                      >
-                        {isUnlocked ? "Available Now" : "Will unlock at:"}
-                      </Typography>
-
-                      {!isUnlocked && (
-                        <Typography
-                          variant="body2"
-                          sx={{ fontStyle: "italic", opacity: 0.7 }}
-                        >
-                          UTC Time: {unlockUTCString}
-                        </Typography>
-                      )}
-
-                      {!isUnlocked && (
-                        <Typography
-                          sx={{ mt: 1, color: "red", fontWeight: "bold" }}
-                        >
-                          Starts in: {countdownText}
-                        </Typography>
-                      )}
-
-                      {isUnlocked && doc.fileUrl ? (
-                        <Box sx={{ mt: 2, height: 500 }}>
-                          <Worker workerUrl="https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js">
-                            <Viewer
-                              fileUrl={doc.fileUrl}
-                              plugins={[defaultLayoutPluginInstance]}
-                            />
-                          </Worker>
-                        </Box>
-                      ) : (
-                        !isUnlocked && (
-                          <Button variant="outlined" disabled>
-                            Locked
-                          </Button>
-                        )
-                      )}
-                    </Paper>
-                  );
-                })}
                 {/* Class chat - only if any material is unlocked */}
                 {canShowChat && (
                   <Box

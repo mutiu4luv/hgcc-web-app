@@ -14,6 +14,7 @@ import {
 import { motion } from "framer-motion";
 import { useNavigate, Link } from "react-router-dom";
 import { Visibility, VisibilityOff } from "@mui/icons-material";
+import { toast } from "react-toastify";
 
 const LoginForm = () => {
   const navigate = useNavigate();
@@ -24,26 +25,26 @@ const LoginForm = () => {
   const [loading, setLoading] = useState(false);
 
   const BASE_URL = import.meta.env.REACT_APP_BASE_URL;
-  // ✅ Replace your handleLogin function inside LoginForm.jsx
 
   const handleLogin = async (e) => {
     e.preventDefault();
 
     if (!email || !password) {
-      alert("Please fill in all fields");
+      toast.warning("Please fill in all fields");
       return;
     }
 
     try {
       setLoading(true);
+
       const res = await axios.post(
         `${import.meta.env.VITE_BASE_URL}/api/users/login`,
         { email, password }
       );
 
-      const { token, user } = res.data;
+      const { token, user, message } = res.data;
 
-      // Save token and basic user info
+      // 🔐 Save auth data
       localStorage.setItem("token", token);
       localStorage.setItem("user", JSON.stringify(user));
       localStorage.setItem(
@@ -52,18 +53,18 @@ const LoginForm = () => {
       );
       localStorage.setItem("userPhoto", user.photo || "");
 
+      // 🎯 Role-based redirect
       if (user.role === "coach") {
         const cohorts = user.cohorts || [];
         localStorage.setItem("userCohorts", JSON.stringify(cohorts));
 
-        // ✅ Pick the first available cohort as default
-        const availableCohort = cohorts.find((c) => c._id) || null;
+        // Pick first available cohort
+        const availableCohort = cohorts.find((c) => c?._id) || null;
 
         if (availableCohort) {
           localStorage.setItem("selectedCohortId", availableCohort._id);
           navigate(`/coach/${availableCohort._id}`);
         } else {
-          // fallback if no cohort exists
           navigate("/coach");
         }
       } else if (user.role === "owner") {
@@ -72,15 +73,75 @@ const LoginForm = () => {
         navigate("/student/dashboard");
       }
 
+      // 🔔 Notify app
       window.dispatchEvent(new Event("userUpdated"));
-      alert(res.data.message || "Login successful!");
+
+      toast.success(message || "Login successful 🎉");
     } catch (error) {
       console.error("❌ Login error:", error.response?.data || error);
-      alert(error.response?.data?.message || "Login failed!");
+
+      toast.error(
+        error.response?.data?.message || "Login failed. Please try again."
+      );
     } finally {
       setLoading(false);
     }
   };
+  // const handleLogin = async (e) => {
+  //   e.preventDefault();
+
+  //   if (!email || !password) {
+  //     alert("Please fill in all fields");
+  //     return;
+  //   }
+
+  //   try {
+  //     setLoading(true);
+  //     const res = await axios.post(
+  //       `${import.meta.env.VITE_BASE_URL}/api/users/login`,
+  //       { email, password }
+  //     );
+
+  //     const { token, user } = res.data;
+
+  //     // Save token and basic user info
+  //     localStorage.setItem("token", token);
+  //     localStorage.setItem("user", JSON.stringify(user));
+  //     localStorage.setItem(
+  //       "userName",
+  //       user.fullName || user.name || user.username || ""
+  //     );
+  //     localStorage.setItem("userPhoto", user.photo || "");
+
+  //     if (user.role === "coach") {
+  //       const cohorts = user.cohorts || [];
+  //       localStorage.setItem("userCohorts", JSON.stringify(cohorts));
+
+  //       // ✅ Pick the first available cohort as default
+  //       const availableCohort = cohorts.find((c) => c._id) || null;
+
+  //       if (availableCohort) {
+  //         localStorage.setItem("selectedCohortId", availableCohort._id);
+  //         navigate(`/coach/${availableCohort._id}`);
+  //       } else {
+  //         // fallback if no cohort exists
+  //         navigate("/coach");
+  //       }
+  //     } else if (user.role === "owner") {
+  //       navigate("/owner");
+  //     } else {
+  //       navigate("/student/dashboard");
+  //     }
+
+  //     window.dispatchEvent(new Event("userUpdated"));
+  //     alert(res.data.message || "Login successful!");
+  //   } catch (error) {
+  //     console.error("❌ Login error:", error.response?.data || error);
+  //     alert(error.response?.data?.message || "Login failed!");
+  //   } finally {
+  //     setLoading(false);
+  //   }
+  // };
 
   const handleTogglePassword = () => {
     setShowPassword((prev) => !prev);
