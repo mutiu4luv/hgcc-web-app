@@ -476,13 +476,13 @@ const StudentDashboard = () => {
     },
     { text: "Rate Coach", icon: <StarRate />, key: "rate-coach" },
     {
-      text: "Register Course",
+      text: "Register Cohort Course",
       icon: <AssignmentTurnedIn />,
       key: "register-course",
     },
     { text: "Self Learning", icon: <School />, key: "self-learning" },
     { text: "Free Learning", icon: <School />, key: "free-learning" },
-    { text: "Join Class", icon: <Videocam />, key: "join-class" },
+    { text: "Join Cohort Class", icon: <Videocam />, key: "join-class" },
     { text: "Join Live Class", icon: <LiveTv />, key: "join-live" },
   ];
   useEffect(() => {

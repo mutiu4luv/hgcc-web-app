@@ -16,6 +16,8 @@ import PaymentScreen from "./Screens/Payment";
 import SelfLearningPayment from "./Screens/SelfLearningPayment";
 import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
+import OffersPage from "./Screens/Offers";
+import SpecialOffer from "./Screens/SpecialOffer";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -38,6 +40,8 @@ function App() {
         <Route path="/register" element={<Register />} />
         <Route path="/confirm" element={<ConfirmCode />} />
         <Route path="/login" element={<LoginForm />} />
+        <Route path="/offers" element={<OffersPage />} />
+        <Route path="/special" element={<SpecialOffer />} />
         <Route
           path="/payment/:cohortId/:courseId"
           element={<PaymentScreen token={token} />}
