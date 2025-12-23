@@ -90,7 +90,7 @@ const Hero = () => {
         </Box>
 
         {/* BUTTONS */}
-        {/* <Box
+        <Box
           component={motion.div}
           sx={{
             display: "flex",
@@ -138,8 +138,8 @@ const Hero = () => {
           >
             Learn More
           </Button>
-        </Box> */}
-        <Box
+        </Box>
+        {/* <Box
           component={motion.div}
           sx={{
             display: "flex",
@@ -172,7 +172,7 @@ const Hero = () => {
               Enroll Now
             </Button>
           </a>
-        </Box>
+        </Box> */}
 
         {/* STATS */}
         <Box
