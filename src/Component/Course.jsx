@@ -20,7 +20,7 @@ const ACCENT_GREEN_LIGHT = "#6aa84f";
 const BORDER_ACCENT = "#d9ead3";
 const BUTTON_GREEN = "#14CD02";
 
-// Course data
+// Course data - I added more items to the 1 Month Course to demonstrate the scroll
 const courses = [
   {
     icon: School,
@@ -34,6 +34,9 @@ const courses = [
       "SEO Writing",
       "Community Management",
       "Digital Marketing",
+      "Content Strategy",
+      "Social Media Management",
+      "Email Marketing",
     ],
   },
   {
@@ -67,7 +70,6 @@ const CourseCard = ({ icon: Icon, title, description, index }) => (
         flexDirection: "column",
         alignItems: "center",
         textAlign: "center",
-        justifyContent: "space-between",
         p: 3,
         borderRadius: "12px",
         boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
@@ -77,8 +79,7 @@ const CourseCard = ({ icon: Icon, title, description, index }) => (
         },
         borderTop: `8px solid ${ACCENT_GREEN_LIGHT}`,
         bgcolor: "#fff",
-        height: "100%",
-        minHeight: { xs: 440, md: 480 },
+        height: "100%", // Ensures cards are the same height in the grid
         width: 300,
       }}
     >
@@ -89,6 +90,8 @@ const CourseCard = ({ icon: Icon, title, description, index }) => (
           display: "flex",
           flexDirection: "column",
           alignItems: "center",
+          p: 0, // Reset padding for better control
+          "&:last-child": { pb: 0 },
         }}
       >
         <Avatar
@@ -113,36 +116,53 @@ const CourseCard = ({ icon: Icon, title, description, index }) => (
           {title}
         </Typography>
 
-        {/* Bullet list of courses */}
-        <List
-          dense
-          disablePadding
+        {/* --- SCROLLABLE CONTAINER --- */}
+        <Box
           sx={{
-            textAlign: "left",
             width: "100%",
             maxWidth: 280,
-            mx: "auto",
+            maxHeight: 200, // Limits the list height
+            overflowY: "auto", // Enables scrollbar
+            mb: 2,
+            pr: 1, // Space for the scrollbar
             flexGrow: 1,
+            // Custom Scrollbar Styling
+            "&::-webkit-scrollbar": {
+              width: "6px",
+            },
+            "&::-webkit-scrollbar-track": {
+              background: BORDER_ACCENT,
+              borderRadius: "10px",
+            },
+            "&::-webkit-scrollbar-thumb": {
+              background: ACCENT_GREEN_LIGHT,
+              borderRadius: "10px",
+            },
+            "&::-webkit-scrollbar-thumb:hover": {
+              background: PRIMARY_GREEN_DARK,
+            },
           }}
         >
-          {description.map((item, i) => (
-            <ListItem key={i} sx={{ py: 0.3 }}>
-              <ListItemText
-                primaryTypographyProps={{
-                  fontSize: "0.95rem",
-                  color: "text.secondary",
-                }}
-                primary={`• ${item}`}
-              />
-            </ListItem>
-          ))}
-        </List>
+          <List dense disablePadding sx={{ textAlign: "left" }}>
+            {description.map((item, i) => (
+              <ListItem key={i} sx={{ py: 0.3 }}>
+                <ListItemText
+                  primaryTypographyProps={{
+                    fontSize: "0.95rem",
+                    color: "text.secondary",
+                  }}
+                  primary={`• ${item}`}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </Box>
 
         {/* Learn More Button */}
         <Button
           variant="contained"
           sx={{
-            mt: 2,
+            mt: "auto", // Pushes button to the bottom
             backgroundColor: BUTTON_GREEN,
             color: "#fff",
             borderRadius: "30px",
@@ -209,7 +229,7 @@ const CoursesWeOffer = () => {
           container
           spacing={4}
           justifyContent="center"
-          alignItems="stretch"
+          alignItems="stretch" // Forces all grid items to stretch to the tallest card
         >
           {courses.map((course, index) => (
             <Grid
