@@ -28,6 +28,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import logo from "../assets/logo.jpeg";
+import Footer from "../Component/Footer";
 
 // Design Constants
 const PRIMARY_GREEN_DARK = "#006400";
@@ -233,7 +234,7 @@ const SpecialOffer = () => {
                 <Typography fontWeight="bold">Top Designer Access</Typography>
               </Paper>
             </Box>
-
+            {/* 
             <Button
               variant="contained"
               onClick={() => navigate("/contact")}
@@ -256,12 +257,12 @@ const SpecialOffer = () => {
               }}
             >
               Ask Questions About Batch 12
-            </Button>
+            </Button> */}
           </Card>
         </motion.div>
 
         {/* Footer Note */}
-        <Typography
+        {/* <Typography
           variant="body2"
           color="text.secondary"
           textAlign="center"
@@ -269,8 +270,9 @@ const SpecialOffer = () => {
         >
           *Selection is based on overall performance, project submissions, and
           participation.
-        </Typography>
+        </Typography> */}
       </Container>
+      <Footer />
     </Box>
   );
 };

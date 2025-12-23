@@ -31,6 +31,7 @@ import {
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
 import logo from "../assets/logo.jpeg";
+import Footer from "../Component/Footer";
 
 // Design Constants
 const PRIMARY_GREEN_DARK = "#006400";
@@ -288,6 +289,7 @@ const OffersPage = () => {
           ))}
         </Grid>
       </Container>
+      <Footer />
     </Box>
   );
 };
