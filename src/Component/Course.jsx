@@ -26,17 +26,21 @@ const courses = [
     icon: School,
     title: "1 Month Course",
     description: [
-      "Copy Writing",
-      "Video Editing",
-      "Ghost Writing",
-      "Fashion Design",
-      "Graphics Design",
-      "SEO Writing",
-      "Community Management",
-      "Digital Marketing",
-      "Content Strategy",
-      "Social Media Management",
-      "Email Marketing",
+      "- COPYWRITING ",
+      "- VIDEO EDITING ",
+      "- GHOSTWRITING  ",
+      "- FASHION DESIGN ",
+      "- HEALTH WRITING ",
+
+      "- PUBLIC SPEAKING",
+      "- CONTENT WRITING",
+      "- LINKEDIN FULL COURSE ",
+      "- PROFESSIONAL COACHING",
+      "- SOCIAL MEDIA MANAGEMENT",
+      "- ⁠FACEBOOK VISIBILITY",
+      "- Digital Marketing",
+      "- SEO writing",
+      "- Community Management",
     ],
   },
   {
@@ -159,7 +163,7 @@ const CourseCard = ({ icon: Icon, title, description, index }) => (
         </Box>
 
         {/* Learn More Button */}
-        <Button
+        {/* <Button
           variant="contained"
           sx={{
             mt: "auto", // Pushes button to the bottom
@@ -176,7 +180,7 @@ const CourseCard = ({ icon: Icon, title, description, index }) => (
           }}
         >
           Learn More
-        </Button>
+        </Button> */}
       </CardContent>
     </Card>
   </motion.div>
@@ -229,7 +233,7 @@ const CoursesWeOffer = () => {
           container
           spacing={4}
           justifyContent="center"
-          alignItems="stretch" // Forces all grid items to stretch to the tallest card
+          alignItems="stretch"
         >
           {courses.map((course, index) => (
             <Grid

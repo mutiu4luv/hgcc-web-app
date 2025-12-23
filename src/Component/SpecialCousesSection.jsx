@@ -48,7 +48,8 @@ const courses = [
     title: "Alumni Community",
     description:
       "Learn, network, and thrive with those who’ve walked the same path.",
-    buttonText: "Register Now",
+    buttonText: "Join on WhatsApp",
+    link: "https://wa.me/message/UBJLJZJGN4ESE1",
   },
 ];
 
@@ -59,9 +60,20 @@ const CourseCard = ({
   description,
   buttonText,
   route,
+  link,
   index,
 }) => {
   const navigate = useNavigate();
+
+  const handleClick = () => {
+    if (link) {
+      // ✅ Alumni → WhatsApp
+      window.open(link, "_blank");
+    } else if (route) {
+      // ✅ Other courses → internal navigation
+      navigate(route);
+    }
+  };
 
   return (
     <motion.div
@@ -125,7 +137,7 @@ const CourseCard = ({
             borderRadius: "6px",
             "&:hover": { bgcolor: PRIMARY_GREEN_DARK },
           }}
-          onClick={() => navigate(route)}
+          onClick={handleClick}
         >
           {buttonText}
         </Button>

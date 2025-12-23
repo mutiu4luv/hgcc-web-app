@@ -64,20 +64,12 @@ const courses = [
       "UI/UX Design",
       "Product Management",
       "Project Management",
-      "Advanced Figma",
-      "User Research",
     ],
   },
   {
     icon: TrendingUp,
     title: "6 Months Course",
-    description: [
-      "Full Stack Development",
-      "AI Programming",
-      "Cyber Security",
-      "Cloud Engineering",
-      "Blockchain Tech",
-    ],
+    description: ["Full Stack Development", "AI Programming", "Cyber Security"],
   },
   {
     icon: School,

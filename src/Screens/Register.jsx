@@ -19,6 +19,7 @@ import { useNavigate, Link } from "react-router-dom";
 import UploadIcon from "@mui/icons-material/CloudUpload";
 import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
+import { toast } from "react-toastify";
 
 const RegisterForm = () => {
   const navigate = useNavigate();
@@ -65,7 +66,7 @@ const RegisterForm = () => {
 
     // Validate photo
     if (!profilePhoto) {
-      alert("Please upload a profile photo");
+      toast.error("Please upload a profile photo");
       return;
     }
 
@@ -83,13 +84,13 @@ const RegisterForm = () => {
       );
 
       console.log("✅ Registration response:", res.data);
-      alert(res.data.message || "Registered successfully!");
+      toast.success(res.data.message || "Registered successfully!");
 
       navigate("/confirm", { state: { email: formData.email } });
     } catch (error) {
       console.error("❌ Registration failed:", error);
       if (error.response) {
-        alert(error.response.data.message || "Registration failed!");
+        toast.error(error.response.data.message || "Registration failed");
       } else {
         alert("Server not responding. Check your internet or backend.");
       }
