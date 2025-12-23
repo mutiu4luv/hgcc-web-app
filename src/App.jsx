@@ -18,6 +18,7 @@ import { ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
 import OffersPage from "./Screens/Offers";
 import SpecialOffer from "./Screens/SpecialOffer";
+import AwardsScreen from "./Screens/Award";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -42,6 +43,7 @@ function App() {
         <Route path="/login" element={<LoginForm />} />
         <Route path="/offers" element={<OffersPage />} />
         <Route path="/special" element={<SpecialOffer />} />
+        <Route path="/awards" element={<AwardsScreen />} />
         <Route
           path="/payment/:cohortId/:courseId"
           element={<PaymentScreen token={token} />}

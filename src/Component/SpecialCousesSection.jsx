@@ -47,7 +47,7 @@ const courses = [
     icon: Book,
     title: "Alumni Community",
     description:
-      "Learn, network, and thrive with those who’ve walked the same path.",
+      "If you are a certified in any skill, join to get job fast in one month",
     buttonText: "Join on WhatsApp",
     link: "https://wa.me/message/UBJLJZJGN4ESE1",
   },

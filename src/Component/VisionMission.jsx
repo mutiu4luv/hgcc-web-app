@@ -43,7 +43,7 @@ const AboutHGSC = () => {
         </Typography>
 
         {/* Register Button */}
-        <Button
+        {/* <Button
           variant="contained"
           size="large"
           sx={{
@@ -62,7 +62,7 @@ const AboutHGSC = () => {
           }}
         >
           Register Now
-        </Button>
+        </Button> */}
       </Container>
     </Box>
   );
