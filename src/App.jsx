@@ -20,6 +20,7 @@ import OffersPage from "./Screens/Offers";
 import SpecialOffer from "./Screens/SpecialOffer";
 import AwardsScreen from "./Screens/Award";
 import ContactSection from "./Screens/ContactUs";
+import ProfileScreen from "./Screens/Profile";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -55,6 +56,14 @@ function App() {
           element={
             <ProtectedRoute>
               <AdminOwner />
+            </ProtectedRoute>
+          }
+        />
+        <Route
+          path="/profile"
+          element={
+            <ProtectedRoute>
+              <ProfileScreen />
             </ProtectedRoute>
           }
         />
