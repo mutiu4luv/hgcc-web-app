@@ -48,8 +48,8 @@ const courses = [
     title: "Alumni Community",
     description:
       "If you are a certified in any skill, join to get job fast in one month",
-    buttonText: "Join on WhatsApp",
-    link: "https://wa.me/message/UBJLJZJGN4ESE1",
+    buttonText: "Community of Earners",
+    link: " https://wa.link/z71xvx",
   },
 ];
 
