@@ -21,6 +21,8 @@ import SpecialOffer from "./Screens/SpecialOffer";
 import AwardsScreen from "./Screens/Award";
 import ContactSection from "./Screens/ContactUs";
 import ProfileScreen from "./Screens/Profile";
+import ForgotPassword from "./Screens/ForgotPassword";
+import ResetPassword from "./Screens/ResetPassword";
 
 function App() {
   const [count, setCount] = useState(0);
@@ -47,6 +49,8 @@ function App() {
         <Route path="/special" element={<SpecialOffer />} />
         <Route path="/awards" element={<AwardsScreen />} />
         <Route path="/contact" element={<ContactSection />} />
+        <Route path="/forgot-password" element={<ForgotPassword />} />
+        <Route path="/reset-password" element={<ResetPassword />} />
         <Route
           path="/payment/:cohortId/:courseId"
           element={<PaymentScreen token={token} />}

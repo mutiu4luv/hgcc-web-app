@@ -244,6 +244,19 @@ const LoginForm = () => {
               }}
             />
 
+            <Typography variant="body2" textAlign="right" sx={{ mb: 2 }}>
+              <Link
+                to="/forgot-password"
+                style={{
+                  color: "#bbf7d0",
+                  fontWeight: "bold",
+                  textDecoration: "none",
+                }}
+              >
+                Forgot password?
+              </Link>
+            </Typography>
+
             <Box textAlign="center">
               <motion.div
                 whileHover={{ scale: 1.05 }}
