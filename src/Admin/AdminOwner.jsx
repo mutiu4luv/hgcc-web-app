@@ -117,6 +117,7 @@ const AdminOwner = () => {
   const [description, setDescription] = useState("");
   const [price, setPrice] = useState("");
   const [payments, setPayments] = useState([]);
+  const [image, setImage] = useState(null);
 
   const [announcements, setAnnouncements] = useState([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
@@ -125,7 +126,7 @@ const AdminOwner = () => {
   const [freeTitle, setFreeTitle] = useState("");
   const [freeDescription, setFreeDescription] = useState("");
   const [freeCourses, setFreeCourses] = useState([]);
-  const [loadingFree, setLoadingFree] = useState(false);
+  const [freeImage, setFreeImage] = useState(null);
   const [freeCoachId, setFreeCoachId] = useState("");
   const [creatingFree, setCreatingFree] = useState(false);
   const [loadingFreeCourses, setLoadingFreeCourses] = useState(false);
@@ -133,19 +134,6 @@ const AdminOwner = () => {
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
-  // get all coaches
-  const fetchCoaches = async () => {
-    try {
-      const res = await axios.get(`${BASE_URL}/api/users/coaches`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      // Access res.data.coaches based on your controller structure
-      setSafeCoachesList(res.data.coaches || []);
-    } catch (err) {
-      console.error("Error fetching coaches:", err);
-      toast.error("Could not load coaches list");
-    }
-  };
 
   // CREATE FREE COURSE HANDLER
   const handleCreateFreeCourse = async (e) => {
@@ -159,24 +147,34 @@ const AdminOwner = () => {
     try {
       setCreatingFree(true);
 
-      await axios.post(
+      const formData = new FormData();
+      formData.append("title", freeTitle);
+      formData.append("description", freeDescription);
+      formData.append("coachId", freeCoachId);
+
+      if (freeImage) {
+        formData.append("image", freeImage);
+      }
+
+      const res = await axios.post(
         `${BASE_URL}/api/free-learning/free-courses`,
+        formData,
         {
-          title: freeTitle,
-          description: freeDescription,
-          coachId: freeCoachId,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
         }
       );
 
+      console.log("🖼 Free course image:", res.data.course.image);
+
       toast.success("Free course created successfully 🎉");
 
-      // CLEAR FORM
       setFreeTitle("");
       setFreeDescription("");
       setFreeCoachId("");
+      setFreeImage(null);
 
       fetchFreeCourses();
     } catch (err) {
@@ -323,25 +321,37 @@ const AdminOwner = () => {
 
     try {
       setLoading(true);
-      await axios.post(
+
+      const formData = new FormData();
+      formData.append("title", title);
+      formData.append("description", description);
+      formData.append("price", Number(price));
+      formData.append("coachId", assignedCoach);
+
+      if (image) {
+        formData.append("image", image);
+      }
+
+      const res = await axios.post(
         `${BASE_URL}/api/self-learning/course`,
+        formData,
         {
-          title,
-          description,
-          price: Number(price),
-          coachId: assignedCoach,
-        },
-        { headers: { Authorization: `Bearer ${token}` } }
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
       );
 
       setTitle("");
       setDescription("");
       setPrice("");
+      setImage(null);
       setMessage("✅ Course created successfully");
 
-      // 🔄 Reload courses
       fetchSelfLearningCourses();
     } catch (err) {
+      console.error("❌ Create Course Error:", err.response?.data || err);
       setMessage(err.response?.data?.message || "Failed to create course");
     } finally {
       setLoading(false);
@@ -1420,6 +1430,7 @@ const AdminOwner = () => {
         {/* === Create Self-Learning Course === */}
         {activeTab === "create-self-learning-course" && (
           <Container>
+            {/* ===== CREATE COURSE ===== */}
             <Paper sx={{ p: 4, mb: 4 }}>
               <Typography
                 variant="h4"
@@ -1441,11 +1452,11 @@ const AdminOwner = () => {
                   onChange={(e) => setTitle(e.target.value)}
                   required
                 />
+
                 <TextField
                   select
                   SelectProps={{ native: true }}
                   fullWidth
-                  sx={{ mb: 2 }}
                   value={assignedCoach}
                   onChange={(e) => setAssignedCoach(e.target.value)}
                   required
@@ -1466,6 +1477,23 @@ const AdminOwner = () => {
                   onChange={(e) => setDescription(e.target.value)}
                   required
                 />
+
+                {/* 📸 IMAGE UPLOAD */}
+                <Button variant="outlined" component="label" color="success">
+                  Upload Course Image
+                  <input
+                    type="file"
+                    accept="image/*"
+                    hidden
+                    onChange={(e) => setImage(e.target.files[0])}
+                  />
+                </Button>
+
+                {image && (
+                  <Typography fontSize={13} color="gray">
+                    Selected image: {image.name}
+                  </Typography>
+                )}
 
                 <TextField
                   label="Price (₦)"
@@ -1500,43 +1528,70 @@ const AdminOwner = () => {
               ) : selfLearningCourses.length === 0 ? (
                 <Typography color="gray">No courses created yet.</Typography>
               ) : (
-                selfLearningCourses.map((course) => (
-                  <Paper
-                    key={course._id}
-                    sx={{
-                      p: 2,
-                      mb: 2,
-                      display: "flex",
-                      justifyContent: "space-between",
-                      alignItems: "center",
-                      border: "1px solid #d1fae5",
-                    }}
-                  >
-                    <Box>
-                      <Typography fontWeight="bold">{course.title}</Typography>
-                      <Typography>{course.description}</Typography>
-                      <Typography fontWeight="bold">₦{course.price}</Typography>
+                selfLearningCourses.map((course) => {
+                  console.log("🖼 Course image URL:", course.image);
 
-                      {/* 👇 Coach info (if populated) */}
-                      {course.coachId?.fullName && (
-                        <Typography sx={{ fontSize: 13, color: "gray" }}>
-                          Coach: {course.coachId.fullName}
-                        </Typography>
-                      )}
-                    </Box>
-
-                    <IconButton
-                      color="error"
-                      onClick={() => handleDeleteCourse(course._id)}
+                  return (
+                    <Paper
+                      key={course._id}
+                      sx={{
+                        p: 2,
+                        mb: 2,
+                        display: "flex",
+                        justifyContent: "space-between",
+                        alignItems: "center",
+                        gap: 2,
+                        border: "1px solid #d1fae5",
+                      }}
                     >
-                      <Delete />
-                    </IconButton>
-                  </Paper>
-                ))
+                      <Box
+                        sx={{ display: "flex", gap: 2, alignItems: "center" }}
+                      >
+                        {/* 🖼 COURSE IMAGE */}
+                        {course.image && (
+                          <img
+                            src={course.image}
+                            alt={course.title}
+                            style={{
+                              width: 120,
+                              height: 80,
+                              objectFit: "cover",
+                              borderRadius: 6,
+                            }}
+                          />
+                        )}
+
+                        <Box>
+                          <Typography fontWeight="bold">
+                            {course.title}
+                          </Typography>
+                          <Typography>{course.description}</Typography>
+                          <Typography fontWeight="bold">
+                            ₦{course.price}
+                          </Typography>
+
+                          {course.coachId?.fullName && (
+                            <Typography sx={{ fontSize: 13, color: "gray" }}>
+                              Coach: {course.coachId.fullName}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Box>
+
+                      <IconButton
+                        color="error"
+                        onClick={() => handleDeleteCourse(course._id)}
+                      >
+                        <Delete />
+                      </IconButton>
+                    </Paper>
+                  );
+                })
               )}
             </Paper>
           </Container>
         )}
+
         {/* create free learning class */}
         <Container
           sx={{
@@ -1594,6 +1649,23 @@ const AdminOwner = () => {
                 required
               />
 
+              {/* IMAGE UPLOAD */}
+              <Button variant="outlined" component="label" color="success">
+                Upload Course Image
+                <input
+                  type="file"
+                  accept="image/*"
+                  hidden
+                  onChange={(e) => setFreeImage(e.target.files[0])}
+                />
+              </Button>
+
+              {freeImage && (
+                <Typography fontSize={13} color="gray">
+                  Selected image: {freeImage.name}
+                </Typography>
+              )}
+
               <Button
                 type="submit"
                 variant="contained"
@@ -1639,6 +1711,20 @@ const AdminOwner = () => {
                       </Typography>
                     )}
                   </Box>
+
+                  {course.image && (
+                    <img
+                      src={course.image}
+                      alt={course.title}
+                      style={{
+                        width: 80,
+                        height: 50,
+                        objectFit: "cover",
+                        borderRadius: 6,
+                        marginRight: 12,
+                      }}
+                    />
+                  )}
 
                   <IconButton
                     color="error"

@@ -19,6 +19,8 @@ import {
   MenuItem,
   Modal,
 } from "@mui/material";
+import { Grid, Card, CardContent, CardMedia, CardActions } from "@mui/material";
+
 import {
   Dashboard,
   AssignmentTurnedIn,
@@ -2334,55 +2336,117 @@ const StudentDashboard = () => {
             </Typography>
 
             {/* ================= MARKETPLACE ================= */}
-            <Typography fontWeight="bold" sx={{ mb: 1 }}>
+            <Typography fontWeight="bold" sx={{ mb: 2 }}>
               Browse & Register
             </Typography>
 
-            <TextField
-              select
-              fullWidth
-              label="Select Free Course"
-              value={selectedMarketplaceCourse}
-              onChange={(e) => setSelectedMarketplaceCourse(e.target.value)}
-              sx={{ mb: 3 }}
-            >
-              <MenuItem value="">-- Select Course --</MenuItem>
-              {freeCourses.map((course) => (
-                <MenuItem key={course._id} value={course._id}>
-                  {course.title}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            {selectedMarketplaceCourse &&
-              (() => {
-                const course = freeCourses.find(
-                  (c) => c._id === selectedMarketplaceCourse
-                );
-                if (!course) return null;
+            <Grid container spacing={3}>
+              {freeCourses.map((course) => {
+                const isSelected = selectedMarketplaceCourse === course._id;
 
                 return (
-                  <Paper sx={{ p: 3, mb: 3 }}>
-                    <Typography fontWeight="bold">{course.title}</Typography>
-                    <Typography>{course.description}</Typography>
-                    <Typography sx={{ mt: 1 }}>
-                      Coach: {course.coachId?.fullName}
-                    </Typography>
-                  </Paper>
-                );
-              })()}
+                  <Grid item xs={12} sm={6} md={4} lg={3} key={course._id}>
+                    <Card
+                      onClick={() => setSelectedMarketplaceCourse(course._id)}
+                      sx={{
+                        height: 420,
+                        display: "flex",
+                        flexDirection: "column",
+                        cursor: "pointer",
+                        border: isSelected
+                          ? "2px solid #16a34a"
+                          : "1px solid #e5e7eb",
+                        boxShadow: isSelected
+                          ? "0 8px 25px rgba(22,163,74,0.35)"
+                          : "0 4px 12px rgba(0,0,0,0.08)",
+                        transition: "all 0.3s ease",
+                        "&:hover": {
+                          transform: "translateY(-6px)",
+                          boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
+                        },
+                      }}
+                    >
+                      {/* IMAGE */}
+                      <CardMedia
+                        component="img"
+                        height="160"
+                        image={
+                          course.image ||
+                          "https://via.placeholder.com/400x200?text=Free+Course"
+                        }
+                        alt={course.title}
+                        sx={{ objectFit: "cover" }}
+                      />
 
-            <Button
-              variant="contained"
-              color="primary"
-              onClick={handleRegisterFreeCourse}
-              sx={{ mb: 5 }}
-            >
-              Register (Free)
-            </Button>
+                      <CardContent sx={{ flexGrow: 1 }}>
+                        <Typography fontWeight="bold" gutterBottom noWrap>
+                          {course.title}
+                        </Typography>
+
+                        <Typography
+                          variant="body2"
+                          color="text.secondary"
+                          sx={{
+                            height: 60,
+                            overflow: "hidden",
+                            display: "-webkit-box",
+                            WebkitLineClamp: 3,
+                            WebkitBoxOrient: "vertical",
+                          }}
+                        >
+                          {course.description}
+                        </Typography>
+
+                        <Typography sx={{ mt: 1, fontSize: 13, color: "gray" }}>
+                          Coach: {course.coachId?.fullName || "N/A"}
+                        </Typography>
+
+                        <Typography
+                          fontWeight="bold"
+                          sx={{ mt: 1, color: "#16a34a" }}
+                        >
+                          Price: FREE 🎉
+                        </Typography>
+                      </CardContent>
+
+                      <CardActions sx={{ p: 2 }}>
+                        <Button
+                          fullWidth
+                          variant={isSelected ? "contained" : "outlined"}
+                          color="success"
+                          onClick={() =>
+                            setSelectedMarketplaceCourse(course._id)
+                          }
+                        >
+                          {isSelected ? "Selected" : "Select Course"}
+                        </Button>
+                      </CardActions>
+                    </Card>
+                  </Grid>
+                );
+              })}
+            </Grid>
+
+            {/* REGISTER BUTTON */}
+            <Box sx={{ mt: 4 }}>
+              <Button
+                variant="contained"
+                color="primary"
+                size="large"
+                disabled={!selectedMarketplaceCourse}
+                onClick={handleRegisterFreeCourse}
+              >
+                Register Selected Course (Free)
+              </Button>
+            </Box>
 
             {/* ================= MY FREE COURSES ================= */}
-            <Typography variant="h5" fontWeight="bold" gutterBottom>
+            <Typography
+              variant="h5"
+              fontWeight="bold"
+              gutterBottom
+              sx={{ mt: 6 }}
+            >
               📚 My Free Courses
             </Typography>
 
