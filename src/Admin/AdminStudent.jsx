@@ -2345,49 +2345,81 @@ const StudentDashboard = () => {
                 const isSelected = selectedMarketplaceCourse === course._id;
 
                 return (
-                  <Grid item xs={12} sm={6} md={4} lg={3} key={course._id}>
+                  <Grid
+                    item
+                    xs={12}
+                    sm={6}
+                    md={4}
+                    lg={3}
+                    key={course._id}
+                    sx={{ display: "flex", justifyContent: "center" }}
+                  >
                     <Card
                       onClick={() => setSelectedMarketplaceCourse(course._id)}
                       sx={{
-                        height: 420,
+                        width: 280,
+                        height: 430,
                         display: "flex",
                         flexDirection: "column",
                         cursor: "pointer",
+                        borderRadius: 3,
                         border: isSelected
                           ? "2px solid #16a34a"
                           : "1px solid #e5e7eb",
                         boxShadow: isSelected
-                          ? "0 8px 25px rgba(22,163,74,0.35)"
-                          : "0 4px 12px rgba(0,0,0,0.08)",
+                          ? "0 10px 28px rgba(22,163,74,0.35)"
+                          : "0 4px 14px rgba(0,0,0,0.1)",
                         transition: "all 0.3s ease",
                         "&:hover": {
                           transform: "translateY(-6px)",
-                          boxShadow: "0 12px 30px rgba(0,0,0,0.15)",
+                          boxShadow: "0 14px 34px rgba(0,0,0,0.18)",
                         },
                       }}
                     >
-                      {/* IMAGE */}
-                      <CardMedia
-                        component="img"
-                        height="160"
-                        image={
-                          course.image ||
-                          "https://via.placeholder.com/400x200?text=Free+Course"
-                        }
-                        alt={course.title}
-                        sx={{ objectFit: "cover" }}
-                      />
+                      {/* ================= IMAGE ================= */}
+                      <Box
+                        sx={{
+                          height: 160,
+                          minHeight: 160,
+                          maxHeight: 160,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <CardMedia
+                          component="img"
+                          image={
+                            course.image ||
+                            "https://via.placeholder.com/400x200?text=Free+Course"
+                          }
+                          alt={course.title}
+                          sx={{
+                            width: "100%",
+                            height: "100%",
+                            objectFit: "cover",
+                          }}
+                        />
+                      </Box>
 
-                      <CardContent sx={{ flexGrow: 1 }}>
-                        <Typography fontWeight="bold" gutterBottom noWrap>
+                      {/* ================= CONTENT ================= */}
+                      <CardContent
+                        sx={{
+                          flexGrow: 1,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 1,
+                          overflow: "hidden",
+                        }}
+                      >
+                        <Typography fontWeight="bold" noWrap>
                           {course.title}
                         </Typography>
 
+                        {/* DESCRIPTION — NEVER RESIZES CARD */}
                         <Typography
                           variant="body2"
                           color="text.secondary"
                           sx={{
-                            height: 60,
+                            height: 66,
                             overflow: "hidden",
                             display: "-webkit-box",
                             WebkitLineClamp: 3,
@@ -2397,26 +2429,24 @@ const StudentDashboard = () => {
                           {course.description}
                         </Typography>
 
-                        <Typography sx={{ mt: 1, fontSize: 13, color: "gray" }}>
+                        <Typography sx={{ fontSize: 13, color: "gray" }}>
                           Coach: {course.coachId?.fullName || "N/A"}
                         </Typography>
 
                         <Typography
                           fontWeight="bold"
-                          sx={{ mt: 1, color: "#16a34a" }}
+                          sx={{ color: "#16a34a", mt: "auto" }}
                         >
-                          Price: FREE 🎉
+                          FREE 🎉
                         </Typography>
                       </CardContent>
 
-                      <CardActions sx={{ p: 2 }}>
+                      {/* ================= ACTION ================= */}
+                      <CardActions sx={{ px: 2, pb: 2 }}>
                         <Button
                           fullWidth
                           variant={isSelected ? "contained" : "outlined"}
                           color="success"
-                          onClick={() =>
-                            setSelectedMarketplaceCourse(course._id)
-                          }
                         >
                           {isSelected ? "Selected" : "Select Course"}
                         </Button>
@@ -2427,7 +2457,7 @@ const StudentDashboard = () => {
               })}
             </Grid>
 
-            {/* REGISTER BUTTON */}
+            {/* ================= REGISTER ================= */}
             <Box sx={{ mt: 4 }}>
               <Button
                 variant="contained"
