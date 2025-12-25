@@ -880,7 +880,7 @@ const StudentDashboard = () => {
                 submittedFile: res.data.fileUrl,
                 status: "Submitted",
                 justSubmitted: true,
-                grade: "-", // show "-" until graded
+                grade: "-",
               }
             : a
         )
@@ -955,7 +955,7 @@ const StudentDashboard = () => {
 
       console.log("Coaches:", res.data.coaches);
 
-      setCoaches(res.data.coaches); // FIXED
+      setCoaches(res.data.coaches);
     } catch (err) {
       console.error(err);
       setMessage("Failed to load coaches");
@@ -1110,197 +1110,917 @@ const StudentDashboard = () => {
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", width: "100%" }}>
       {/* Sidebar */}
-      <Drawer
-        variant={isMobile ? "temporary" : "permanent"}
-        open={isMobile ? mobileOpen : true}
-        onClose={() => setMobileOpen(false)}
-        sx={{
-          width: drawerWidth,
-          "& .MuiDrawer-paper": {
-            width: drawerWidth,
-            boxSizing: "border-box",
-            backgroundColor: "#064e3b",
-            color: "#fff",
-            borderRight: "none",
-          },
-        }}
-      >
-        <Box sx={{ textAlign: "center", py: 3 }}>
-          <Typography variant="h5" fontWeight="bold" color="#fff">
-            Student Panel
-          </Typography>
-          {isMobile && (
-            <IconButton
-              onClick={() => setMobileOpen(false)}
-              sx={{ color: "#fff" }}
-            >
-              <CloseIcon />
-            </IconButton>
-          )}
-        </Box>
-        <Divider sx={{ bgcolor: "rgba(255,255,255,0.3)" }} />
-        <List>
-          {menuItems.map((item) => (
-            <ListItemButton
-              key={item.key}
-              selected={activeTab === item.key}
-              onClick={() => {
-                setActiveTab(item.key);
-                if (isMobile) setMobileOpen(false);
-              }}
-              sx={{
-                "&.Mui-selected": {
-                  bgcolor: "#10b981",
-                  "& .MuiListItemText-primary": { color: "#fff" },
-                },
-                "&:hover": { bgcolor: "#047857" },
-              }}
-            >
-              <ListItemIcon sx={{ color: "#fff" }}>{item.icon}</ListItemIcon>
-              <ListItemText
-                primary={item.text}
-                primaryTypographyProps={{ color: "#fff" }}
-              />
-            </ListItemButton>
-          ))}
-        </List>
-        <Divider sx={{ bgcolor: "rgba(255,255,255,0.3)" }} />
-        <ListItemButton onClick={handleLogout}>
-          <ListItemIcon sx={{ color: "#fff" }}>
-            <Logout />
-          </ListItemIcon>
-          <ListItemText
-            primary="Logout"
-            primaryTypographyProps={{ color: "#fff" }}
-          />
-        </ListItemButton>
-      </Drawer>
-
-      {isMobile && !mobileOpen && (
-        <IconButton
-          onClick={() => setMobileOpen(true)}
+      <Box sx={{ display: "flex", minHeight: "100vh" }}>
+        <Drawer
+          variant={isMobile ? "temporary" : "permanent"}
+          open={isMobile ? mobileOpen : true}
+          onClose={() => setMobileOpen(false)}
           sx={{
-            position: "fixed",
-            top: 16,
-            left: 16,
-            bgcolor: "#10b981",
-            color: "#fff",
-            zIndex: 1300,
+            width: drawerWidth,
+            "& .MuiDrawer-paper": {
+              width: drawerWidth,
+              boxSizing: "border-box",
+              backgroundColor: "#064e3b",
+              color: "#fff",
+              borderRight: "none",
+            },
           }}
         >
-          <MenuIcon />
-        </IconButton>
-      )}
-
-      {/* Main Content */}
-      <Box
-        sx={{
-          flexGrow: 1,
-          ml: isMobile ? 0 : `${drawerWidth}px`,
-          p: { xs: 2, md: 4 },
-          overflowY: "auto",
-        }}
-      >
-        {/* Dashboard */}
-        {activeTab === "dashboard" && (
-          <Paper sx={{ p: 4, mb: 4 }}>
-            <Typography
-              variant="h4"
-              color="green"
-              fontWeight="bold"
-              gutterBottom
-            >
-              📊 Welcome to your Dashboard
+          <Box sx={{ textAlign: "center", py: 3 }}>
+            <Typography variant="h5" fontWeight="bold" color="#fff">
+              Student Panel
             </Typography>
+            {isMobile && (
+              <IconButton
+                onClick={() => setMobileOpen(false)}
+                sx={{ color: "#fff" }}
+              >
+                <CloseIcon />
+              </IconButton>
+            )}
+          </Box>
+          <Divider sx={{ bgcolor: "rgba(255,255,255,0.3)" }} />
+          <List>
+            {menuItems.map((item) => (
+              <ListItemButton
+                key={item.key}
+                selected={activeTab === item.key}
+                onClick={() => {
+                  setActiveTab(item.key);
+                  if (isMobile) setMobileOpen(false);
+                }}
+                sx={{
+                  "&.Mui-selected": {
+                    bgcolor: "#10b981",
+                    "& .MuiListItemText-primary": { color: "#fff" },
+                  },
+                  "&:hover": { bgcolor: "#047857" },
+                }}
+              >
+                <ListItemIcon sx={{ color: "#fff" }}>{item.icon}</ListItemIcon>
+                <ListItemText
+                  primary={item.text}
+                  primaryTypographyProps={{ color: "#fff" }}
+                />
+              </ListItemButton>
+            ))}
+          </List>
+          <Divider sx={{ bgcolor: "rgba(255,255,255,0.3)" }} />
+          <ListItemButton onClick={handleLogout}>
+            <ListItemIcon sx={{ color: "#fff" }}>
+              <Logout />
+            </ListItemIcon>
+            <ListItemText
+              primary="Logout"
+              primaryTypographyProps={{ color: "#fff" }}
+            />
+          </ListItemButton>
+        </Drawer>
 
-            <Typography sx={{ mb: 3 }}>
-              Here you can view assignments, manage submissions, register
-              courses, and rate coaches.
-            </Typography>
+        {isMobile && !mobileOpen && (
+          <IconButton
+            onClick={() => setMobileOpen(true)}
+            sx={{
+              position: "fixed",
+              top: 16,
+              left: 16,
+              bgcolor: "#10b981",
+              color: "#fff",
+              zIndex: 1300,
+            }}
+          >
+            <MenuIcon />
+          </IconButton>
+        )}
 
-            {/* Summary Cards */}
-            <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 4 }}>
-              <Paper sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#d1fae5" }}>
-                <Typography variant="h6">Assignments</Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {assignments.length}
-                </Typography>
-              </Paper>
-
-              <Paper sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#fef9c3" }}>
-                <Typography variant="h6">My Submissions</Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {
-                    assignments.filter(
-                      (a) => a.status?.toLowerCase() === "submitted"
-                    ).length
-                  }
-                </Typography>
-              </Paper>
-
-              <Paper sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#bfdbfe" }}>
-                <Typography variant="h6">Active Courses</Typography>
-                <Typography variant="h4" fontWeight="bold">
-                  {courses.length}
-                </Typography>
-              </Paper>
-            </Box>
-
-            {/* Assignment Table */}
-            <Box sx={{ height: 300, mb: 4 }}>
-              <Typography variant="h6" gutterBottom>
-                Assignment Status
+        {/* Main Content */}
+        <Box
+          sx={{
+            flexGrow: 1,
+            // ml: isMobile ? 0 : `${drawerWidth}px`,
+            p: { xs: 2, md: 4 },
+            overflowY: "auto",
+          }}
+        >
+          {/* Dashboard */}
+          {activeTab === "dashboard" && (
+            <Paper sx={{ p: 4, mb: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                📊 Welcome to your Dashboard
               </Typography>
 
-              <div style={{ height: 250, width: "100%" }}>
-                <DataGrid
-                  rows={assignments.map((a, idx) => ({
-                    id: idx,
-                    title: a.title || "Untitled",
-                    status:
-                      a.status?.toLowerCase() === "submitted"
-                        ? "Submitted"
-                        : "Pending",
-                  }))}
-                  columns={[
-                    { field: "title", headerName: "Assignment", width: 300 },
+              <Typography sx={{ mb: 3 }}>
+                Here you can view assignments, manage submissions, register
+                courses, and rate coaches.
+              </Typography>
+
+              {/* Summary Cards */}
+              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 4 }}>
+                <Paper
+                  sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#d1fae5" }}
+                >
+                  <Typography variant="h6">Assignments</Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {assignments.length}
+                  </Typography>
+                </Paper>
+
+                <Paper
+                  sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#fef9c3" }}
+                >
+                  <Typography variant="h6">My Submissions</Typography>
+                  <Typography variant="h4" fontWeight="bold">
                     {
-                      field: "status",
-                      headerName: "Status",
-                      width: 200,
-                      renderCell: (params) => (
-                        <Typography
-                          color={
-                            (params.value || "Pending").toLowerCase() ===
-                            "pending"
-                              ? "red"
-                              : "green"
-                          }
-                        >
-                          {params.value || "Pending"}
+                      assignments.filter(
+                        (a) => a.status?.toLowerCase() === "submitted"
+                      ).length
+                    }
+                  </Typography>
+                </Paper>
+
+                <Paper
+                  sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#bfdbfe" }}
+                >
+                  <Typography variant="h6">Active Courses</Typography>
+                  <Typography variant="h4" fontWeight="bold">
+                    {courses.length}
+                  </Typography>
+                </Paper>
+              </Box>
+
+              {/* Assignment Table */}
+              <Box sx={{ height: 300, mb: 4 }}>
+                <Typography variant="h6" gutterBottom>
+                  Assignment Status
+                </Typography>
+
+                <div style={{ height: 250, width: "100%" }}>
+                  <DataGrid
+                    rows={assignments.map((a, idx) => ({
+                      id: idx,
+                      title: a.title || "Untitled",
+                      status:
+                        a.status?.toLowerCase() === "submitted"
+                          ? "Submitted"
+                          : "Pending",
+                    }))}
+                    columns={[
+                      { field: "title", headerName: "Assignment", width: 300 },
+                      {
+                        field: "status",
+                        headerName: "Status",
+                        width: 200,
+                        renderCell: (params) => (
+                          <Typography
+                            color={
+                              (params.value || "Pending").toLowerCase() ===
+                              "pending"
+                                ? "red"
+                                : "green"
+                            }
+                          >
+                            {params.value || "Pending"}
+                          </Typography>
+                        ),
+                      },
+                    ]}
+                    pageSize={5}
+                    hideFooter
+                  />
+                </div>
+              </Box>
+
+              {/* Quick Coach Rating + Upcoming Class */}
+              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+                {/* Quick Coach Rating */}
+                <Paper
+                  sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#fef2f2" }}
+                >
+                  <Typography variant="h6">Rate a Coach</Typography>
+
+                  <TextField
+                    select
+                    label="Select Coach"
+                    value={selectedCoach || ""}
+                    onChange={(e) => setSelectedCoach(e.target.value)}
+                    fullWidth
+                    sx={{ my: 2 }}
+                  >
+                    <MenuItem value="">-- Select Coach --</MenuItem>
+                    {coaches.map((c) => (
+                      <MenuItem key={c._id} value={c._id}>
+                        {c.fullName}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+
+                  {selectedCoach && (
+                    <Rating
+                      value={rating}
+                      onChange={(e, newValue) => setRating(newValue)}
+                    />
+                  )}
+
+                  {selectedCoach && (
+                    <TextField
+                      label="Comment"
+                      fullWidth
+                      multiline
+                      rows={3}
+                      sx={{ mb: 2 }}
+                      value={comment}
+                      onChange={(e) => setComment(e.target.value)}
+                      placeholder="Write a comment about the coach..."
+                    />
+                  )}
+
+                  <Button
+                    variant="contained"
+                    color="success"
+                    sx={{ mt: 2 }}
+                    onClick={handleSubmitFeedback}
+                    disabled={!selectedCoach || rating === 0}
+                  >
+                    Submit Rating
+                  </Button>
+                </Paper>
+
+                {/* Upcoming Class */}
+                <Paper
+                  sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#e0f2fe" }}
+                >
+                  <Typography variant="h6" gutterBottom>
+                    Upcoming Class
+                  </Typography>
+
+                  {!nextClass ? (
+                    <Typography>No upcoming class available</Typography>
+                  ) : (
+                    <Paper sx={{ p: 2, mt: 2 }}>
+                      <Typography fontWeight="bold">
+                        {nextClass.courseId?.name || "Course"}
+                      </Typography>
+
+                      {(() => {
+                        // ================================
+                        //          TIME LOGIC (UTC)
+                        // ================================
+
+                        const unlockTimeUTC = nextClass.unlockAt
+                          ? new Date(nextClass.unlockAt)
+                          : null;
+
+                        const nowUTC = new Date(new Date().toISOString()); // force UTC
+
+                        const isValid =
+                          unlockTimeUTC instanceof Date &&
+                          !isNaN(unlockTimeUTC.getTime());
+
+                        const isUnlocked = isValid && nowUTC >= unlockTimeUTC;
+
+                        // Format as: Mon, Dec 15, 2025, 09:18 AM UTC
+                        const formattedUTC = isValid
+                          ? unlockTimeUTC.toLocaleString("en-US", {
+                              timeZone: "UTC",
+                              weekday: "short",
+                              year: "numeric",
+                              month: "short",
+                              day: "numeric",
+                              hour: "2-digit",
+                              minute: "2-digit",
+                            }) + " UTC"
+                          : "Unknown Date";
+
+                        // ================================
+                        //        COUNTDOWN TEXT
+                        // ================================
+                        let countdownText = "";
+                        if (isValid && !isUnlocked) {
+                          const diff = unlockTimeUTC - nowUTC;
+                          const totalSeconds = Math.floor(diff / 1000);
+                          const hours = Math.floor(totalSeconds / 3600);
+                          const minutes = Math.floor(
+                            (totalSeconds % 3600) / 60
+                          );
+                          const seconds = totalSeconds % 60;
+                          countdownText = `${hours}h ${minutes}m ${seconds}s`;
+                        }
+
+                        return (
+                          <>
+                            {/* Start Time */}
+                            <Typography sx={{ mt: 1 }}>
+                              Time: {formattedUTC}
+                            </Typography>
+
+                            {/* Countdown */}
+                            {!isUnlocked && isValid && (
+                              <Typography
+                                variant="body2"
+                                color="orange"
+                                sx={{ mt: 1 }}
+                              >
+                                ⏳ Starts in: {countdownText}
+                              </Typography>
+                            )}
+
+                            {/* LOCKED MESSAGE */}
+                            {!isUnlocked && (
+                              <Typography variant="body2" sx={{ mt: 1 }}>
+                                🔒 Class not accessible yet
+                              </Typography>
+                            )}
+
+                            {/* UNLOCKED CONTENT */}
+                            {isUnlocked && (
+                              <>
+                                {nextClass.fileUrl ? (
+                                  <>
+                                    {nextClass.type === "video" ? (
+                                      <video
+                                        src={nextClass.fileUrl}
+                                        controls
+                                        style={{
+                                          width: "100%",
+                                          marginTop: 10,
+                                          borderRadius: 8,
+                                        }}
+                                      />
+                                    ) : (
+                                      <Typography sx={{ mt: 2 }}>
+                                        Document available
+                                      </Typography>
+                                    )}
+
+                                    <Button
+                                      variant="contained"
+                                      color="primary"
+                                      sx={{ mt: 2 }}
+                                      href={nextClass.fileUrl}
+                                      target="_blank"
+                                    >
+                                      Open Full{" "}
+                                      {nextClass.type === "video"
+                                        ? "Video"
+                                        : "Document"}
+                                    </Button>
+                                  </>
+                                ) : (
+                                  <Typography sx={{ mt: 2 }}>
+                                    No file available
+                                  </Typography>
+                                )}
+                              </>
+                            )}
+
+                            {/* VIDEO LISTING */}
+                            {videos.map((video) => {
+                              const courseName =
+                                courses.find(
+                                  (c) => c._id === video.courseId?._id
+                                )?.name || "Unknown";
+
+                              const unlockAt = new Date(video.unlockAt);
+                              const now = new Date();
+                              const isUnlocked = now >= unlockAt;
+
+                              const unlockAtFormatted = unlockAt.toLocaleString(
+                                "en-US",
+                                {
+                                  weekday: "short",
+                                  year: "numeric",
+                                  month: "short",
+                                  day: "numeric",
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                  hour12: true,
+                                }
+                              );
+
+                              return (
+                                <Box
+                                  key={video._id}
+                                  sx={{
+                                    p: 2,
+                                    mb: 3,
+                                    borderRadius: 2,
+                                    border: "1px solid #ddd",
+                                    ...(isUnlocked && {
+                                      borderColor: "red",
+                                      animation: "glowPulse 1.8s infinite",
+                                    }),
+                                  }}
+                                  className={isUnlocked ? "glow" : ""}
+                                >
+                                  <Typography variant="h6" fontWeight="bold">
+                                    🎬 {video.title}
+                                    {isUnlocked && (
+                                      <span className="live-badge">LIVE</span>
+                                    )}
+                                  </Typography>
+
+                                  <Typography sx={{ mb: 1 }}>
+                                    Course: {courseName}
+                                  </Typography>
+
+                                  {!isUnlocked ? (
+                                    <Typography
+                                      sx={{ color: "red", fontWeight: "bold" }}
+                                    >
+                                      ⏳ Unlocks at: {unlockAtFormatted}
+                                    </Typography>
+                                  ) : (
+                                    <video
+                                      width="100%"
+                                      controls
+                                      autoPlay={true}
+                                      style={{
+                                        borderRadius: "10px",
+                                        marginTop: "10px",
+                                      }}
+                                    >
+                                      <source
+                                        src={video.videoUrl}
+                                        type="video/mp4"
+                                      />
+                                      Your browser does not support the video
+                                      tag.
+                                    </video>
+                                  )}
+                                </Box>
+                              );
+                            })}
+                          </>
+                        );
+                      })()}
+                    </Paper>
+                  )}
+                </Paper>
+              </Box>
+            </Paper>
+          )}
+
+          {/* Join Class Tab */}
+          {activeTab === "join-class" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography
+                variant="h4"
+                fontWeight="bold"
+                color="primary"
+                sx={{ mt: 6 }}
+              >
+                📚 Your Class Materials
+              </Typography>
+
+              {loadingVideos || loadingDocuments || !courses.length ? (
+                <Typography sx={{ mt: 2 }}>Loading classes...</Typography>
+              ) : videos.length === 0 && documents.length === 0 ? (
+                <Typography sx={{ mt: 2 }}>
+                  Class is not available now.
+                </Typography>
+              ) : (
+                <>
+                  {/* Render videos */}
+                  {videos.map((video) => {
+                    const courseName =
+                      courses.find((c) => c._id === video.courseId)?.name ||
+                      "Unknown";
+                    const now = new Date();
+                    const unlockAt = new Date(video.unlockAt);
+                    const expireTime = new Date(
+                      unlockAt.getTime() + 3 * 60 * 60 * 1000
+                    );
+                    const isUnlocked = now >= unlockAt && now <= expireTime;
+
+                    return (
+                      <Paper
+                        key={video._id}
+                        sx={{ p: 2, mt: 2, bgcolor: "#fff7f0" }}
+                      >
+                        <Typography variant="h6" fontWeight="bold">
+                          🎥 {video.title}
                         </Typography>
-                      ),
-                    },
-                  ]}
-                  pageSize={5}
-                  hideFooter
-                />
-              </div>
-            </Box>
+                        <Typography variant="body2" sx={{ mt: 1 }}>
+                          Course:{" "}
+                          <span style={{ color: "green" }}>{courseName}</span>
+                        </Typography>
 
-            {/* Quick Coach Rating + Upcoming Class */}
-            <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
-              {/* Quick Coach Rating */}
-              <Paper sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#fef2f2" }}>
-                <Typography variant="h6">Rate a Coach</Typography>
+                        {isUnlocked && video.fileUrl ? (
+                          <>
+                            <Typography variant="body2">
+                              Uploaded:{" "}
+                              {new Date(video.createdAt).toLocaleDateString()}
+                            </Typography>
+                            <video
+                              style={{
+                                marginTop: 15,
+                                width: "100%",
+                                borderRadius: 8,
+                              }}
+                              controls
+                              controlsList="nodownload"
+                              src={video.fileUrl}
+                            />
+                            <Typography
+                              variant="caption"
+                              sx={{ display: "block", mt: 1, color: "gray" }}
+                            >
+                              Video is available for 3 hours only.
+                            </Typography>
+                          </>
+                        ) : (
+                          <Typography sx={{ mt: 1, color: "orange" }}>
+                            Class will start on {unlockAt.toLocaleString()}
+                          </Typography>
+                        )}
+                      </Paper>
+                    );
+                  })}
+                  {/* Render documents */}
+                  {documents.map((doc) => (
+                    <Paper key={doc._id} sx={{ p: 2, mb: 2 }}>
+                      <Typography variant="h6" fontWeight="bold">
+                        {doc.title}
+                      </Typography>
 
+                      {/* Displaying the original post time */}
+                      <Typography
+                        variant="caption"
+                        color="text.secondary"
+                        display="block"
+                      >
+                        Posted on: {doc.displayPostedAt} (WAT)
+                      </Typography>
+
+                      <Typography
+                        variant="body2"
+                        sx={{
+                          mt: 1,
+                          color:
+                            Date.now() >= doc.unlockAtMs ? "green" : "orange",
+                          fontWeight: "bold",
+                        }}
+                      >
+                        {Date.now() >= doc.unlockAtMs
+                          ? "✅ Content Available"
+                          : `🔒 Unlocks at: ${doc.displayUnlockAt} Nigeria Time`}
+                      </Typography>
+
+                      {/* ... rest of your code ... */}
+                    </Paper>
+                  ))}
+
+                  {/* Class chat - only if any material is unlocked */}
+                  {canShowChat && (
+                    <Box
+                      sx={{
+                        mt: 2,
+                        border: "1px solid #e0e0e0",
+                        borderRadius: 3,
+                        p: 2,
+                        bgcolor: "#fafafa",
+                        maxWidth: 500,
+                      }}
+                    >
+                      <Typography fontWeight="bold" sx={{ mb: 1 }}>
+                        💬 Cohort Chat
+                      </Typography>
+
+                      {/* Messages */}
+                      <Box
+                        sx={{
+                          maxHeight: 300,
+                          overflowY: "auto",
+                          p: 1,
+                          mb: 1,
+                          display: "flex",
+                          flexDirection: "column",
+                          gap: 1,
+                        }}
+                      >
+                        {chatMessages.length === 0 ? (
+                          <Typography variant="body2" color="text.secondary">
+                            No messages yet. Say hi 👋
+                          </Typography>
+                        ) : (
+                          chatMessages.map((m, i) => {
+                            const isMe =
+                              (typeof m.senderId === "object"
+                                ? m.senderId._id
+                                : m.senderId) === currentUserId;
+
+                            return (
+                              <Box
+                                key={m._id || i}
+                                sx={{
+                                  display: "flex",
+                                  justifyContent: isMe
+                                    ? "flex-end"
+                                    : "flex-start",
+                                }}
+                              >
+                                <Box
+                                  sx={{
+                                    maxWidth: "75%",
+                                    p: 1.2,
+                                    borderRadius: 2,
+                                    bgcolor: isMe ? "#d1e7ff" : "#ffffff",
+                                    boxShadow: 1,
+                                  }}
+                                >
+                                  <Typography
+                                    variant="caption"
+                                    sx={{
+                                      fontWeight: "bold",
+                                      display: "block",
+                                    }}
+                                  >
+                                    {getSenderName(m)}
+                                  </Typography>
+                                  <Typography variant="body2">
+                                    {m.text}
+                                  </Typography>
+                                </Box>
+                              </Box>
+                            );
+                          })
+                        )}
+                        <div ref={chatEndRef} />
+                      </Box>
+
+                      {/* Input */}
+                      <Box sx={{ display: "flex", gap: 1 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          value={text}
+                          onChange={(e) => setText(e.target.value)}
+                          placeholder="Type a message..."
+                          onKeyDown={(e) => e.key === "Enter" && sendMessage()}
+                        />
+                        <Button variant="contained" onClick={sendMessage}>
+                          Send
+                        </Button>
+                      </Box>
+                    </Box>
+                  )}
+                </>
+              )}
+            </Paper>
+          )}
+
+          {/* ASSIGNMENTS TAB */}
+          {activeTab === "assignments" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography
+                variant="h4"
+                color="green"
+                fontWeight="bold"
+                gutterBottom
+              >
+                🧾 My Assignments
+              </Typography>
+
+              {/* ==================== VIEW / SUBMIT MODAL ==================== */}
+              <Modal
+                open={openAssignmentModal}
+                onClose={() => setOpenAssignmentModal(false)}
+              >
+                <Box
+                  sx={{
+                    width: "90%",
+                    maxWidth: 500,
+                    background: "#fff",
+                    p: 4,
+                    borderRadius: 4,
+                    mx: "auto",
+                    mt: 10,
+                    boxShadow: 4,
+                  }}
+                >
+                  {selectedAssignment ? (
+                    <>
+                      <Typography variant="h5" fontWeight="bold" color="green">
+                        {selectedAssignment.title}
+                      </Typography>
+
+                      <Typography sx={{ mt: 2 }}>
+                        <strong>Description:</strong>{" "}
+                        {selectedAssignment.description}
+                      </Typography>
+
+                      <Typography sx={{ mt: 1 }}>
+                        <strong>Course:</strong> {selectedAssignment.courseName}
+                      </Typography>
+
+                      <Typography sx={{ mt: 1 }}>
+                        <strong>Due Date:</strong>{" "}
+                        {selectedAssignment.dueDate
+                          ? new Date(
+                              selectedAssignment.dueDate
+                            ).toLocaleDateString()
+                          : "N/A"}
+                      </Typography>
+
+                      {/* Already Submitted */}
+                      {selectedAssignment.submittedFile ? (
+                        <Box sx={{ mt: 3 }}>
+                          <Typography color="green" fontWeight="bold">
+                            ✔ You already submitted this assignment
+                          </Typography>
+
+                          <Button
+                            sx={{ mt: 2 }}
+                            variant="contained"
+                            color="success"
+                            href={selectedAssignment.submittedFile}
+                            target="_blank"
+                          >
+                            View Submitted File
+                          </Button>
+                        </Box>
+                      ) : selectedAssignment.isExpired ? (
+                        <Typography
+                          color="red"
+                          sx={{ mt: 3, fontWeight: "bold" }}
+                        >
+                          ⚠ Assignment Expired
+                        </Typography>
+                      ) : (
+                        <>
+                          {/* Upload File */}
+                          <Box sx={{ mt: 3 }}>
+                            <Typography fontWeight="bold">
+                              Upload File
+                            </Typography>
+                            <input
+                              type="file"
+                              style={{ marginTop: 10 }}
+                              onChange={(e) =>
+                                setSubmittedFile(e.target.files[0])
+                              }
+                            />
+                          </Box>
+
+                          <Button
+                            sx={{ mt: 3 }}
+                            variant="contained"
+                            color="success"
+                            fullWidth
+                            onClick={handleSubmitAssignment}
+                            disabled={submittingAssignment} // disable during submission
+                          >
+                            {submittingAssignment ? (
+                              <CircularProgress size={24} color="inherit" />
+                            ) : (
+                              "Submit Assignment"
+                            )}
+                          </Button>
+                        </>
+                      )}
+
+                      <Button
+                        sx={{ mt: 2 }}
+                        fullWidth
+                        variant="outlined"
+                        color="error"
+                        onClick={() => setOpenAssignmentModal(false)}
+                      >
+                        Close
+                      </Button>
+                    </>
+                  ) : (
+                    <Typography>Loading...</Typography>
+                  )}
+                </Box>
+              </Modal>
+
+              {/* ==================== LIST OF ASSIGNMENTS ==================== */}
+              {!assignments || assignments.length === 0 ? (
+                <Typography sx={{ mt: 3, color: "gray", textAlign: "center" }}>
+                  {message || "No assignments available."}
+                </Typography>
+              ) : (
+                <div style={{ width: "100%", overflowX: "auto" }}>
+                  <DataGrid
+                    getRowId={(row) => row.assignmentId}
+                    rows={assignments.map((a) => {
+                      const dueDate = a.dueDate ? new Date(a.dueDate) : null;
+                      const isExpired = dueDate ? dueDate < new Date() : false;
+
+                      return {
+                        id: a.assignmentId,
+                        assignmentId: a.assignmentId,
+                        title: a.title,
+                        courseName: a.courseName || "N/A",
+                        description: a.description,
+                        dueDate: dueDate ? dueDate.toLocaleDateString() : "N/A",
+                        submittedFile: a.file || null,
+                        status:
+                          a.status?.toLowerCase() === "submitted"
+                            ? "Submitted"
+                            : isExpired
+                            ? "Expired"
+                            : "Pending",
+                        grade: a.grade || "-",
+                        isExpired,
+                        justSubmitted: a.justSubmitted || false, // flag after submission
+                      };
+                    })}
+                    columns={[
+                      { field: "title", headerName: "Assignment", width: 250 },
+                      { field: "courseName", headerName: "Course", width: 180 },
+                      { field: "dueDate", headerName: "Due Date", width: 160 },
+
+                      {
+                        field: "status",
+                        headerName: "Status",
+                        width: 120,
+                        renderCell: (params) => (
+                          <Typography
+                            color={
+                              params.value === "Pending"
+                                ? "red"
+                                : params.value === "Expired"
+                                ? "gray"
+                                : "green"
+                            }
+                          >
+                            {params.value}
+                          </Typography>
+                        ),
+                      },
+
+                      {
+                        field: "grade",
+                        headerName: "Grade",
+                        width: 100,
+                        renderCell: (params) => (
+                          <Typography
+                            color={params.value === "-" ? "gray" : "blue"}
+                          >
+                            {params.value}
+                          </Typography>
+                        ),
+                      },
+
+                      {
+                        field: "actions",
+                        headerName: "Actions",
+                        width: 220,
+                        renderCell: (params) => {
+                          const disabled =
+                            params.row.status === "Submitted" ||
+                            params.row.isExpired ||
+                            params.row.justSubmitted;
+
+                          return (
+                            <Button
+                              variant="contained"
+                              color="success"
+                              size="small"
+                              disabled={disabled}
+                              onClick={() => handleViewAssignment(params.row)}
+                            >
+                              {disabled
+                                ? params.row.justSubmitted ||
+                                  params.row.status === "Submitted"
+                                  ? "Submitted"
+                                  : params.row.isExpired
+                                  ? "Expired"
+                                  : "Not Available"
+                                : "View Details / Submit"}
+                            </Button>
+                          );
+                        },
+                      },
+                    ]}
+                    pageSize={5}
+                    hideFooter
+                  />
+                </div>
+              )}
+            </Paper>
+          )}
+          {/* Rate Coach */}
+          {activeTab === "rate-coach" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h4" color="green" fontWeight="bold">
+                ⭐ Rate Your Coach
+              </Typography>
+              <form onSubmit={handleSubmitFeedback} style={{ marginTop: 20 }}>
                 <TextField
                   select
                   label="Select Coach"
-                  value={selectedCoach || ""}
+                  value={selectedCoach}
                   onChange={(e) => setSelectedCoach(e.target.value)}
                   fullWidth
-                  sx={{ my: 2 }}
+                  sx={{ mb: 2 }}
                 >
                   <MenuItem value="">-- Select Coach --</MenuItem>
                   {coaches.map((c) => (
@@ -1309,1232 +2029,533 @@ const StudentDashboard = () => {
                     </MenuItem>
                   ))}
                 </TextField>
-
                 {selectedCoach && (
-                  <Rating
-                    value={rating}
-                    onChange={(e, newValue) => setRating(newValue)}
-                  />
+                  <Typography sx={{ mt: 1 }}>
+                    Selected Coach:{" "}
+                    {coaches.find((c) => c._id === selectedCoach)?.fullName}
+                  </Typography>
                 )}
 
-                {selectedCoach && (
-                  <TextField
-                    label="Comment"
-                    fullWidth
-                    multiline
-                    rows={3}
-                    sx={{ mb: 2 }}
-                    value={comment}
-                    onChange={(e) => setComment(e.target.value)}
-                    placeholder="Write a comment about the coach..."
-                  />
-                )}
-
-                <Button
-                  variant="contained"
-                  color="success"
-                  sx={{ mt: 2 }}
-                  onClick={handleSubmitFeedback}
-                  disabled={!selectedCoach || rating === 0}
-                >
-                  Submit Rating
+                <Typography>Rating:</Typography>
+                <Rating
+                  value={rating}
+                  onChange={(e, newValue) => setRating(newValue)}
+                />
+                <TextField
+                  label="Comment"
+                  fullWidth
+                  multiline
+                  rows={3}
+                  sx={{ mt: 2, mb: 2 }}
+                  value={comment}
+                  onChange={(e) => setComment(e.target.value)}
+                />
+                <Button type="submit" variant="contained" color="success">
+                  Submit Feedback
                 </Button>
-              </Paper>
-
-              {/* Upcoming Class */}
-              <Paper sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#e0f2fe" }}>
-                <Typography variant="h6" gutterBottom>
-                  Upcoming Class
+              </form>
+              {message && <Alert sx={{ mt: 2 }}>{message}</Alert>}
+            </Paper>
+          )}
+          {/* Register cohort Course */}
+          {activeTab === "register-course" && (
+            <Paper sx={{ p: 4 }}>
+              {cohortLoading ? (
+                <CircularProgress />
+              ) : Array.isArray(activeCohorts) && activeCohorts.length === 0 ? (
+                <Typography variant="h5" color="red">
+                  ❌ No available cohorts
                 </Typography>
-
-                {!nextClass ? (
-                  <Typography>No upcoming class available</Typography>
-                ) : (
-                  <Paper sx={{ p: 2, mt: 2 }}>
-                    <Typography fontWeight="bold">
-                      {nextClass.courseId?.name || "Course"}
+              ) : (
+                <>
+                  <Typography
+                    variant="h4"
+                    color="green"
+                    fontWeight="bold"
+                    gutterBottom
+                  >
+                    📝 Register to a Cohort
+                  </Typography>
+                  {message && (
+                    <Typography
+                      variant="body1"
+                      color="error"
+                      sx={{ mb: 2, fontWeight: "bold" }}
+                    >
+                      {message}
                     </Typography>
+                  )}
 
-                    {(() => {
-                      // ================================
-                      //          TIME LOGIC (UTC)
-                      // ================================
+                  {/* Cohort dropdown */}
+                  <TextField
+                    select
+                    label="Choose Cohort"
+                    fullWidth
+                    value={selectedCohort || ""}
+                    onChange={(e) => {
+                      setSelectedCohort(e.target.value);
+                      setSelectedCourse("");
+                    }}
+                    sx={{ mb: 2 }}
+                  >
+                    <MenuItem value="">-- Select Cohort --</MenuItem>
+                    {activeCohorts.map((cohort) => (
+                      <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                        {cohort.cohortName}
+                      </MenuItem>
+                    ))}
+                  </TextField>
 
-                      const unlockTimeUTC = nextClass.unlockAt
-                        ? new Date(nextClass.unlockAt)
-                        : null;
-
-                      const nowUTC = new Date(new Date().toISOString()); // force UTC
-
-                      const isValid =
-                        unlockTimeUTC instanceof Date &&
-                        !isNaN(unlockTimeUTC.getTime());
-
-                      const isUnlocked = isValid && nowUTC >= unlockTimeUTC;
-
-                      // Format as: Mon, Dec 15, 2025, 09:18 AM UTC
-                      const formattedUTC = isValid
-                        ? unlockTimeUTC.toLocaleString("en-US", {
-                            timeZone: "UTC",
-                            weekday: "short",
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                            hour: "2-digit",
-                            minute: "2-digit",
-                          }) + " UTC"
-                        : "Unknown Date";
-
-                      // ================================
-                      //        COUNTDOWN TEXT
-                      // ================================
-                      let countdownText = "";
-                      if (isValid && !isUnlocked) {
-                        const diff = unlockTimeUTC - nowUTC;
-                        const totalSeconds = Math.floor(diff / 1000);
-                        const hours = Math.floor(totalSeconds / 3600);
-                        const minutes = Math.floor((totalSeconds % 3600) / 60);
-                        const seconds = totalSeconds % 60;
-                        countdownText = `${hours}h ${minutes}m ${seconds}s`;
-                      }
+                  {/* Courses dropdown */}
+                  {selectedCohort &&
+                    (() => {
+                      const selected = activeCohorts.find(
+                        (c) => c.cohortId === selectedCohort
+                      );
+                      const coursesList = selected?.courses || [];
 
                       return (
                         <>
-                          {/* Start Time */}
-                          <Typography sx={{ mt: 1 }}>
-                            Time: {formattedUTC}
-                          </Typography>
-
-                          {/* Countdown */}
-                          {!isUnlocked && isValid && (
-                            <Typography
-                              variant="body2"
-                              color="orange"
-                              sx={{ mt: 1 }}
-                            >
-                              ⏳ Starts in: {countdownText}
-                            </Typography>
-                          )}
-
-                          {/* LOCKED MESSAGE */}
-                          {!isUnlocked && (
-                            <Typography variant="body2" sx={{ mt: 1 }}>
-                              🔒 Class not accessible yet
-                            </Typography>
-                          )}
-
-                          {/* UNLOCKED CONTENT */}
-                          {isUnlocked && (
-                            <>
-                              {nextClass.fileUrl ? (
-                                <>
-                                  {nextClass.type === "video" ? (
-                                    <video
-                                      src={nextClass.fileUrl}
-                                      controls
-                                      style={{
-                                        width: "100%",
-                                        marginTop: 10,
-                                        borderRadius: 8,
-                                      }}
-                                    />
-                                  ) : (
-                                    <Typography sx={{ mt: 2 }}>
-                                      Document available
-                                    </Typography>
-                                  )}
-
-                                  <Button
-                                    variant="contained"
-                                    color="primary"
-                                    sx={{ mt: 2 }}
-                                    href={nextClass.fileUrl}
-                                    target="_blank"
-                                  >
-                                    Open Full{" "}
-                                    {nextClass.type === "video"
-                                      ? "Video"
-                                      : "Document"}
-                                  </Button>
-                                </>
-                              ) : (
-                                <Typography sx={{ mt: 2 }}>
-                                  No file available
-                                </Typography>
-                              )}
-                            </>
-                          )}
-
-                          {/* VIDEO LISTING */}
-                          {videos.map((video) => {
-                            const courseName =
-                              courses.find((c) => c._id === video.courseId?._id)
-                                ?.name || "Unknown";
-
-                            const unlockAt = new Date(video.unlockAt);
-                            const now = new Date();
-                            const isUnlocked = now >= unlockAt;
-
-                            const unlockAtFormatted = unlockAt.toLocaleString(
-                              "en-US",
-                              {
-                                weekday: "short",
-                                year: "numeric",
-                                month: "short",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                                hour12: true,
-                              }
-                            );
-
-                            return (
-                              <Box
-                                key={video._id}
-                                sx={{
-                                  p: 2,
-                                  mb: 3,
-                                  borderRadius: 2,
-                                  border: "1px solid #ddd",
-                                  ...(isUnlocked && {
-                                    borderColor: "red",
-                                    animation: "glowPulse 1.8s infinite",
-                                  }),
-                                }}
-                                className={isUnlocked ? "glow" : ""}
-                              >
-                                <Typography variant="h6" fontWeight="bold">
-                                  🎬 {video.title}
-                                  {isUnlocked && (
-                                    <span className="live-badge">LIVE</span>
-                                  )}
-                                </Typography>
-
-                                <Typography sx={{ mb: 1 }}>
-                                  Course: {courseName}
-                                </Typography>
-
-                                {!isUnlocked ? (
-                                  <Typography
-                                    sx={{ color: "red", fontWeight: "bold" }}
-                                  >
-                                    ⏳ Unlocks at: {unlockAtFormatted}
-                                  </Typography>
-                                ) : (
-                                  <video
-                                    width="100%"
-                                    controls
-                                    autoPlay={true}
-                                    style={{
-                                      borderRadius: "10px",
-                                      marginTop: "10px",
-                                    }}
-                                  >
-                                    <source
-                                      src={video.videoUrl}
-                                      type="video/mp4"
-                                    />
-                                    Your browser does not support the video tag.
-                                  </video>
-                                )}
-                              </Box>
-                            );
-                          })}
-                        </>
-                      );
-                    })()}
-                  </Paper>
-                )}
-              </Paper>
-            </Box>
-          </Paper>
-        )}
-
-        {/* Join Class Tab */}
-        {activeTab === "join-class" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography
-              variant="h4"
-              fontWeight="bold"
-              color="primary"
-              sx={{ mt: 6 }}
-            >
-              📚 Your Class Materials
-            </Typography>
-
-            {loadingVideos || loadingDocuments || !courses.length ? (
-              <Typography sx={{ mt: 2 }}>Loading classes...</Typography>
-            ) : videos.length === 0 && documents.length === 0 ? (
-              <Typography sx={{ mt: 2 }}>
-                Class is not available now.
-              </Typography>
-            ) : (
-              <>
-                {/* Render videos */}
-                {videos.map((video) => {
-                  const courseName =
-                    courses.find((c) => c._id === video.courseId)?.name ||
-                    "Unknown";
-                  const now = new Date();
-                  const unlockAt = new Date(video.unlockAt);
-                  const expireTime = new Date(
-                    unlockAt.getTime() + 3 * 60 * 60 * 1000
-                  );
-                  const isUnlocked = now >= unlockAt && now <= expireTime;
-
-                  return (
-                    <Paper
-                      key={video._id}
-                      sx={{ p: 2, mt: 2, bgcolor: "#fff7f0" }}
-                    >
-                      <Typography variant="h6" fontWeight="bold">
-                        🎥 {video.title}
-                      </Typography>
-                      <Typography variant="body2" sx={{ mt: 1 }}>
-                        Course:{" "}
-                        <span style={{ color: "green" }}>{courseName}</span>
-                      </Typography>
-
-                      {isUnlocked && video.fileUrl ? (
-                        <>
-                          <Typography variant="body2">
-                            Uploaded:{" "}
-                            {new Date(video.createdAt).toLocaleDateString()}
-                          </Typography>
-                          <video
-                            style={{
-                              marginTop: 15,
-                              width: "100%",
-                              borderRadius: 8,
-                            }}
-                            controls
-                            controlsList="nodownload"
-                            src={video.fileUrl}
-                          />
-                          <Typography
-                            variant="caption"
-                            sx={{ display: "block", mt: 1, color: "gray" }}
+                          <TextField
+                            select
+                            label="Choose Course"
+                            fullWidth
+                            value={selectedCourse || ""}
+                            onChange={(e) => setSelectedCourse(e.target.value)}
+                            sx={{ mb: 2 }}
                           >
-                            Video is available for 3 hours only.
-                          </Typography>
-                        </>
-                      ) : (
-                        <Typography sx={{ mt: 1, color: "orange" }}>
-                          Class will start on {unlockAt.toLocaleString()}
-                        </Typography>
-                      )}
-                    </Paper>
-                  );
-                })}
-                {/* Render documents */}
-                {documents.map((doc) => (
-                  <Paper key={doc._id} sx={{ p: 2, mb: 2 }}>
-                    <Typography variant="h6" fontWeight="bold">
-                      {doc.title}
-                    </Typography>
+                            <MenuItem value="">-- Select Course --</MenuItem>
+                            {coursesList.map((course) => (
+                              <MenuItem key={course._id} value={course._id}>
+                                {course.name || "Unnamed"} (
+                                {course.category || "N/A"}) -{" "}
+                                {course.durationInDays || "N/A"} days
+                              </MenuItem>
+                            ))}
+                          </TextField>
 
-                    {/* Displaying the original post time */}
-                    <Typography
-                      variant="caption"
-                      color="text.secondary"
-                      display="block"
-                    >
-                      Posted on: {doc.displayPostedAt} (WAT)
-                    </Typography>
-
-                    <Typography
-                      variant="body2"
-                      sx={{
-                        mt: 1,
-                        color:
-                          Date.now() >= doc.unlockAtMs ? "green" : "orange",
-                        fontWeight: "bold",
-                      }}
-                    >
-                      {Date.now() >= doc.unlockAtMs
-                        ? "✅ Content Available"
-                        : `🔒 Unlocks at: ${doc.displayUnlockAt} Nigeria Time`}
-                    </Typography>
-
-                    {/* ... rest of your code ... */}
-                  </Paper>
-                ))}
-
-                {/* Class chat - only if any material is unlocked */}
-                {canShowChat && (
-                  <Box
-                    sx={{
-                      mt: 2,
-                      border: "1px solid #e0e0e0",
-                      borderRadius: 3,
-                      p: 2,
-                      bgcolor: "#fafafa",
-                      maxWidth: 500,
-                    }}
-                  >
-                    <Typography fontWeight="bold" sx={{ mb: 1 }}>
-                      💬 Cohort Chat
-                    </Typography>
-
-                    {/* Messages */}
-                    <Box
-                      sx={{
-                        maxHeight: 300,
-                        overflowY: "auto",
-                        p: 1,
-                        mb: 1,
-                        display: "flex",
-                        flexDirection: "column",
-                        gap: 1,
-                      }}
-                    >
-                      {chatMessages.length === 0 ? (
-                        <Typography variant="body2" color="text.secondary">
-                          No messages yet. Say hi 👋
-                        </Typography>
-                      ) : (
-                        chatMessages.map((m, i) => {
-                          const isMe =
-                            (typeof m.senderId === "object"
-                              ? m.senderId._id
-                              : m.senderId) === currentUserId;
-
-                          return (
-                            <Box
-                              key={m._id || i}
-                              sx={{
-                                display: "flex",
-                                justifyContent: isMe
-                                  ? "flex-end"
-                                  : "flex-start",
-                              }}
-                            >
-                              <Box
-                                sx={{
-                                  maxWidth: "75%",
-                                  p: 1.2,
-                                  borderRadius: 2,
-                                  bgcolor: isMe ? "#d1e7ff" : "#ffffff",
-                                  boxShadow: 1,
-                                }}
-                              >
-                                <Typography
-                                  variant="caption"
-                                  sx={{ fontWeight: "bold", display: "block" }}
-                                >
-                                  {getSenderName(m)}
-                                </Typography>
-                                <Typography variant="body2">
-                                  {m.text}
-                                </Typography>
-                              </Box>
-                            </Box>
-                          );
-                        })
-                      )}
-                      <div ref={chatEndRef} />
-                    </Box>
-
-                    {/* Input */}
-                    <Box sx={{ display: "flex", gap: 1 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        value={text}
-                        onChange={(e) => setText(e.target.value)}
-                        placeholder="Type a message..."
-                        onKeyDown={(e) => e.key === "Enter" && sendMessage()}
-                      />
-                      <Button variant="contained" onClick={sendMessage}>
-                        Send
-                      </Button>
-                    </Box>
-                  </Box>
-                )}
-              </>
-            )}
-          </Paper>
-        )}
-
-        {/* ASSIGNMENTS TAB */}
-        {activeTab === "assignments" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography
-              variant="h4"
-              color="green"
-              fontWeight="bold"
-              gutterBottom
-            >
-              🧾 My Assignments
-            </Typography>
-
-            {/* ==================== VIEW / SUBMIT MODAL ==================== */}
-            <Modal
-              open={openAssignmentModal}
-              onClose={() => setOpenAssignmentModal(false)}
-            >
-              <Box
-                sx={{
-                  width: "90%",
-                  maxWidth: 500,
-                  background: "#fff",
-                  p: 4,
-                  borderRadius: 4,
-                  mx: "auto",
-                  mt: 10,
-                  boxShadow: 4,
-                }}
-              >
-                {selectedAssignment ? (
-                  <>
-                    <Typography variant="h5" fontWeight="bold" color="green">
-                      {selectedAssignment.title}
-                    </Typography>
-
-                    <Typography sx={{ mt: 2 }}>
-                      <strong>Description:</strong>{" "}
-                      {selectedAssignment.description}
-                    </Typography>
-
-                    <Typography sx={{ mt: 1 }}>
-                      <strong>Course:</strong> {selectedAssignment.courseName}
-                    </Typography>
-
-                    <Typography sx={{ mt: 1 }}>
-                      <strong>Due Date:</strong>{" "}
-                      {selectedAssignment.dueDate
-                        ? new Date(
-                            selectedAssignment.dueDate
-                          ).toLocaleDateString()
-                        : "N/A"}
-                    </Typography>
-
-                    {/* Already Submitted */}
-                    {selectedAssignment.submittedFile ? (
-                      <Box sx={{ mt: 3 }}>
-                        <Typography color="green" fontWeight="bold">
-                          ✔ You already submitted this assignment
-                        </Typography>
-
-                        <Button
-                          sx={{ mt: 2 }}
-                          variant="contained"
-                          color="success"
-                          href={selectedAssignment.submittedFile}
-                          target="_blank"
-                        >
-                          View Submitted File
-                        </Button>
-                      </Box>
-                    ) : selectedAssignment.isExpired ? (
-                      <Typography
-                        color="red"
-                        sx={{ mt: 3, fontWeight: "bold" }}
-                      >
-                        ⚠ Assignment Expired
-                      </Typography>
-                    ) : (
-                      <>
-                        {/* Upload File */}
-                        <Box sx={{ mt: 3 }}>
-                          <Typography fontWeight="bold">Upload File</Typography>
-                          <input
-                            type="file"
-                            style={{ marginTop: 10 }}
-                            onChange={(e) =>
-                              setSubmittedFile(e.target.files[0])
-                            }
-                          />
-                        </Box>
-
-                        <Button
-                          sx={{ mt: 3 }}
-                          variant="contained"
-                          color="success"
-                          fullWidth
-                          onClick={handleSubmitAssignment}
-                          disabled={submittingAssignment} // disable during submission
-                        >
-                          {submittingAssignment ? (
-                            <CircularProgress size={24} color="inherit" />
-                          ) : (
-                            "Submit Assignment"
-                          )}
-                        </Button>
-                      </>
-                    )}
-
-                    <Button
-                      sx={{ mt: 2 }}
-                      fullWidth
-                      variant="outlined"
-                      color="error"
-                      onClick={() => setOpenAssignmentModal(false)}
-                    >
-                      Close
-                    </Button>
-                  </>
-                ) : (
-                  <Typography>Loading...</Typography>
-                )}
-              </Box>
-            </Modal>
-
-            {/* ==================== LIST OF ASSIGNMENTS ==================== */}
-            {!assignments || assignments.length === 0 ? (
-              <Typography sx={{ mt: 3, color: "gray", textAlign: "center" }}>
-                {message || "No assignments available."}
-              </Typography>
-            ) : (
-              <div style={{ width: "100%", overflowX: "auto" }}>
-                <DataGrid
-                  getRowId={(row) => row.assignmentId}
-                  rows={assignments.map((a) => {
-                    const dueDate = a.dueDate ? new Date(a.dueDate) : null;
-                    const isExpired = dueDate ? dueDate < new Date() : false;
-
-                    return {
-                      id: a.assignmentId,
-                      assignmentId: a.assignmentId,
-                      title: a.title,
-                      courseName: a.courseName || "N/A",
-                      description: a.description,
-                      dueDate: dueDate ? dueDate.toLocaleDateString() : "N/A",
-                      submittedFile: a.file || null,
-                      status:
-                        a.status?.toLowerCase() === "submitted"
-                          ? "Submitted"
-                          : isExpired
-                          ? "Expired"
-                          : "Pending",
-                      grade: a.grade || "-",
-                      isExpired,
-                      justSubmitted: a.justSubmitted || false, // flag after submission
-                    };
-                  })}
-                  columns={[
-                    { field: "title", headerName: "Assignment", width: 250 },
-                    { field: "courseName", headerName: "Course", width: 180 },
-                    { field: "dueDate", headerName: "Due Date", width: 160 },
-
-                    {
-                      field: "status",
-                      headerName: "Status",
-                      width: 120,
-                      renderCell: (params) => (
-                        <Typography
-                          color={
-                            params.value === "Pending"
-                              ? "red"
-                              : params.value === "Expired"
-                              ? "gray"
-                              : "green"
-                          }
-                        >
-                          {params.value}
-                        </Typography>
-                      ),
-                    },
-
-                    {
-                      field: "grade",
-                      headerName: "Grade",
-                      width: 100,
-                      renderCell: (params) => (
-                        <Typography
-                          color={params.value === "-" ? "gray" : "blue"}
-                        >
-                          {params.value}
-                        </Typography>
-                      ),
-                    },
-
-                    {
-                      field: "actions",
-                      headerName: "Actions",
-                      width: 220,
-                      renderCell: (params) => {
-                        const disabled =
-                          params.row.status === "Submitted" ||
-                          params.row.isExpired ||
-                          params.row.justSubmitted;
-
-                        return (
                           <Button
                             variant="contained"
                             color="success"
-                            size="small"
-                            disabled={disabled}
-                            onClick={() => handleViewAssignment(params.row)}
+                            disabled={!selectedCourse || registerLoading}
+                            onClick={() =>
+                              handleRegisterStudent(
+                                selectedCohort,
+                                selectedCourse
+                              )
+                            }
                           >
-                            {disabled
-                              ? params.row.justSubmitted ||
-                                params.row.status === "Submitted"
-                                ? "Submitted"
-                                : params.row.isExpired
-                                ? "Expired"
-                                : "Not Available"
-                              : "View Details / Submit"}
+                            {registerLoading ? "Registering..." : "Register"}
                           </Button>
-                        );
-                      },
-                    },
-                  ]}
-                  pageSize={5}
-                  hideFooter
-                />
-              </div>
-            )}
-          </Paper>
-        )}
-        {/* Rate Coach */}
-        {activeTab === "rate-coach" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography variant="h4" color="green" fontWeight="bold">
-              ⭐ Rate Your Coach
-            </Typography>
-            <form onSubmit={handleSubmitFeedback} style={{ marginTop: 20 }}>
+                        </>
+                      );
+                    })()}
+                </>
+              )}
+            </Paper>
+          )}
+
+          {/* JOIN LIVE CLASS */}
+          {activeTab === "join-live" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h5" fontWeight="bold" color="error">
+                🔴 Live Class
+              </Typography>
+
+              {loadingLive ? (
+                <Typography sx={{ mt: 2 }}>Checking live session...</Typography>
+              ) : !liveSession?.isLive ? (
+                <Typography sx={{ mt: 2 }}>
+                  ⏳ No live class is currently running.
+                </Typography>
+              ) : (
+                <>
+                  <Typography sx={{ mt: 2 }}>
+                    Your instructor has started a live class.
+                  </Typography>
+
+                  <Button
+                    variant="contained"
+                    color="success"
+                    sx={{ mt: 3 }}
+                    onClick={() =>
+                      window.open(
+                        liveSession.meetLink,
+                        "_blank",
+                        "noopener,noreferrer"
+                      )
+                    }
+                  >
+                    Join Google Meet
+                  </Button>
+                </>
+              )}
+            </Paper>
+          )}
+
+          {/* SELF LEARNING TAB */}
+          {activeTab === "self-learning" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h4" fontWeight="bold" gutterBottom>
+                📚 Self-Learning Courses
+              </Typography>
+
+              {/* ===================== */}
+              {/* 🔹 REGISTER NEW COURSE */}
+              {/* ===================== */}
+              <Typography fontWeight="bold" sx={{ mb: 1 }}>
+                Browse & Register
+              </Typography>
+
               <TextField
                 select
-                label="Select Coach"
-                value={selectedCoach}
-                onChange={(e) => setSelectedCoach(e.target.value)}
                 fullWidth
-                sx={{ mb: 2 }}
+                label="Select Course"
+                value={selectedMarketplaceCourse}
+                onChange={(e) => setSelectedMarketplaceCourse(e.target.value)}
+                sx={{ mb: 3 }}
               >
-                <MenuItem value="">-- Select Coach --</MenuItem>
-                {coaches.map((c) => (
-                  <MenuItem key={c._id} value={c._id}>
-                    {c.fullName}
+                <MenuItem value="">-- Select Course --</MenuItem>
+                {selfLearningCourses.map((course) => (
+                  <MenuItem key={course._id} value={course._id}>
+                    {course.title} — ₦{course.price}
                   </MenuItem>
                 ))}
               </TextField>
-              {selectedCoach && (
-                <Typography sx={{ mt: 1 }}>
-                  Selected Coach:{" "}
-                  {coaches.find((c) => c._id === selectedCoach)?.fullName}
-                </Typography>
-              )}
 
-              <Typography>Rating:</Typography>
-              <Rating
-                value={rating}
-                onChange={(e, newValue) => setRating(newValue)}
-              />
-              <TextField
-                label="Comment"
-                fullWidth
-                multiline
-                rows={3}
-                sx={{ mt: 2, mb: 2 }}
-                value={comment}
-                onChange={(e) => setComment(e.target.value)}
-              />
-              <Button type="submit" variant="contained" color="success">
-                Submit Feedback
-              </Button>
-            </form>
-            {message && <Alert sx={{ mt: 2 }}>{message}</Alert>}
-          </Paper>
-        )}
-        {/* Register Course */}
-        {activeTab === "register-course" && (
-          <Paper sx={{ p: 4 }}>
-            {cohortLoading ? (
-              <CircularProgress />
-            ) : Array.isArray(activeCohorts) && activeCohorts.length === 0 ? (
-              <Typography variant="h5" color="red">
-                ❌ No available cohorts
-              </Typography>
-            ) : (
-              <>
-                <Typography
-                  variant="h4"
-                  color="green"
-                  fontWeight="bold"
-                  gutterBottom
-                >
-                  📝 Register to a Cohort
-                </Typography>
-                {message && (
-                  <Typography
-                    variant="body1"
-                    color="error"
-                    sx={{ mb: 2, fontWeight: "bold" }}
-                  >
-                    {message}
-                  </Typography>
-                )}
+              {selectedMarketplaceCourse &&
+                (() => {
+                  const course = selfLearningCourses.find(
+                    (c) => c._id === selectedMarketplaceCourse
+                  );
+                  if (!course) return null;
 
-                {/* Cohort dropdown */}
-                <TextField
-                  select
-                  label="Choose Cohort"
-                  fullWidth
-                  value={selectedCohort || ""}
-                  onChange={(e) => {
-                    setSelectedCohort(e.target.value);
-                    setSelectedCourse("");
-                  }}
-                  sx={{ mb: 2 }}
-                >
-                  <MenuItem value="">-- Select Cohort --</MenuItem>
-                  {activeCohorts.map((cohort) => (
-                    <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
-                      {cohort.cohortName}
-                    </MenuItem>
-                  ))}
-                </TextField>
-
-                {/* Courses dropdown */}
-                {selectedCohort &&
-                  (() => {
-                    const selected = activeCohorts.find(
-                      (c) => c.cohortId === selectedCohort
-                    );
-                    const coursesList = selected?.courses || [];
-
-                    return (
-                      <>
-                        <TextField
-                          select
-                          label="Choose Course"
-                          fullWidth
-                          value={selectedCourse || ""}
-                          onChange={(e) => setSelectedCourse(e.target.value)}
-                          sx={{ mb: 2 }}
-                        >
-                          <MenuItem value="">-- Select Course --</MenuItem>
-                          {coursesList.map((course) => (
-                            <MenuItem key={course._id} value={course._id}>
-                              {course.name || "Unnamed"} (
-                              {course.category || "N/A"}) -{" "}
-                              {course.durationInDays || "N/A"}
-                            </MenuItem>
-                          ))}
-                        </TextField>
-
-                        <Button
-                          variant="contained"
-                          color="success"
-                          disabled={!selectedCourse || registerLoading}
-                          onClick={() =>
-                            handleRegisterStudent(
-                              selectedCohort,
-                              selectedCourse
-                            )
-                          }
-                        >
-                          {registerLoading ? "Registering..." : "Register"}
-                        </Button>
-                      </>
-                    );
-                  })()}
-              </>
-            )}
-          </Paper>
-        )}
-
-        {/* JOIN LIVE CLASS */}
-        {activeTab === "join-live" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography variant="h5" fontWeight="bold" color="error">
-              🔴 Live Class
-            </Typography>
-
-            {loadingLive ? (
-              <Typography sx={{ mt: 2 }}>Checking live session...</Typography>
-            ) : !liveSession?.isLive ? (
-              <Typography sx={{ mt: 2 }}>
-                ⏳ No live class is currently running.
-              </Typography>
-            ) : (
-              <>
-                <Typography sx={{ mt: 2 }}>
-                  Your instructor has started a live class.
-                </Typography>
-
-                <Button
-                  variant="contained"
-                  color="success"
-                  sx={{ mt: 3 }}
-                  onClick={() =>
-                    window.open(
-                      liveSession.meetLink,
-                      "_blank",
-                      "noopener,noreferrer"
-                    )
-                  }
-                >
-                  Join Google Meet
-                </Button>
-              </>
-            )}
-          </Paper>
-        )}
-
-        {/* SELF LEARNING TAB */}
-        {activeTab === "self-learning" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography variant="h4" fontWeight="bold" gutterBottom>
-              📚 Self-Learning Courses
-            </Typography>
-
-            {/* ===================== */}
-            {/* 🔹 REGISTER NEW COURSE */}
-            {/* ===================== */}
-            <Typography fontWeight="bold" sx={{ mb: 1 }}>
-              Browse & Register
-            </Typography>
-
-            <TextField
-              select
-              fullWidth
-              label="Select Course"
-              value={selectedMarketplaceCourse}
-              onChange={(e) => setSelectedMarketplaceCourse(e.target.value)}
-              sx={{ mb: 3 }}
-            >
-              <MenuItem value="">-- Select Course --</MenuItem>
-              {selfLearningCourses.map((course) => (
-                <MenuItem key={course._id} value={course._id}>
-                  {course.title} — ₦{course.price}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            {selectedMarketplaceCourse &&
-              (() => {
-                const course = selfLearningCourses.find(
-                  (c) => c._id === selectedMarketplaceCourse
-                );
-                if (!course) return null;
-
-                return (
-                  <Paper sx={{ p: 3, mb: 3 }}>
-                    <Typography fontWeight="bold">{course.title}</Typography>
-                    <Typography>{course.description}</Typography>
-                    <Typography fontWeight="bold">₦{course.price}</Typography>
-                  </Paper>
-                );
-              })()}
-
-            <Button
-              variant="contained"
-              color={hasPaid ? "success" : "primary"}
-              disabled={
-                !selectedMarketplaceCourse || hasPaid || registeringCourse
-              }
-              onClick={handleRegisterSelfLearning}
-              sx={{ mb: 5 }}
-            >
-              {registeringCourse
-                ? "Registering..."
-                : hasPaid
-                ? "Paid & Active"
-                : "Register"}
-            </Button>
-
-            {/* ===================== */}
-            {/* 🔹 PAID COURSES AREA */}
-            {/* ===================== */}
-            <Typography variant="h5" fontWeight="bold" gutterBottom>
-              🎓 My Paid Courses
-            </Typography>
-
-            <TextField
-              select
-              fullWidth
-              label="Select Paid Course"
-              value={selectedPaidCourse}
-              onChange={(e) => setSelectedPaidCourse(e.target.value)}
-              sx={{ mb: 3 }}
-            >
-              <MenuItem value="">-- Select Course --</MenuItem>
-
-              {paidCourses.map((course) => (
-                <MenuItem key={course.courseId} value={course.courseId}>
-                  {course.title}
-                </MenuItem>
-              ))}
-            </TextField>
-
-            {/* PAID COURSE DETAILS */}
-            {selectedPaidCourse &&
-              (() => {
-                const course = paidCourses.find(
-                  (c) => String(c.courseId) === String(selectedPaidCourse)
-                );
-                if (!course) return null;
-
-                return (
-                  <Paper sx={{ p: 3, mb: 3, backgroundColor: "#f9f9f9" }}>
-                    <Typography fontWeight="bold">{course.title}</Typography>
-                    <Typography>{course.description}</Typography>
-                    <Typography fontWeight="bold">₦{course.price}</Typography>
-
-                    <Typography sx={{ mt: 1 }}>
-                      Coach: {course.coach?.fullName}
-                    </Typography>
-
-                    <Typography sx={{ mt: 1 }} color="green">
-                      Payment: {course.payment?.status || "approved"}
-                    </Typography>
-                  </Paper>
-                );
-              })()}
-
-            {/* COURSE CONTENTS */}
-            {selectedPaidCourse && (
-              <Paper sx={{ mt: 4, p: 3 }}>
-                <Typography variant="h6" fontWeight="bold" gutterBottom>
-                  📂 Course Materials
-                </Typography>
-
-                {loadingContents ? (
-                  <CircularProgress />
-                ) : contentError ? (
-                  <Alert severity="warning">{contentError}</Alert>
-                ) : courseContents.length === 0 ? (
-                  <Typography color="gray">
-                    No materials uploaded yet.
-                  </Typography>
-                ) : (
-                  courseContents.map((item) => (
-                    <Paper key={item._id} sx={{ p: 2, mb: 2 }}>
-                      <Typography fontWeight="bold">{item.title}</Typography>
-
-                      {item.type === "document" && (
-                        <iframe
-                          src={`${item.url}#toolbar=0`}
-                          width="100%"
-                          height="400"
-                          style={{ border: "none", marginTop: 10 }}
-                        />
-                      )}
-
-                      {item.type === "video" && (
-                        <video
-                          src={item.url}
-                          controls
-                          controlsList="nodownload"
-                          style={{ width: "100%", marginTop: 10 }}
-                        />
-                      )}
+                  return (
+                    <Paper sx={{ p: 3, mb: 3 }}>
+                      <Typography fontWeight="bold">{course.title}</Typography>
+                      <Typography>{course.description}</Typography>
+                      <Typography fontWeight="bold">₦{course.price}</Typography>
                     </Paper>
-                  ))
-                )}
-              </Paper>
-            )}
-          </Paper>
-        )}
+                  );
+                })()}
 
-        {activeTab === "free-learning" && (
-          <Paper sx={{ p: 4 }}>
-            <Typography variant="h4" fontWeight="bold" gutterBottom>
-              🎁 Free Courses
-            </Typography>
-
-            {/* ================= MARKETPLACE ================= */}
-            <Typography fontWeight="bold" sx={{ mb: 2 }}>
-              Browse & Register
-            </Typography>
-
-            <Grid container spacing={3}>
-              {freeCourses.map((course) => {
-                const isSelected = selectedMarketplaceCourse === course._id;
-
-                return (
-                  <Grid
-                    item
-                    xs={12}
-                    sm={6}
-                    md={4}
-                    lg={3}
-                    key={course._id}
-                    sx={{ display: "flex", justifyContent: "center" }}
-                  >
-                    <Card
-                      onClick={() => setSelectedMarketplaceCourse(course._id)}
-                      sx={{
-                        width: 280,
-                        height: 430,
-                        display: "flex",
-                        flexDirection: "column",
-                        cursor: "pointer",
-                        borderRadius: 3,
-                        border: isSelected
-                          ? "2px solid #16a34a"
-                          : "1px solid #e5e7eb",
-                        boxShadow: isSelected
-                          ? "0 10px 28px rgba(22,163,74,0.35)"
-                          : "0 4px 14px rgba(0,0,0,0.1)",
-                        transition: "all 0.3s ease",
-                        "&:hover": {
-                          transform: "translateY(-6px)",
-                          boxShadow: "0 14px 34px rgba(0,0,0,0.18)",
-                        },
-                      }}
-                    >
-                      {/* ================= IMAGE ================= */}
-                      <Box
-                        sx={{
-                          height: 160,
-                          minHeight: 160,
-                          maxHeight: 160,
-                          overflow: "hidden",
-                        }}
-                      >
-                        <CardMedia
-                          component="img"
-                          image={
-                            course.image ||
-                            "https://via.placeholder.com/400x200?text=Free+Course"
-                          }
-                          alt={course.title}
-                          sx={{
-                            width: "100%",
-                            height: "100%",
-                            objectFit: "cover",
-                          }}
-                        />
-                      </Box>
-
-                      {/* ================= CONTENT ================= */}
-                      <CardContent
-                        sx={{
-                          flexGrow: 1,
-                          display: "flex",
-                          flexDirection: "column",
-                          gap: 1,
-                          overflow: "hidden",
-                        }}
-                      >
-                        <Typography fontWeight="bold" noWrap>
-                          {course.title}
-                        </Typography>
-
-                        {/* DESCRIPTION — NEVER RESIZES CARD */}
-                        <Typography
-                          variant="body2"
-                          color="text.secondary"
-                          sx={{
-                            height: 66,
-                            overflow: "hidden",
-                            display: "-webkit-box",
-                            WebkitLineClamp: 3,
-                            WebkitBoxOrient: "vertical",
-                          }}
-                        >
-                          {course.description}
-                        </Typography>
-
-                        <Typography sx={{ fontSize: 13, color: "gray" }}>
-                          Coach: {course.coachId?.fullName || "N/A"}
-                        </Typography>
-
-                        <Typography
-                          fontWeight="bold"
-                          sx={{ color: "#16a34a", mt: "auto" }}
-                        >
-                          FREE 🎉
-                        </Typography>
-                      </CardContent>
-
-                      {/* ================= ACTION ================= */}
-                      <CardActions sx={{ px: 2, pb: 2 }}>
-                        <Button
-                          fullWidth
-                          variant={isSelected ? "contained" : "outlined"}
-                          color="success"
-                        >
-                          {isSelected ? "Selected" : "Select Course"}
-                        </Button>
-                      </CardActions>
-                    </Card>
-                  </Grid>
-                );
-              })}
-            </Grid>
-
-            {/* ================= REGISTER ================= */}
-            <Box sx={{ mt: 4 }}>
               <Button
                 variant="contained"
-                color="primary"
-                size="large"
-                disabled={!selectedMarketplaceCourse}
-                onClick={handleRegisterFreeCourse}
+                color={hasPaid ? "success" : "primary"}
+                disabled={
+                  !selectedMarketplaceCourse || hasPaid || registeringCourse
+                }
+                onClick={handleRegisterSelfLearning}
+                sx={{ mb: 5 }}
               >
-                Register Selected Course (Free)
+                {registeringCourse
+                  ? "Registering..."
+                  : hasPaid
+                  ? "Paid & Active"
+                  : "Register"}
               </Button>
-            </Box>
 
-            {/* ================= MY FREE COURSES ================= */}
-            <Typography
-              variant="h5"
-              fontWeight="bold"
-              gutterBottom
-              sx={{ mt: 6 }}
-            >
-              📚 My Free Courses
-            </Typography>
+              {/* ===================== */}
+              {/* 🔹 PAID COURSES AREA */}
+              {/* ===================== */}
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
+                🎓 My Paid Courses
+              </Typography>
 
-            <TextField
-              select
-              fullWidth
-              label="Select My Course"
-              value={selectedMyFreeCourse}
-              onChange={(e) => setSelectedMyFreeCourse(e.target.value)}
-              sx={{ mb: 3 }}
-            >
-              <MenuItem value="">-- Select Course --</MenuItem>
-              {myFreeCourses.map((course) => (
-                <MenuItem key={course.courseId} value={course.courseId}>
-                  {course.title}
-                </MenuItem>
-              ))}
-            </TextField>
+              <TextField
+                select
+                fullWidth
+                label="Select Paid Course"
+                value={selectedPaidCourse}
+                onChange={(e) => setSelectedPaidCourse(e.target.value)}
+                sx={{ mb: 3 }}
+              >
+                <MenuItem value="">-- Select Course --</MenuItem>
 
-            {/* ================= CONTENT ================= */}
-            {selectedMyFreeCourse && (
-              <Paper sx={{ mt: 4, p: 3 }}>
-                <Typography variant="h6" fontWeight="bold">
-                  📂 Course Materials
-                </Typography>
+                {paidCourses.map((course) => (
+                  <MenuItem key={course.courseId} value={course.courseId}>
+                    {course.title}
+                  </MenuItem>
+                ))}
+              </TextField>
 
-                {loadingContents ? (
-                  <CircularProgress />
-                ) : freeCourseContents.length === 0 ? (
-                  <Typography color="gray">No materials yet</Typography>
-                ) : (
-                  freeCourseContents.map((item) => (
-                    <Paper key={item._id} sx={{ p: 2, mb: 2 }}>
-                      <Typography fontWeight="bold">{item.title}</Typography>
+              {/* PAID COURSE DETAILS */}
+              {selectedPaidCourse &&
+                (() => {
+                  const course = paidCourses.find(
+                    (c) => String(c.courseId) === String(selectedPaidCourse)
+                  );
+                  if (!course) return null;
 
-                      {item.type === "document" && (
-                        <iframe
-                          src={`${item.url}#toolbar=0`}
-                          width="100%"
-                          height="400"
-                          style={{ border: "none", marginTop: 10 }}
-                        />
-                      )}
+                  return (
+                    <Paper sx={{ p: 3, mb: 3, backgroundColor: "#f9f9f9" }}>
+                      <Typography fontWeight="bold">{course.title}</Typography>
+                      <Typography>{course.description}</Typography>
+                      <Typography fontWeight="bold">₦{course.price}</Typography>
 
-                      {item.type === "video" && (
-                        <video
-                          src={item.url}
-                          controls
-                          style={{ width: "100%", marginTop: 10 }}
-                        />
-                      )}
+                      <Typography sx={{ mt: 1 }}>
+                        Coach: {course.coach?.fullName}
+                      </Typography>
+
+                      <Typography sx={{ mt: 1 }} color="green">
+                        Payment: {course.payment?.status || "approved"}
+                      </Typography>
                     </Paper>
-                  ))
-                )}
-              </Paper>
-            )}
-          </Paper>
-        )}
+                  );
+                })()}
+
+              {/* COURSE CONTENTS */}
+              {selectedPaidCourse && (
+                <Paper sx={{ mt: 4, p: 3 }}>
+                  <Typography variant="h6" fontWeight="bold" gutterBottom>
+                    📂 Course Materials
+                  </Typography>
+
+                  {loadingContents ? (
+                    <CircularProgress />
+                  ) : contentError ? (
+                    <Alert severity="warning">{contentError}</Alert>
+                  ) : courseContents.length === 0 ? (
+                    <Typography color="gray">
+                      No materials uploaded yet.
+                    </Typography>
+                  ) : (
+                    courseContents.map((item) => (
+                      <Paper key={item._id} sx={{ p: 2, mb: 2 }}>
+                        <Typography fontWeight="bold">{item.title}</Typography>
+
+                        {item.type === "document" && (
+                          <iframe
+                            src={`${item.url}#toolbar=0`}
+                            width="100%"
+                            height="400"
+                            style={{ border: "none", marginTop: 10 }}
+                          />
+                        )}
+
+                        {item.type === "video" && (
+                          <video
+                            src={item.url}
+                            controls
+                            controlsList="nodownload"
+                            style={{ width: "100%", marginTop: 10 }}
+                          />
+                        )}
+                      </Paper>
+                    ))
+                  )}
+                </Paper>
+              )}
+            </Paper>
+          )}
+
+          {activeTab === "free-learning" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h4" fontWeight="bold" gutterBottom>
+                🎁 Free Courses
+              </Typography>
+
+              {/* ================= MARKETPLACE ================= */}
+              <Typography fontWeight="bold" sx={{ mb: 2 }}>
+                Browse & Register
+              </Typography>
+
+              <Grid container spacing={3}>
+                {freeCourses.map((course) => {
+                  const isSelected = selectedMarketplaceCourse === course._id;
+
+                  return (
+                    <Grid
+                      item
+                      xs={12}
+                      sm={6}
+                      md={4}
+                      lg={3}
+                      key={course._id}
+                      sx={{ display: "flex", justifyContent: "center" }}
+                    >
+                      <Card
+                        onClick={() => setSelectedMarketplaceCourse(course._id)}
+                        sx={{
+                          width: 280,
+                          height: 430,
+                          display: "flex",
+                          flexDirection: "column",
+                          cursor: "pointer",
+                          borderRadius: 3,
+                          border: isSelected
+                            ? "2px solid #16a34a"
+                            : "1px solid #e5e7eb",
+                          boxShadow: isSelected
+                            ? "0 10px 28px rgba(22,163,74,0.35)"
+                            : "0 4px 14px rgba(0,0,0,0.1)",
+                          transition: "all 0.3s ease",
+                          "&:hover": {
+                            transform: "translateY(-6px)",
+                            boxShadow: "0 14px 34px rgba(0,0,0,0.18)",
+                          },
+                        }}
+                      >
+                        {/* ================= IMAGE ================= */}
+                        <Box
+                          sx={{
+                            height: 160,
+                            minHeight: 160,
+                            maxHeight: 160,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <CardMedia
+                            component="img"
+                            image={
+                              course.image ||
+                              "https://via.placeholder.com/400x200?text=Free+Course"
+                            }
+                            alt={course.title}
+                            sx={{
+                              width: "100%",
+                              height: "100%",
+                              objectFit: "cover",
+                            }}
+                          />
+                        </Box>
+
+                        {/* ================= CONTENT ================= */}
+                        <CardContent
+                          sx={{
+                            flexGrow: 1,
+                            display: "flex",
+                            flexDirection: "column",
+                            gap: 1,
+                            overflow: "hidden",
+                          }}
+                        >
+                          <Typography fontWeight="bold" noWrap>
+                            {course.title}
+                          </Typography>
+
+                          {/* DESCRIPTION — NEVER RESIZES CARD */}
+                          <Typography
+                            variant="body2"
+                            color="text.secondary"
+                            sx={{
+                              height: 66,
+                              overflow: "hidden",
+                              display: "-webkit-box",
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: "vertical",
+                            }}
+                          >
+                            {course.description}
+                          </Typography>
+
+                          <Typography sx={{ fontSize: 13, color: "gray" }}>
+                            Coach: {course.coachId?.fullName || "N/A"}
+                          </Typography>
+
+                          <Typography
+                            fontWeight="bold"
+                            sx={{ color: "#16a34a", mt: "auto" }}
+                          >
+                            FREE 🎉
+                          </Typography>
+                        </CardContent>
+
+                        {/* ================= ACTION ================= */}
+                        <CardActions sx={{ px: 2, pb: 2 }}>
+                          <Button
+                            fullWidth
+                            variant={isSelected ? "contained" : "outlined"}
+                            color="success"
+                          >
+                            {isSelected ? "Selected" : "Select Course"}
+                          </Button>
+                        </CardActions>
+                      </Card>
+                    </Grid>
+                  );
+                })}
+              </Grid>
+
+              {/* ================= REGISTER ================= */}
+              <Box sx={{ mt: 4 }}>
+                <Button
+                  variant="contained"
+                  color="primary"
+                  size="large"
+                  disabled={!selectedMarketplaceCourse}
+                  onClick={handleRegisterFreeCourse}
+                >
+                  Register Selected Course (Free)
+                </Button>
+              </Box>
+
+              {/* ================= MY FREE COURSES ================= */}
+              <Typography
+                variant="h5"
+                fontWeight="bold"
+                gutterBottom
+                sx={{ mt: 6 }}
+              >
+                📚 My Free Courses
+              </Typography>
+
+              <TextField
+                select
+                fullWidth
+                label="Select My Course"
+                value={selectedMyFreeCourse}
+                onChange={(e) => setSelectedMyFreeCourse(e.target.value)}
+                sx={{ mb: 3 }}
+              >
+                <MenuItem value="">-- Select Course --</MenuItem>
+                {myFreeCourses.map((course) => (
+                  <MenuItem key={course.courseId} value={course.courseId}>
+                    {course.title}
+                  </MenuItem>
+                ))}
+              </TextField>
+
+              {/* ================= CONTENT ================= */}
+              {selectedMyFreeCourse && (
+                <Paper sx={{ mt: 4, p: 3 }}>
+                  <Typography variant="h6" fontWeight="bold">
+                    📂 Course Materials
+                  </Typography>
+
+                  {loadingContents ? (
+                    <CircularProgress />
+                  ) : freeCourseContents.length === 0 ? (
+                    <Typography color="gray">No materials yet</Typography>
+                  ) : (
+                    freeCourseContents.map((item) => (
+                      <Paper key={item._id} sx={{ p: 2, mb: 2 }}>
+                        <Typography fontWeight="bold">{item.title}</Typography>
+
+                        {item.type === "document" && (
+                          <iframe
+                            src={`${item.url}#toolbar=0`}
+                            width="100%"
+                            height="400"
+                            style={{ border: "none", marginTop: 10 }}
+                          />
+                        )}
+
+                        {item.type === "video" && (
+                          <video
+                            src={item.url}
+                            controls
+                            style={{ width: "100%", marginTop: 10 }}
+                          />
+                        )}
+                      </Paper>
+                    ))
+                  )}
+                </Paper>
+              )}
+            </Paper>
+          )}
+        </Box>
       </Box>
 
       {/* Success Modal */}
