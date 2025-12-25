@@ -18,6 +18,8 @@ import {
   Alert,
   MenuItem,
   Modal,
+  Chip,
+  Stack,
 } from "@mui/material";
 import { Grid, Card, CardContent, CardMedia, CardActions } from "@mui/material";
 
@@ -2061,9 +2063,13 @@ const StudentDashboard = () => {
           {activeTab === "register-course" && (
             <Paper sx={{ p: 4 }}>
               {cohortLoading ? (
-                <CircularProgress />
-              ) : Array.isArray(activeCohorts) && activeCohorts.length === 0 ? (
-                <Typography variant="h5" color="red">
+                <Stack alignItems="center" sx={{ py: 5 }}>
+                  <CircularProgress />
+                  <Typography sx={{ mt: 2 }}>Loading cohorts...</Typography>
+                </Stack>
+              ) : !Array.isArray(activeCohorts) ||
+                activeCohorts.length === 0 ? (
+                <Typography variant="h5" color="error">
                   ❌ No available cohorts
                 </Typography>
               ) : (
@@ -2076,6 +2082,7 @@ const StudentDashboard = () => {
                   >
                     📝 Register to a Cohort
                   </Typography>
+
                   {message && (
                     <Typography
                       variant="body1"
@@ -2086,7 +2093,9 @@ const StudentDashboard = () => {
                     </Typography>
                   )}
 
-                  {/* Cohort dropdown */}
+                  {/* ===================== */}
+                  {/* 🔹 COHORT SELECT */}
+                  {/* ===================== */}
                   <TextField
                     select
                     label="Choose Cohort"
@@ -2096,7 +2105,7 @@ const StudentDashboard = () => {
                       setSelectedCohort(e.target.value);
                       setSelectedCourse("");
                     }}
-                    sx={{ mb: 2 }}
+                    sx={{ mb: 3 }}
                   >
                     <MenuItem value="">-- Select Cohort --</MenuItem>
                     {activeCohorts.map((cohort) => (
@@ -2106,7 +2115,9 @@ const StudentDashboard = () => {
                     ))}
                   </TextField>
 
-                  {/* Courses dropdown */}
+                  {/* ===================== */}
+                  {/* 🔹 COURSE PREVIEW */}
+                  {/* ===================== */}
                   {selectedCohort &&
                     (() => {
                       const selected = activeCohorts.find(
@@ -2122,17 +2133,77 @@ const StudentDashboard = () => {
                             fullWidth
                             value={selectedCourse || ""}
                             onChange={(e) => setSelectedCourse(e.target.value)}
-                            sx={{ mb: 2 }}
+                            sx={{ mb: 3 }}
                           >
                             <MenuItem value="">-- Select Course --</MenuItem>
                             {coursesList.map((course) => (
                               <MenuItem key={course._id} value={course._id}>
-                                {course.name || "Unnamed"} (
-                                {course.category || "N/A"}) -{" "}
-                                {course.durationInDays || "N/A"} days
+                                {course.name} ({course.category}) –{" "}
+                                {course.durationInDays} days
                               </MenuItem>
                             ))}
                           </TextField>
+
+                          {/* COURSE CARD PREVIEW */}
+                          {selectedCourse &&
+                            (() => {
+                              const course = coursesList.find(
+                                (c) => c._id === selectedCourse
+                              );
+                              if (!course) return null;
+
+                              return (
+                                <Card
+                                  sx={{
+                                    display: "flex",
+                                    mb: 3,
+                                    borderRadius: 3,
+                                    boxShadow: 3,
+                                  }}
+                                >
+                                  <CardMedia
+                                    component="img"
+                                    image={
+                                      course.image || "/course-placeholder.png"
+                                    }
+                                    alt={course.name}
+                                    sx={{
+                                      width: 240,
+                                      objectFit: "cover",
+                                    }}
+                                  />
+
+                                  <CardContent sx={{ flex: 1 }}>
+                                    <Typography variant="h6" fontWeight="bold">
+                                      {course.name}
+                                    </Typography>
+
+                                    <Typography
+                                      color="text.secondary"
+                                      sx={{ my: 1 }}
+                                    >
+                                      {course.description ||
+                                        "No description provided."}
+                                    </Typography>
+
+                                    <Stack
+                                      direction="row"
+                                      spacing={2}
+                                      sx={{ mt: 2 }}
+                                    >
+                                      <Chip
+                                        label={course.category}
+                                        color="primary"
+                                      />
+                                      <Chip
+                                        label={`${course.durationInDays} days`}
+                                        variant="outlined"
+                                      />
+                                    </Stack>
+                                  </CardContent>
+                                </Card>
+                              );
+                            })()}
 
                           <Button
                             variant="contained"
@@ -2201,7 +2272,7 @@ const StudentDashboard = () => {
               </Typography>
 
               {/* ===================== */}
-              {/* 🔹 REGISTER NEW COURSE */}
+              {/* 🔹 BROWSE & REGISTER */}
               {/* ===================== */}
               <Typography fontWeight="bold" sx={{ mb: 1 }}>
                 Browse & Register
@@ -2223,6 +2294,7 @@ const StudentDashboard = () => {
                 ))}
               </TextField>
 
+              {/* SELECTED COURSE CARD */}
               {selectedMarketplaceCourse &&
                 (() => {
                   const course = selfLearningCourses.find(
@@ -2231,11 +2303,40 @@ const StudentDashboard = () => {
                   if (!course) return null;
 
                   return (
-                    <Paper sx={{ p: 3, mb: 3 }}>
-                      <Typography fontWeight="bold">{course.title}</Typography>
-                      <Typography>{course.description}</Typography>
-                      <Typography fontWeight="bold">₦{course.price}</Typography>
-                    </Paper>
+                    <Card
+                      sx={{
+                        display: "flex",
+                        mb: 3,
+                        borderRadius: 3,
+                        boxShadow: 3,
+                      }}
+                    >
+                      <CardMedia
+                        component="img"
+                        image={course.image || "/course-placeholder.png"}
+                        alt={course.title}
+                        sx={{
+                          width: 220,
+                          objectFit: "cover",
+                        }}
+                      />
+
+                      <CardContent sx={{ flex: 1 }}>
+                        <Typography variant="h6" fontWeight="bold">
+                          {course.title}
+                        </Typography>
+
+                        <Typography color="text.secondary" sx={{ my: 1 }}>
+                          {course.description}
+                        </Typography>
+
+                        <Chip
+                          label={`₦${course.price}`}
+                          color="success"
+                          sx={{ fontWeight: "bold" }}
+                        />
+                      </CardContent>
+                    </Card>
                   );
                 })()}
 
@@ -2256,7 +2357,7 @@ const StudentDashboard = () => {
               </Button>
 
               {/* ===================== */}
-              {/* 🔹 PAID COURSES AREA */}
+              {/* 🔹 PAID COURSES */}
               {/* ===================== */}
               <Typography variant="h5" fontWeight="bold" gutterBottom>
                 🎓 My Paid Courses
@@ -2271,7 +2372,6 @@ const StudentDashboard = () => {
                 sx={{ mb: 3 }}
               >
                 <MenuItem value="">-- Select Course --</MenuItem>
-
                 {paidCourses.map((course) => (
                   <MenuItem key={course.courseId} value={course.courseId}>
                     {course.title}
@@ -2279,7 +2379,7 @@ const StudentDashboard = () => {
                 ))}
               </TextField>
 
-              {/* PAID COURSE DETAILS */}
+              {/* PAID COURSE CARD */}
               {selectedPaidCourse &&
                 (() => {
                   const course = paidCourses.find(
@@ -2288,23 +2388,44 @@ const StudentDashboard = () => {
                   if (!course) return null;
 
                   return (
-                    <Paper sx={{ p: 3, mb: 3, backgroundColor: "#f9f9f9" }}>
-                      <Typography fontWeight="bold">{course.title}</Typography>
-                      <Typography>{course.description}</Typography>
-                      <Typography fontWeight="bold">₦{course.price}</Typography>
+                    <Card sx={{ mb: 4, borderRadius: 3, boxShadow: 2 }}>
+                      <CardMedia
+                        component="img"
+                        height="220"
+                        image={course.image || "/course-placeholder.png"}
+                        alt={course.title}
+                      />
 
-                      <Typography sx={{ mt: 1 }}>
-                        Coach: {course.coach?.fullName}
-                      </Typography>
+                      <CardContent>
+                        <Typography variant="h6" fontWeight="bold">
+                          {course.title}
+                        </Typography>
 
-                      <Typography sx={{ mt: 1 }} color="green">
-                        Payment: {course.payment?.status || "approved"}
-                      </Typography>
-                    </Paper>
+                        <Typography color="text.secondary" sx={{ mb: 1 }}>
+                          {course.description}
+                        </Typography>
+
+                        <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                          <Chip label={`₦${course.price}`} color="primary" />
+                          <Chip
+                            label={`Coach: ${course.coach?.fullName || "N/A"}`}
+                            variant="outlined"
+                          />
+                          <Chip
+                            label={`Payment: ${
+                              course.payment?.status || "approved"
+                            }`}
+                            color="success"
+                          />
+                        </Stack>
+                      </CardContent>
+                    </Card>
                   );
                 })()}
 
-              {/* COURSE CONTENTS */}
+              {/* ===================== */}
+              {/* 🔹 COURSE CONTENTS */}
+              {/* ===================== */}
               {selectedPaidCourse && (
                 <Paper sx={{ mt: 4, p: 3 }}>
                   <Typography variant="h6" fontWeight="bold" gutterBottom>
@@ -2312,36 +2433,51 @@ const StudentDashboard = () => {
                   </Typography>
 
                   {loadingContents ? (
-                    <CircularProgress />
+                    <Stack alignItems="center" sx={{ my: 4 }}>
+                      <CircularProgress />
+                      <Typography sx={{ mt: 1 }}>
+                        Loading materials...
+                      </Typography>
+                    </Stack>
                   ) : contentError ? (
                     <Alert severity="warning">{contentError}</Alert>
                   ) : courseContents.length === 0 ? (
-                    <Typography color="gray">
-                      No materials uploaded yet.
-                    </Typography>
+                    <Alert severity="info">No materials uploaded yet.</Alert>
                   ) : (
                     courseContents.map((item) => (
-                      <Paper key={item._id} sx={{ p: 2, mb: 2 }}>
-                        <Typography fontWeight="bold">{item.title}</Typography>
+                      <Card key={item._id} sx={{ mb: 3, borderRadius: 2 }}>
+                        <CardContent>
+                          <Typography fontWeight="bold">
+                            {item.title}
+                          </Typography>
 
-                        {item.type === "document" && (
-                          <iframe
-                            src={`${item.url}#toolbar=0`}
-                            width="100%"
-                            height="400"
-                            style={{ border: "none", marginTop: 10 }}
-                          />
-                        )}
+                          {item.type === "document" && (
+                            <iframe
+                              src={`${item.url}#toolbar=0`}
+                              width="100%"
+                              height="420"
+                              style={{
+                                border: "none",
+                                marginTop: 12,
+                                borderRadius: 8,
+                              }}
+                            />
+                          )}
 
-                        {item.type === "video" && (
-                          <video
-                            src={item.url}
-                            controls
-                            controlsList="nodownload"
-                            style={{ width: "100%", marginTop: 10 }}
-                          />
-                        )}
-                      </Paper>
+                          {item.type === "video" && (
+                            <video
+                              src={item.url}
+                              controls
+                              controlsList="nodownload"
+                              style={{
+                                width: "100%",
+                                marginTop: 12,
+                                borderRadius: 8,
+                              }}
+                            />
+                          )}
+                        </CardContent>
+                      </Card>
                     ))
                   )}
                 </Paper>
