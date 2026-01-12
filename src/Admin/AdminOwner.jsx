@@ -26,6 +26,7 @@ import {
   TableRow,
   TableCell,
   TableBody,
+  Stack,
 } from "@mui/material";
 import {
   MenuItem,
@@ -482,7 +483,7 @@ const AdminOwner = () => {
   }, [activeTab]);
 
   // ---------------------------------------------------
-  //ADMIN CONFIRM PAYMENT
+  //ADMIN CONFIRM Cohort PAYMENT
   // ---------------------------------------------------
   const confirmPayment = async (studentId, registeredCohort) => {
     try {
@@ -508,6 +509,33 @@ const AdminOwner = () => {
     } catch (err) {
       console.error("Confirm error:", err);
       alert(err.response?.data?.message || "Error confirming payment");
+    }
+  };
+
+  // REJECT Cohort PAYMENT
+  const rejectPayment = async (studentId, rc) => {
+    const reason = prompt("Reason for rejecting payment?");
+    if (!reason) return;
+
+    try {
+      const token = localStorage.getItem("token");
+
+      await axios.put(
+        `${BASE_URL}/api/payment/users/${studentId}/reject-payment`,
+        {
+          cohortId: rc.cohortId,
+          courseId: rc.courseId,
+          reason,
+        },
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      alert("Payment rejected");
+      fetchPendingStudents();
+    } catch (err) {
+      alert(err.response?.data?.message || "Error rejecting payment");
     }
   };
 
@@ -834,7 +862,11 @@ const AdminOwner = () => {
     { text: "Students", icon: <People />, key: "students" },
     { text: "Coaches", icon: <School />, key: "coaches" },
     { text: "Create Cohort", icon: <School />, key: "create-cohort" },
-    { text: "Confirm Payment", icon: <School />, key: "confirm-payment" },
+    {
+      text: "Confirm Cohort Payment",
+      icon: <School />,
+      key: "confirm-payment",
+    },
     {
       text: "Confirm Self-Learning Payment",
       icon: <School />,
@@ -2245,7 +2277,7 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
-        {/* CONFIRM PAYMENT */}
+        {/* CONFIRM COHORT PAYMENT */}
         {activeTab === "confirm-payment" && (
           <Container>
             <Paper elevation={3} sx={{ p: 3, mt: 3 }}>
@@ -2253,10 +2285,9 @@ const AdminOwner = () => {
                 Confirm Student Payments
               </Typography>
 
-              {/* SEARCH BAR */}
+              {/* SEARCH */}
               <TextField
                 label="Search student..."
-                variant="outlined"
                 fullWidth
                 size="small"
                 sx={{ mb: 2 }}
@@ -2267,7 +2298,6 @@ const AdminOwner = () => {
                 }}
               />
 
-              {/* LOADING */}
               {loading ? (
                 <Typography>Loading...</Typography>
               ) : currentStudents.length === 0 ? (
@@ -2285,6 +2315,7 @@ const AdminOwner = () => {
                           <TableCell>Phone</TableCell>
                           <TableCell>Course</TableCell>
                           <TableCell>Registered At</TableCell>
+                          <TableCell>Proof</TableCell>
                           <TableCell>Status</TableCell>
                           <TableCell>Action</TableCell>
                         </TableRow>
@@ -2292,25 +2323,44 @@ const AdminOwner = () => {
 
                       <TableBody>
                         {currentStudents.map((student) => {
-                          const registeredCohort =
-                            student.registeredCohort || {};
-                          const paymentPending = !student.paymentConfirmed;
+                          const rc = student.registeredCohort || {};
+                          const pending = !student.paymentConfirmed;
 
                           return (
                             <TableRow key={student._id}>
                               <TableCell>{student.fullName}</TableCell>
                               <TableCell>{student.email}</TableCell>
                               <TableCell>{student.phoneNumber}</TableCell>
+                              <TableCell>{rc.courseName || "-"}</TableCell>
                               <TableCell>
-                                {registeredCohort.courseName || "-"}
-                              </TableCell>
-                              <TableCell>
-                                {registeredCohort.registeredAt
+                                {rc.registeredAt
                                   ? new Date(
-                                      registeredCohort.registeredAt
+                                      rc.registeredAt
                                     ).toLocaleDateString()
                                   : "-"}
                               </TableCell>
+
+                              {/* 👁 PROOF */}
+                              <TableCell>
+                                {rc?.proofOfPayment?.url ? (
+                                  <Button
+                                    size="small"
+                                    variant="outlined"
+                                    onClick={() =>
+                                      window.open(
+                                        rc.proofOfPayment.url,
+                                        "_blank"
+                                      )
+                                    }
+                                  >
+                                    View Proof
+                                  </Button>
+                                ) : (
+                                  "-"
+                                )}
+                              </TableCell>
+
+                              {/* STATUS */}
                               <TableCell>
                                 <Chip
                                   label={
@@ -2321,25 +2371,38 @@ const AdminOwner = () => {
                                   color={
                                     student.paymentConfirmed
                                       ? "success"
-                                      : "error"
+                                      : "warning"
                                   }
                                   variant="outlined"
                                 />
                               </TableCell>
+
+                              {/* ACTIONS */}
                               <TableCell>
-                                {paymentPending && (
-                                  <Button
-                                    variant="contained"
-                                    color="success"
-                                    onClick={() =>
-                                      confirmPayment(
-                                        student._id,
-                                        student.registeredCohort
-                                      )
-                                    }
-                                  >
-                                    Confirm Payment
-                                  </Button>
+                                {pending && (
+                                  <Stack direction="row" spacing={1}>
+                                    <Button
+                                      size="small"
+                                      variant="contained"
+                                      color="success"
+                                      onClick={() =>
+                                        confirmPayment(student._id, rc)
+                                      }
+                                    >
+                                      Confirm
+                                    </Button>
+
+                                    <Button
+                                      size="small"
+                                      variant="outlined"
+                                      color="error"
+                                      onClick={() =>
+                                        rejectPayment(student._id, rc)
+                                      }
+                                    >
+                                      Reject
+                                    </Button>
+                                  </Stack>
                                 )}
                               </TableCell>
                             </TableRow>
@@ -2349,7 +2412,7 @@ const AdminOwner = () => {
                     </Table>
                   </TableContainer>
 
-                  {/* PAGINATION CONTROLS */}
+                  {/* PAGINATION */}
                   <Box
                     sx={{
                       display: "flex",
@@ -2387,6 +2450,7 @@ const AdminOwner = () => {
             </Paper>
           </Container>
         )}
+
         {/*CONFIRM SELF LEARNING COURSES PAYMENT */}
         {activeTab === "confirm-self-learning-payment" && (
           <Container>

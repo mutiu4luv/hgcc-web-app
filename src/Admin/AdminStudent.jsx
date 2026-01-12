@@ -67,6 +67,7 @@ const StudentDashboard = () => {
   const [courses, setCourses] = useState([]);
   const [selectedCourse, setSelectedCourse] = useState("");
   const [registerLoading, setRegisterLoading] = useState(false);
+  const [proof, setProof] = useState(null);
 
   const [submissionTitle, setSubmissionTitle] = useState("");
   const [submissionFile, setSubmissionFile] = useState(null);
@@ -1031,31 +1032,42 @@ const StudentDashboard = () => {
   // =========================
   // REGISTER STUDENT FOR A COHORT
   // =========================
+
   const handleRegisterStudent = async (cohortId, courseId) => {
+    if (!proof) {
+      setMessage("Please upload proof of payment");
+      return;
+    }
+
     try {
       setRegisterLoading(true);
+
+      const formData = new FormData();
+      formData.append("courseId", courseId);
+      formData.append("proof", proof);
+
       const res = await axios.post(
         `${BASE_URL}/api/cohort/student/register-cohort/${cohortId}`,
-        { courseId },
-        { headers: { Authorization: `Bearer ${token}` } }
+        formData,
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
+        }
       );
+
       setMessage(res.data.message);
       setSuccessModalOpen(true);
-      setTimeout(() => navigate(`/payment/${cohortId}/${courseId}`), 5000);
+      setProof(null);
     } catch (err) {
       console.error("REGISTER ERROR:", err);
-
-      const backendMessage =
-        err?.response?.data?.message ||
-        err?.response?.data?.error ||
-        "Registration failed";
-
-      setMessage(backendMessage);
-      // setMessage(err.response?.data?.message || "Failed to register");
+      setMessage(err?.response?.data?.message || "Registration failed");
     } finally {
       setRegisterLoading(false);
     }
   };
+
   // countdown for next class
   useEffect(() => {
     if (!nextClass?.unlockAt) return;
@@ -2080,7 +2092,7 @@ const StudentDashboard = () => {
                     fontWeight="bold"
                     gutterBottom
                   >
-                    📝 Register to a Cohort
+                    📝 Register for a Cohort
                   </Typography>
 
                   {message && (
@@ -2167,10 +2179,7 @@ const StudentDashboard = () => {
                                       course.image || "/course-placeholder.png"
                                     }
                                     alt={course.name}
-                                    sx={{
-                                      width: 240,
-                                      objectFit: "cover",
-                                    }}
+                                    sx={{ width: 240, objectFit: "cover" }}
                                   />
 
                                   <CardContent sx={{ flex: 1 }}>
@@ -2205,6 +2214,71 @@ const StudentDashboard = () => {
                               );
                             })()}
 
+                          {/* ===================== */}
+                          {/* 💳 PAYMENT INSTRUCTIONS */}
+                          {/* ===================== */}
+                          <Paper
+                            variant="outlined"
+                            sx={{
+                              p: 3,
+                              mb: 3,
+                              borderRadius: 2,
+                              backgroundColor: "#f9fafb",
+                            }}
+                          >
+                            <Typography
+                              variant="h6"
+                              fontWeight="bold"
+                              gutterBottom
+                            >
+                              💳 Payment Instructions
+                            </Typography>
+
+                            <Typography variant="body2" sx={{ mb: 1 }}>
+                              Please make your payment to the account below and
+                              upload your proof of payment to complete your
+                              registration.
+                            </Typography>
+
+                            <Typography variant="body2">
+                              <strong>Account Name:</strong> HGSC2 Digital
+                              Skills Academy Ltd
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Account Number:</strong> 0102263405
+                            </Typography>
+                            <Typography variant="body2">
+                              <strong>Bank:</strong> Sterling Bank
+                            </Typography>
+                          </Paper>
+
+                          {/* ===================== */}
+                          {/* 📤 UPLOAD PROOF */}
+                          {/* ===================== */}
+                          <Button
+                            variant="outlined"
+                            component="label"
+                            sx={{ mb: 2 }}
+                          >
+                            Upload Proof of Payment
+                            <input
+                              type="file"
+                              hidden
+                              accept="image/*,.pdf"
+                              onChange={(e) => setProof(e.target.files[0])}
+                            />
+                          </Button>
+
+                          {proof && (
+                            <Typography
+                              variant="body2"
+                              color="green"
+                              sx={{ mb: 2 }}
+                            >
+                              ✔ {proof.name}
+                            </Typography>
+                          )}
+
                           <Button
                             variant="contained"
                             color="success"
@@ -2216,7 +2290,9 @@ const StudentDashboard = () => {
                               )
                             }
                           >
-                            {registerLoading ? "Registering..." : "Register"}
+                            {registerLoading
+                              ? "Registering..."
+                              : "Submit Registration"}
                           </Button>
                         </>
                       );
@@ -2711,7 +2787,7 @@ const StudentDashboard = () => {
           <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
             ✅ Successfully Registered!
           </Typography>
-          <Typography>You will be redirected to payment shortly...</Typography>
+          <Typography>your payment is being processed...</Typography>
         </Box>
       </Modal>
     </Box>
