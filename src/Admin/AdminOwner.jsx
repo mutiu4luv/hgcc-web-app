@@ -436,7 +436,7 @@ const AdminOwner = () => {
       setLoading(false);
     }
   };
-
+  // get pending students for cohort payment confirmation
   const fetchPendingStudents = async () => {
     setLoading(true);
     try {
