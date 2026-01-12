@@ -301,7 +301,7 @@ const AdminOwner = () => {
     }
   }, [activeTab]);
   // Delete Self-Learning Course
-  const handleDeleteCourse = async (courseId) => {
+  const handleDeleteSelfLearningCourse = async (courseId) => {
     if (!window.confirm("Delete this course?")) return;
 
     try {
@@ -1612,7 +1612,9 @@ const AdminOwner = () => {
 
                       <IconButton
                         color="error"
-                        onClick={() => handleDeleteCourse(course._id)}
+                        onClick={() =>
+                          handleDeleteSelfLearningCourse(course._id)
+                        }
                       >
                         <Delete />
                       </IconButton>
