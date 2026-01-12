@@ -60,9 +60,9 @@ const PaymentScreen = ({ token }) => {
         </Typography>
 
         <Typography sx={{ mt: 3, fontSize: 18 }}>
-          <strong>Account Number:</strong> 7031911306 <br />
-          <strong>Bank:</strong> Opay <br />
-          <strong>Account Name:</strong> Madu Chibueze Emmanuel
+          <strong>Account Number:</strong> 0102263405 <br />
+          <strong>Bank:</strong> Sterling Bank <br />
+          <strong>Account Name:</strong> HGSC2 DIGITAL SKILLS ACADEMY LTD
         </Typography>
 
         <Typography sx={{ mt: 2, color: "gray" }}>
