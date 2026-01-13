@@ -87,7 +87,8 @@ const AdminOwner = () => {
   const [coachesList, setCoachesList] = useState([]);
   const [selectedCoach, setSelectedCoach] = useState("");
   const [coachPerformance, setCoachPerformance] = useState([]);
-
+  const [coachComments, setCoachComments] = useState([]);
+  const [loadingComments, setLoadingComments] = useState(false);
   const [courseName, setCourseName] = useState("");
   const [courseCategory, setCourseCategory] = useState("");
   const [courseDescription, setCourseDescription] = useState("");
@@ -135,6 +136,28 @@ const AdminOwner = () => {
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+
+  // FETCH STUDENTS COMMENTS FOR SELECTED COACH
+  const fetchCoachComments = async (coachId) => {
+    try {
+      setLoadingComments(true);
+      const token = localStorage.getItem("token");
+
+      const res = await axios.get(
+        `${BASE_URL}/api/feedbacks/coach/${coachId}/comments`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+        }
+      );
+
+      setCoachComments(res.data.comments || []);
+    } catch (err) {
+      console.error("Failed to fetch coach comments", err);
+      setCoachComments([]);
+    } finally {
+      setLoadingComments(false);
+    }
+  };
 
   // CREATE FREE COURSE HANDLER
   const handleCreateFreeCourse = async (e) => {
@@ -1001,9 +1024,14 @@ const AdminOwner = () => {
       }
     };
 
-    // Add all used variables (BASE_URL, token) to the dependency array
     fetchPerformance();
   }, [selectedCoach, BASE_URL, token]);
+  useEffect(() => {
+    if (selectedCoach) {
+      // fetchPerformance(selectedCoach);
+      fetchCoachComments(selectedCoach);
+    }
+  }, [selectedCoach]);
 
   const barColors = ["#3b82f6", "#10b981", "#f59e0b", "#ef4444"];
 
@@ -1298,6 +1326,54 @@ const AdminOwner = () => {
                       No performance data available for this coach yet.
                     </Typography>
                   )
+                )}
+                {/* 🗨️ STUDENT COMMENTS */}
+                {selectedCoach && (
+                  <Box sx={{ mt: 4 }}>
+                    <Typography variant="h6" fontWeight="bold" gutterBottom>
+                      🗨️ Student Feedback
+                    </Typography>
+
+                    {loadingComments ? (
+                      <CircularProgress />
+                    ) : coachComments.length === 0 ? (
+                      <Typography color="text.secondary">
+                        No comments for this coach yet.
+                      </Typography>
+                    ) : (
+                      <Paper sx={{ p: 2, maxHeight: 300, overflowY: "auto" }}>
+                        {coachComments.map((fb) => (
+                          <Box
+                            key={fb._id}
+                            sx={{
+                              mb: 2,
+                              p: 2,
+                              borderRadius: 2,
+                              backgroundColor: "#f9fafb",
+                            }}
+                          >
+                            <Typography fontWeight="bold">
+                              {fb.student?.fullName || "Student"}
+                            </Typography>
+
+                            <Typography variant="body2" color="text.secondary">
+                              Rating: ⭐ {fb.rating}
+                            </Typography>
+
+                            {fb.comment && (
+                              <Typography sx={{ mt: 1 }}>
+                                {fb.comment}
+                              </Typography>
+                            )}
+
+                            <Typography variant="caption" color="gray">
+                              {new Date(fb.createdAt).toLocaleString()}
+                            </Typography>
+                          </Box>
+                        ))}
+                      </Paper>
+                    )}
+                  </Box>
                 )}
               </Box>
             </Paper>
