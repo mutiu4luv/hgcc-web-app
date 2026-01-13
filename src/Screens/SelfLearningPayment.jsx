@@ -65,9 +65,9 @@ export default function StudentPaymentProof() {
       <Typography sx={{ mt: 2 }}>Make payment to:</Typography>
 
       <Typography fontWeight="bold">
-        OPay — 7031911306
+        Sterling Bank — 0102263405
         <br />
-        Name: Madu Chibueze E.
+        Name: HGSC2 DIGITAL SKILLS
       </Typography>
 
       <Typography sx={{ mt: 2 }}>
