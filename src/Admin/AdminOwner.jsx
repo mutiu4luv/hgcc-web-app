@@ -2329,7 +2329,8 @@ const AdminOwner = () => {
                           const pending = !student.paymentConfirmed;
 
                           return (
-                            <TableRow key={student._id}>
+                            <TableRow key={`${student._id}-${rc.courseId}`}>
+                              {/* <TableRow key={student._id}> */}
                               <TableCell>{student.fullName}</TableCell>
                               <TableCell>{student.email}</TableCell>
                               <TableCell>{student.phoneNumber}</TableCell>
