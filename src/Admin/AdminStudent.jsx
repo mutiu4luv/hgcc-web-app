@@ -1658,55 +1658,39 @@ const StudentDashboard = () => {
                   {/* Render documents */}
                   {documents.map((doc) => (
                     <Paper key={doc._id} sx={{ p: 2, mb: 2 }}>
-                      {/* Displaying the original post time */}
-                      <Typography
-                        variant="caption"
-                        color="text.secondary"
-                        display="block"
-                      ></Typography>
-                      <Paper key={doc._id} sx={{ p: 2, mb: 2 }}>
-                        <Typography variant="h6" fontWeight="bold">
-                          📄 {doc.title}
-                        </Typography>
+                      <Typography variant="h6" fontWeight="bold">
+                        📄 {doc.title}
+                      </Typography>
 
-                        <Typography
-                          variant="caption"
-                          color="text.secondary"
-                          display="block"
-                        >
-                          Posted on: {doc.displayPostedAt} (WAT)
-                        </Typography>
+                      <Typography variant="caption" color="text.secondary">
+                        Posted on: {doc.displayPostedAt} (WAT)
+                      </Typography>
 
-                        {Date.now() >= doc.unlockAtMs ? (
-                          <>
-                            <Button
-                              variant="outlined"
-                              sx={{ mt: 1 }}
-                              onClick={() => window.open(doc.fileUrl, "_blank")}
-                              disabled={!doc.fileUrl}
-                            >
-                              📥 Open Document
-                            </Button>
-
-                            {/* Safety fallback */}
-                            {!doc.fileUrl && (
-                              <Typography color="error" variant="caption">
-                                File not available. Please contact support.
-                              </Typography>
-                            )}
-                          </>
-                        ) : (
+                      {doc.fileUrl ? (
+                        <>
                           <Typography
-                            variant="body2"
-                            sx={{ mt: 1, color: "orange", fontWeight: "bold" }}
+                            sx={{ mt: 1, color: "green", fontWeight: "bold" }}
                           >
-                            🔒 Unlocks at: {doc.displayUnlockAt} (Nigeria Time)
+                            ✅ Content Available
                           </Typography>
-                        )}
-                      </Paper>
+
+                          <Button
+                            variant="outlined"
+                            sx={{ mt: 1 }}
+                            onClick={() => window.open(doc.fileUrl, "_blank")}
+                          >
+                            📥 Open Document
+                          </Button>
+                        </>
+                      ) : (
+                        <Typography
+                          sx={{ mt: 1, color: "orange", fontWeight: "bold" }}
+                        >
+                          🔒 Unlocks at: {doc.displayUnlockAt} (Nigeria Time)
+                        </Typography>
+                      )}
                     </Paper>
                   ))}
-
                   {/* Class chat - only if any material is unlocked */}
                   {canShowChat && (
                     <Box

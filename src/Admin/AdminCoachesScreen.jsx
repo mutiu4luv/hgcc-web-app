@@ -3063,15 +3063,15 @@ const CoachDashboard = () => {
                 <div style={{ height: 500, width: "100%" }}>
                   <DataGrid
                     rows={students.map((s) => ({
-                      id: s.studentId, // use studentId
-                      fullName: s.fullName,
-                      email: s.email,
-                      phoneNumber: s.phoneNumber || "-", // fallback if missing
+                      id: s?.studentId, // use studentId
+                      fullName: s?.fullName,
+                      email: s?.email,
+                      phoneNumber: s?.phoneNumber || "-", // fallback if missing
                       progress:
-                        s.enrollments && s.enrollments.length > 0
+                        s?.enrollments && s?.enrollments.length > 0
                           ? `${
-                              s.enrollments.filter((e) => e.hasAccess).length
-                            }/${s.enrollments.length} courses`
+                              s?.enrollments.filter((e) => e.hasAccess).length
+                            }/${s?.enrollments.length} courses`
                           : "0 courses", // simple progress
                     }))}
                     columns={[
