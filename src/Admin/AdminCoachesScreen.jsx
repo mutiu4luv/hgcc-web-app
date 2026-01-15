@@ -843,8 +843,8 @@ const CoachDashboard = () => {
 
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
-    { text: "Upload Video", icon: <UploadFile />, key: "upload-video" },
-    { text: "Upload Document", icon: <UploadFile />, key: "upload-doc" },
+    { text: "Upload Cohort Video", icon: <UploadFile />, key: "upload-video" },
+    { text: "Upload Cohort Document", icon: <UploadFile />, key: "upload-doc" },
     // { text: "All Videos", icon: <UploadFile />, key: "videos" },
     {
       text: "Upload Self Learning Doc",

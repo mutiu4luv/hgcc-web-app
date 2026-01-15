@@ -1640,12 +1640,12 @@ const StudentDashboard = () => {
                               controlsList="nodownload"
                               src={video.fileUrl}
                             />
-                            <Typography
+                            {/* <Typography
                               variant="caption"
                               sx={{ display: "block", mt: 1, color: "gray" }}
                             >
                               Video is available for 3 hours only.
-                            </Typography>
+                            </Typography> */}
                           </>
                         ) : (
                           <Typography sx={{ mt: 1, color: "orange" }}>
@@ -1658,34 +1658,52 @@ const StudentDashboard = () => {
                   {/* Render documents */}
                   {documents.map((doc) => (
                     <Paper key={doc._id} sx={{ p: 2, mb: 2 }}>
-                      <Typography variant="h6" fontWeight="bold">
-                        {doc.title}
-                      </Typography>
-
                       {/* Displaying the original post time */}
                       <Typography
                         variant="caption"
                         color="text.secondary"
                         display="block"
-                      >
-                        Posted on: {doc.displayPostedAt} (WAT)
-                      </Typography>
+                      ></Typography>
+                      <Paper key={doc._id} sx={{ p: 2, mb: 2 }}>
+                        <Typography variant="h6" fontWeight="bold">
+                          📄 {doc.title}
+                        </Typography>
 
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          mt: 1,
-                          color:
-                            Date.now() >= doc.unlockAtMs ? "green" : "orange",
-                          fontWeight: "bold",
-                        }}
-                      >
-                        {Date.now() >= doc.unlockAtMs
-                          ? "✅ Content Available"
-                          : `🔒 Unlocks at: ${doc.displayUnlockAt} Nigeria Time`}
-                      </Typography>
+                        <Typography
+                          variant="caption"
+                          color="text.secondary"
+                          display="block"
+                        >
+                          Posted on: {doc.displayPostedAt} (WAT)
+                        </Typography>
 
-                      {/* ... rest of your code ... */}
+                        {Date.now() >= doc.unlockAtMs ? (
+                          <>
+                            <Button
+                              variant="outlined"
+                              sx={{ mt: 1 }}
+                              onClick={() => window.open(doc.fileUrl, "_blank")}
+                              disabled={!doc.fileUrl}
+                            >
+                              📥 Open Document
+                            </Button>
+
+                            {/* Safety fallback */}
+                            {!doc.fileUrl && (
+                              <Typography color="error" variant="caption">
+                                File not available. Please contact support.
+                              </Typography>
+                            )}
+                          </>
+                        ) : (
+                          <Typography
+                            variant="body2"
+                            sx={{ mt: 1, color: "orange", fontWeight: "bold" }}
+                          >
+                            🔒 Unlocks at: {doc.displayUnlockAt} (Nigeria Time)
+                          </Typography>
+                        )}
+                      </Paper>
                     </Paper>
                   ))}
 
