@@ -486,21 +486,24 @@ const AdminOwner = () => {
 
   // fetch all cohorts
 
+  const fetchCohorts = async () => {
+    try {
+      setLoadingCohorts(true);
+
+      const res = await axios.get(`${BASE_URL}/api/cohort`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      setCohorts(res.data?.cohorts || res.data || []);
+    } catch (err) {
+      console.error("❌ Failed to fetch cohorts", err);
+      setCohorts([]);
+    } finally {
+      setLoadingCohorts(false);
+    }
+  };
   useEffect(() => {
-    if (activeTab === "all-cohorts") {
-      const fetchCohorts = async () => {
-        try {
-          setLoadingCohorts(true);
-          const res = await axios.get(`${BASE_URL}/api/cohort`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
-          setCohorts(res.data || []);
-        } catch (err) {
-          console.error(err);
-        } finally {
-          setLoadingCohorts(false);
-        }
-      };
+    if (activeTab === "all-cohorts" || activeTab === "create-cohort") {
       fetchCohorts();
     }
   }, [activeTab]);

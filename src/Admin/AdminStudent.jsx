@@ -660,7 +660,18 @@ const StudentDashboard = () => {
       });
 
       setDocuments(allDocs);
-      setNextClass(data.nextClass || null);
+      // setNextClass(data.nextClass || null);
+      const now = Date.now();
+
+      const next =
+        (data.upcomingMaterials || [])
+          .filter((m) => m.unlockAt && new Date(m.unlockAt).getTime() > now)
+          .sort(
+            (a, b) =>
+              new Date(a.unlockAt).getTime() - new Date(b.unlockAt).getTime()
+          )[0] || null;
+
+      setNextClass(next);
       setNextClassCountdown(data.nextClassCountdown || "");
     } catch (err) {
       console.error("❌ Error fetching documents:", err);
@@ -1539,7 +1550,7 @@ const StudentDashboard = () => {
                                   </Typography>
 
                                   <Typography sx={{ mb: 1 }}>
-                                    Course: {courseName}
+                                    Course: {video.name || courseName}
                                   </Typography>
 
                                   {!isUnlocked ? (
@@ -1609,8 +1620,7 @@ const StudentDashboard = () => {
                     const expireTime = new Date(
                       unlockAt.getTime() + 3 * 60 * 60 * 1000
                     );
-                    const isUnlocked = now >= unlockAt && now <= expireTime;
-
+                    const isUnlocked = unlockAt;
                     return (
                       <Paper
                         key={video._id}
