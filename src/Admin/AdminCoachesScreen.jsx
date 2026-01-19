@@ -543,6 +543,27 @@ const CoachDashboard = () => {
 
   const studentId = user?._id || user?.id;
   const studentName = user?.name || user?.fullName || "Coach";
+  // fetch courses for selected cohort (for live class)
+  useEffect(() => {
+    if (!cohortId) {
+      setCoursesArray([]);
+      return;
+    }
+    const fetchCourses = async () => {
+      try {
+        const res = await axios.get(
+          `${BASE_URL}/api/course/${cohortId}/courses-for-coach`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        setCoursesArray(res.data.courses || []);
+
+        console.log("live class courses:", res.data.courses);
+      } catch (err) {
+        setCoursesArray([]);
+      }
+    };
+    fetchCourses();
+  }, [cohortId]);
 
   // fetch Coaches free courses
 
@@ -1323,6 +1344,7 @@ const CoachDashboard = () => {
       setActionLoading(false);
     }
   };
+
   useEffect(() => {
     if (!assignedCourses || assignedCourses.length === 0) {
       setCoursesArray([]);
@@ -3172,6 +3194,7 @@ const CoachDashboard = () => {
             </Paper>
           )}
           {/* ✅ Live Mode */}
+
           {activeTab === "live" && (
             <Paper sx={{ p: 4 }}>
               <Typography variant="h4" fontWeight="bold" color="error">
@@ -3186,7 +3209,7 @@ const CoachDashboard = () => {
                   label="Select Cohort"
                   onChange={(e) => {
                     setCohortId(e.target.value);
-                    setSelectedCourseId("");
+                    setSelectedCourse(""); // Reset course when cohort changes
                   }}
                 >
                   {cohorts.map((cohort) => (
@@ -3205,14 +3228,18 @@ const CoachDashboard = () => {
                   label="Select Course"
                   onChange={(e) => setSelectedCourse(e.target.value)}
                 >
-                  {coursesArray.map((course) => (
-                    <MenuItem
-                      key={course.cohortCourseId}
-                      value={course.cohortCourseId}
-                    >
-                      {course.courseName} ({course.cohortName})
-                    </MenuItem>
-                  ))}
+                  {coursesArray.length === 0 ? (
+                    <MenuItem disabled>No courses available</MenuItem>
+                  ) : (
+                    coursesArray.map((course) => (
+                      <MenuItem
+                        key={course.cohortCourseId}
+                        value={course.cohortCourseId}
+                      >
+                        {course.courseName} ({course.cohortName})
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
 
