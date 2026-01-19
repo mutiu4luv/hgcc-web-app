@@ -138,21 +138,19 @@ const AdminOwner = () => {
   const filteredStudent = useMemo(() => {
     const q = searchQuery.toLowerCase().trim();
 
-    return (
-      users
-        // ✅ ONLY students
-        .filter((user) => user.role === "student")
-        // ✅ SEARCH by name, email, phone
-        .filter((student) => {
-          if (!q) return true;
+    return users
 
-          return (
-            student.fullName?.toLowerCase().includes(q) ||
-            student.email?.toLowerCase().includes(q) ||
-            student.phoneNumber?.includes(q)
-          );
-        })
-    );
+      .filter((user) => user?.role?.toLowerCase() === "student")
+
+      .filter((student) => {
+        if (!q) return true;
+
+        return (
+          student.fullName?.toLowerCase().includes(q) ||
+          student.email?.toLowerCase().includes(q) ||
+          student.phoneNumber?.includes(q)
+        );
+      });
   }, [users, searchQuery]);
 
   const isMobile = useMediaQuery("(max-width:900px)");
