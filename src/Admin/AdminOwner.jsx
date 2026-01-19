@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import {
   Box,
   Typography,
@@ -120,6 +120,7 @@ const AdminOwner = () => {
   const [price, setPrice] = useState("");
   const [payments, setPayments] = useState([]);
   const [image, setImage] = useState(null);
+  const [filterstudents, setFilterStudents] = useState([]); // ✅ DECLARED FIRST
 
   const [announcements, setAnnouncements] = useState([]);
   const [loadingAnnouncements, setLoadingAnnouncements] = useState(true);
@@ -132,6 +133,27 @@ const AdminOwner = () => {
   const [freeCoachId, setFreeCoachId] = useState("");
   const [creatingFree, setCreatingFree] = useState(false);
   const [loadingFreeCourses, setLoadingFreeCourses] = useState(false);
+
+  // ✅ Filter students by name, email, or phone number
+  const filteredStudent = useMemo(() => {
+    const q = searchQuery.toLowerCase().trim();
+
+    return (
+      users
+        // ✅ ONLY students
+        .filter((user) => user.role === "student")
+        // ✅ SEARCH by name, email, phone
+        .filter((student) => {
+          if (!q) return true;
+
+          return (
+            student.fullName?.toLowerCase().includes(q) ||
+            student.email?.toLowerCase().includes(q) ||
+            student.phoneNumber?.includes(q)
+          );
+        })
+    );
+  }, [users, searchQuery]);
 
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
@@ -612,7 +634,7 @@ const AdminOwner = () => {
         const course = courses.find((c) => c._id === courseId);
         return {
           courseId,
-          coachId: course?.coach, // backend will use coachId if needed
+          coachId: course?.coach,
         };
       });
 
@@ -2153,7 +2175,46 @@ const AdminOwner = () => {
           </Container>
         )}
         {/* === Students Table === */}
+
         {activeTab === "students" && (
+          <Paper sx={{ p: 3 }}>
+            <Typography
+              variant="h4"
+              color="green"
+              fontWeight="bold"
+              gutterBottom
+            >
+              👨‍🎓 Students
+            </Typography>
+
+            {/* 🔍 Search Input */}
+            <Box sx={{ mb: 2, maxWidth: 400 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Search by name, email or phone"
+                placeholder="e.g mutiu, benedicta@gmail.com, 080..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+              />
+            </Box>
+
+            {/* 📊 Students Table */}
+            <div style={{ height: 500, width: "100%" }}>
+              <DataGrid
+                rows={filteredStudent.map((s) => ({
+                  id: s._id,
+                  ...s,
+                }))}
+                columns={commonColumns}
+                pageSize={5}
+                rowsPerPageOptions={[5, 10, 20]}
+                disableRowSelectionOnClick
+              />
+            </div>
+          </Paper>
+        )}
+        {/* {activeTab === "students" && (
           <Paper sx={{ p: 3 }}>
             <Typography
               variant="h4"
@@ -2171,7 +2232,7 @@ const AdminOwner = () => {
               />
             </div>
           </Paper>
-        )}
+        )} */}
         {/* === Coaches Table === */}
         {activeTab === "coaches" && (
           <Paper sx={{ p: 3 }}>
