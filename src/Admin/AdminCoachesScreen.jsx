@@ -712,18 +712,24 @@ const CoachDashboard = () => {
   // Start live class
   const startLiveVideo = async () => {
     if (!cohortId || !selectedCourse) {
-      alert("Cohort or course not selected.");
+      toast.error("Cohort or course not selected");
       return;
     }
 
     if (!meetLink.trim()) {
-      alert("Please provide a Google Meet link.");
+      toast.error("Please provide a Google Meet link");
       return;
     }
 
     if (!token) {
-      alert("Session expired. Please log in again.");
+      toast.error("Session expired. Please log in again.");
       return;
+    }
+
+    // ✅ Normalize Google Meet URL
+    let url = meetLink.trim();
+    if (!/^https?:\/\//.test(url)) {
+      url = `https://${url}`;
     }
 
     try {
@@ -731,7 +737,7 @@ const CoachDashboard = () => {
 
       await axios.post(
         `${BASE_URL}/api/live/${cohortId}/${selectedCourse}`,
-        { meetLink },
+        { meetLink: url },
         {
           headers: {
             Authorization: `Bearer ${token}`,
@@ -739,16 +745,14 @@ const CoachDashboard = () => {
         }
       );
 
-      alert("Live class started successfully ✅");
-      let url = meetLink.trim();
-      if (!url.startsWith("http://") && !url.startsWith("https://")) {
-        url = `https://${url}`;
-      }
+      toast.success("Live class started successfully ✅");
 
+      // ✅ Open Google Meet in a new tab
       window.open(url, "_blank", "noopener,noreferrer");
     } catch (err) {
       console.error("Live start failed:", err);
-      alert(
+
+      toast.error(
         err.response?.data?.message ||
           "Failed to start live class. Please try again."
       );
@@ -756,6 +760,52 @@ const CoachDashboard = () => {
       setStartingLive(false);
     }
   };
+  // const startLiveVideo = async () => {
+  //   if (!cohortId || !selectedCourse) {
+  //     alert("Cohort or course not selected.");
+  //     return;
+  //   }
+
+  //   if (!meetLink.trim()) {
+  //     alert("Please provide a Google Meet link.");
+  //     return;
+  //   }
+
+  //   if (!token) {
+  //     alert("Session expired. Please log in again.");
+  //     return;
+  //   }
+
+  //   try {
+  //     setStartingLive(true);
+
+  //     await axios.post(
+  //       `${BASE_URL}/api/live/${cohortId}/${selectedCourse}`,
+  //       { meetLink },
+  //       {
+  //         headers: {
+  //           Authorization: `Bearer ${token}`,
+  //         },
+  //       }
+  //     );
+
+  //     alert("Live class started successfully ✅");
+  //     let url = meetLink.trim();
+  //     if (!url.startsWith("http://") && !url.startsWith("https://")) {
+  //       url = `https://${url}`;
+  //     }
+
+  //     window.open(url, "_blank", "noopener,noreferrer");
+  //   } catch (err) {
+  //     console.error("Live start failed:", err);
+  //     alert(
+  //       err.response?.data?.message ||
+  //         "Failed to start live class. Please try again."
+  //     );
+  //   } finally {
+  //     setStartingLive(false);
+  //   }
+  // };
 
   const sendStudentMessage = (type, videoId, text) => {
     if (!text.trim()) return;
