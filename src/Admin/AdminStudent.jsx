@@ -342,6 +342,7 @@ const StudentDashboard = () => {
   // set default live course id
   useEffect(() => {
     if (courses.length > 0) {
+      // If courses come from cohort.courses, use _id
       setLiveCourseId(courses[0].courseId);
     }
   }, [courses]);
@@ -382,6 +383,7 @@ const StudentDashboard = () => {
 
   // fetch live class status
   useEffect(() => {
+    // ✅ guard logic INSIDE effect
     if (activeTab !== "join-live") return;
     if (!cohortId || !liveCourseId) return;
 
@@ -400,14 +402,13 @@ const StudentDashboard = () => {
           }
         );
 
-        if (!res.ok) {
-          throw new Error("Failed to fetch live session");
-        }
-
         const data = await res.json();
+
+        console.log("✅ Live session data:", data);
+
         setLiveSession(data);
       } catch (err) {
-        console.error("Live session error:", err);
+        console.error("❌ Live session error:", err);
         setLiveSession({ isLive: false });
       } finally {
         setLoadingLive(false);
@@ -415,8 +416,14 @@ const StudentDashboard = () => {
     };
 
     fetchLiveSession();
+
+    // ✅ polling
+    const interval = setInterval(fetchLiveSession, 10000);
+
+    return () => clearInterval(interval);
   }, [activeTab, cohortId, liveCourseId]);
 
+  // Auto-scroll chat to bottom on new message
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
@@ -619,7 +626,7 @@ const StudentDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("📄 Fetched documents", data);
+      // console.log("📄 Fetched documents", data);
 
       const allDocs = [
         ...(data.unlockedMaterials || []),
@@ -737,7 +744,7 @@ const StudentDashboard = () => {
       if (res.ok) {
         setVideos(data.unlockedMaterials || []);
       }
-      console.log("Fetched videos:", data);
+      // console.log("Fetched videos:", data);
     } catch (error) {
       console.error("Failed to fetch videos:", error);
     } finally {
@@ -818,12 +825,12 @@ const StudentDashboard = () => {
         const res = await axios.get(`${BASE_URL}/api/cohort/active`, {
           headers: { Authorization: token ? `Bearer ${token}` : "" },
         });
-        console.log(res.data.cohorts);
+        // console.log(res.data.cohorts);
 
         if (res.data.cohorts) {
           setActiveCohorts(res.data.cohorts);
         } else {
-          setMessage(res.data.message || "Unknown response");
+          // setMessage(res.data.message || "Unknown response");
           setActiveCohorts([]);
         }
       } catch (err) {
@@ -967,7 +974,7 @@ const StudentDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("Coaches:", res.data.coaches);
+      // console.log("Coaches:", res.data.coaches);
 
       setCoaches(res.data.coaches);
     } catch (err) {
