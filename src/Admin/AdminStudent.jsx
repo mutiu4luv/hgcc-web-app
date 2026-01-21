@@ -342,7 +342,6 @@ const StudentDashboard = () => {
   // set default live course id
   useEffect(() => {
     if (courses.length > 0) {
-      // If courses come from cohort.courses, use _id
       setLiveCourseId(courses[0].courseId);
     }
   }, [courses]);
