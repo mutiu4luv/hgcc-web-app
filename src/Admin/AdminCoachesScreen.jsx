@@ -79,13 +79,12 @@ function ChatSidebarLocal({
     return null;
   });
   const bottomRef = useRef(null);
-
   const resolvedCourseId = React.useMemo(() => {
     if (!selected) return null;
 
     if (selected.type === "video") {
       const v = videos?.find((v) => v._id === selected.id);
-      return typeof v?.courseId === "object" ? v.courseId._id : v?.courseId;
+      return typeof v?.course === "object" ? v.course._id : v?.course;
     }
 
     if (selected.type === "doc") {
@@ -760,52 +759,6 @@ const CoachDashboard = () => {
       setStartingLive(false);
     }
   };
-  // const startLiveVideo = async () => {
-  //   if (!cohortId || !selectedCourse) {
-  //     alert("Cohort or course not selected.");
-  //     return;
-  //   }
-
-  //   if (!meetLink.trim()) {
-  //     alert("Please provide a Google Meet link.");
-  //     return;
-  //   }
-
-  //   if (!token) {
-  //     alert("Session expired. Please log in again.");
-  //     return;
-  //   }
-
-  //   try {
-  //     setStartingLive(true);
-
-  //     await axios.post(
-  //       `${BASE_URL}/api/live/${cohortId}/${selectedCourse}`,
-  //       { meetLink },
-  //       {
-  //         headers: {
-  //           Authorization: `Bearer ${token}`,
-  //         },
-  //       }
-  //     );
-
-  //     alert("Live class started successfully ✅");
-  //     let url = meetLink.trim();
-  //     if (!url.startsWith("http://") && !url.startsWith("https://")) {
-  //       url = `https://${url}`;
-  //     }
-
-  //     window.open(url, "_blank", "noopener,noreferrer");
-  //   } catch (err) {
-  //     console.error("Live start failed:", err);
-  //     alert(
-  //       err.response?.data?.message ||
-  //         "Failed to start live class. Please try again."
-  //     );
-  //   } finally {
-  //     setStartingLive(false);
-  //   }
-  // };
 
   const sendStudentMessage = (type, videoId, text) => {
     if (!text.trim()) return;
@@ -1125,43 +1078,6 @@ const CoachDashboard = () => {
     }
   };
 
-  // const handleDocumentUpload = async (e) => {
-  //   e.preventDefault();
-  //   if (!docFile || !docTitle || !unlockAt) return;
-
-  //   setLoading(true);
-  //   const token = localStorage.getItem("token");
-  //   const formData = new FormData();
-  //   formData.append("title", docTitle);
-  //   formData.append("courseId", selectedCourseId);
-  //   formData.append("unlockAt", unlockAt);
-  //   formData.append("file", docFile);
-  //   // ✅ required field
-
-  //   try {
-  //     const res = await fetch(`${BASE_URL}/api/coach/upload-document`, {
-  //       method: "POST",
-  //       headers: {
-  //         Authorization: `Bearer ${token}`,
-  //       },
-  //       body: formData,
-  //     });
-
-  //     const data = await res.json();
-  //     if (!res.ok) throw new Error(data.message || "Upload failed");
-
-  //     alert("Document uploaded successfully!");
-  //     // Optionally refresh the document list
-  //     setDocTitle("");
-  //     setDocFile(null);
-  //     setUnlockAt("");
-  //   } catch (err) {
-  //     console.error(err);
-  //     alert(err.message);
-  //   } finally {
-  //     setLoading(false);
-  //   }
-  // };
   // FETCH  VIDEOS UPLOADED BY THE COACH
   const fetchMyVideos = async () => {
     try {
