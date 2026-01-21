@@ -156,6 +156,7 @@ const AdminOwner = () => {
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
+  const user = JSON.parse(localStorage.getItem("user"));
 
   // FETCH STUDENTS COMMENTS FOR SELECTED COACH
   const fetchCoachComments = async (coachId) => {
@@ -727,6 +728,54 @@ const AdminOwner = () => {
     } catch (err) {
       console.error(err);
       setMessage(err.response?.data?.message || "Failed to end course");
+    }
+  };
+
+  // Undo End Cohort
+
+  const undoStartCohort = async (courseId) => {
+    if (!window.confirm("Undo course start?")) return;
+
+    try {
+      const res = await axios.patch(
+        `${BASE_URL}/api/cohort/course/${courseId}/undo-start`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setMessage(res.data.message || "Course start undone successfully");
+      fetchCohorts();
+    } catch (err) {
+      console.error(err);
+      setMessage(err.response?.data?.message || "Failed to undo course start");
+    }
+  };
+  // Undo End Cohort
+  const undoEndCohort = async (courseId) => {
+    if (!window.confirm("Undo course completion?")) return;
+
+    try {
+      const res = await axios.patch(
+        `${BASE_URL}/api/cohort/course/${courseId}/undo-end`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      setMessage(res.data.message || "Course completion undone successfully");
+      fetchCohorts();
+    } catch (err) {
+      console.error(err);
+      setMessage(
+        err.response?.data?.message || "Failed to undo course completion"
+      );
     }
   };
 
@@ -2263,11 +2312,13 @@ const AdminOwner = () => {
               >
                 🏫 Create Cohort
               </Typography>
+
               {message && (
                 <Alert severity="info" sx={{ mb: 2 }}>
                   {message}
                 </Alert>
               )}
+
               <TextField
                 label="Cohort Name"
                 fullWidth
@@ -2275,6 +2326,7 @@ const AdminOwner = () => {
                 value={cohortName}
                 onChange={(e) => setCohortName(e.target.value)}
               />
+
               <FormControl fullWidth sx={{ mb: 2 }}>
                 <InputLabel id="courses-label">Select Courses</InputLabel>
                 <Select
@@ -2282,11 +2334,7 @@ const AdminOwner = () => {
                   multiple
                   value={selectedCourses}
                   onChange={(e) => {
-                    let value = e.target.value;
-
-                    // Remove "ALL" from normal selection if present
-                    value = value.filter((v) => v !== "ALL");
-
+                    let value = e.target.value.filter((v) => v !== "ALL");
                     setSelectedCourses(value);
                   }}
                   input={<OutlinedInput label="Select Courses" />}
@@ -2298,11 +2346,11 @@ const AdminOwner = () => {
                           <Chip
                             key={id}
                             label={course?.name || "Unknown"}
-                            onDelete={() => {
+                            onDelete={() =>
                               setSelectedCourses((prev) =>
                                 prev.filter((cId) => cId !== id)
-                              );
-                            }}
+                              )
+                            }
                           />
                         );
                       })}
@@ -2317,6 +2365,7 @@ const AdminOwner = () => {
                   >
                     <em>Select All Courses</em>
                   </MenuItem>
+
                   {courses.map((course) => (
                     <MenuItem key={course._id} value={course._id}>
                       {course.name} ({course.duration})
@@ -2324,6 +2373,7 @@ const AdminOwner = () => {
                   ))}
                 </Select>
               </FormControl>
+
               <Button
                 variant="contained"
                 fullWidth
@@ -2336,9 +2386,11 @@ const AdminOwner = () => {
                   "Create Cohort"
                 )}
               </Button>
+
               <Typography variant="h5" sx={{ mb: 2 }}>
                 ⚡ Manage Cohorts
               </Typography>
+
               {cohorts.map((cohort) => (
                 <Card
                   key={cohort._id}
@@ -2355,11 +2407,9 @@ const AdminOwner = () => {
                   >
                     <Delete />
                   </IconButton>
+
                   <Typography fontWeight="bold">{cohort.name}</Typography>
-
                   <Typography sx={{ mt: 1 }}>Courses:</Typography>
-
-                  {/* Render each course entry inside the cohort with its own Start button */}
 
                   {Array.isArray(cohort.courses) &&
                   cohort.courses.length > 0 ? (
@@ -2368,10 +2418,12 @@ const AdminOwner = () => {
                         key={c._id}
                         sx={{
                           display: "flex",
-                          alignItems: "center",
+                          flexDirection: { xs: "column", sm: "row" }, // ✅ mobile fix
+                          alignItems: { sm: "center" },
                           justifyContent: "space-between",
                           ml: 2,
-                          mt: 1,
+                          mt: 2,
+                          gap: 2,
                         }}
                       >
                         <Typography>
@@ -2379,8 +2431,17 @@ const AdminOwner = () => {
                           {c.courseId?.duration || "N/A"})
                         </Typography>
 
-                        <Box sx={{ display: "flex", gap: 1 }}>
+                        <Box
+                          sx={{
+                            display: "flex",
+                            flexDirection: { xs: "column", sm: "row" }, // ✅ stack on mobile
+                            gap: 1,
+                            width: { xs: "100%", sm: "auto" },
+                          }}
+                        >
+                          {/* START */}
                           <Button
+                            fullWidth
                             variant="contained"
                             color="success"
                             disabled={
@@ -2392,14 +2453,42 @@ const AdminOwner = () => {
                             Start
                           </Button>
 
+                          {/* END */}
                           <Button
+                            fullWidth
                             variant="contained"
                             color="error"
                             disabled={c.status !== "in_progress"}
                             onClick={() => handleEndCohort(c._id)}
                           >
-                            {c.status === "completed" ? "Completed" : "End"}
+                            End
                           </Button>
+
+                          {/* UNDO START (OWNER) */}
+                          {user.role === "owner" &&
+                            c.status === "in_progress" && (
+                              <Button
+                                fullWidth
+                                variant="outlined"
+                                color="warning"
+                                onClick={() => undoStartCohort(c._id)}
+                              >
+                                Undo Start
+                              </Button>
+                            )}
+
+                          {/* UNDO END (OWNER) */}
+                          {user.role === "owner" &&
+                            c.status === "completed" && (
+                              <Button
+                                fullWidth
+                                variant="outlined"
+                                color="warning"
+                                onClick={() => undoEndCohort(c._id)}
+                              >
+                                Undo End
+                              </Button>
+                            )}
                         </Box>
                       </Box>
                     ))
@@ -2408,15 +2497,12 @@ const AdminOwner = () => {
                       No courses in this cohort
                     </Typography>
                   )}
-
-                  {/* <Typography sx={{ mt: 1 }}>
-                    Cohort status: {cohort.status}
-                  </Typography> */}
                 </Card>
               ))}
             </Paper>
           </Container>
         )}
+
         {/* CONFIRM COHORT PAYMENT */}
         {activeTab === "confirm-payment" && (
           <Container>

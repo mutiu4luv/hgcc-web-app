@@ -1260,11 +1260,43 @@ const CoachDashboard = () => {
     }
   }, [coursesArray]);
   // Start course
+  // const handleStartCourse = async () => {
+  //   if (!selectedCourse) {
+  //     alert("Please select a course to start");
+  //     return;
+  //   }
+
+  //   try {
+  //     setActionLoading(true);
+
+  //     const { data } = await axios.put(
+  //       `${BASE_URL}/api/cohort/start/course/${selectedCourse}`,
+  //       {},
+  //       { headers: { Authorization: `Bearer ${token}` } }
+  //     );
+
+  //     fetchAssignedCourses(); // refresh courses
+  //     alert(data.message || "Course started successfully");
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert(err.response?.data?.message || "Failed to start course");
+  //   } finally {
+  //     setActionLoading(false);
+  //   }
+  // };
+
   const handleStartCourse = async () => {
     if (!selectedCourse) {
       alert("Please select a course to start");
       return;
     }
+
+    // ✅ confirmation added
+    const confirmed = window.confirm(
+      "Are you sure you want to start this cohort?"
+    );
+
+    if (!confirmed) return;
 
     try {
       setActionLoading(true);
@@ -1292,6 +1324,13 @@ const CoachDashboard = () => {
       return;
     }
 
+    // ✅ confirmation added
+    const confirmed = window.confirm(
+      "Are you sure you want to end this cohort?"
+    );
+
+    if (!confirmed) return;
+
     try {
       setActionLoading(true);
 
@@ -1310,6 +1349,31 @@ const CoachDashboard = () => {
       setActionLoading(false);
     }
   };
+
+  // const handleEndCourse = async () => {
+  //   if (!selectedCourse) {
+  //     alert("Please select a course to end");
+  //     return;
+  //   }
+
+  //   try {
+  //     setActionLoading(true);
+
+  //     const { data } = await axios.put(
+  //       `${BASE_URL}/api/cohort/end/course/${selectedCourse}`,
+  //       {},
+  //       { headers: { Authorization: `Bearer ${token}` } }
+  //     );
+
+  //     fetchAssignedCourses(); // refresh courses
+  //     alert(data.message || "Course ended successfully");
+  //   } catch (err) {
+  //     console.error(err);
+  //     alert(err.response?.data?.message || "Failed to end course");
+  //   } finally {
+  //     setActionLoading(false);
+  //   }
+  // };
 
   useEffect(() => {
     if (!assignedCourses || assignedCourses.length === 0) {
