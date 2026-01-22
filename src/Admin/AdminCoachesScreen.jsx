@@ -481,6 +481,8 @@ const CoachDashboard = () => {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
+  const [creatingAssignment, setCreatingAssignment] = useState(false);
+
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
@@ -1599,10 +1601,12 @@ const CoachDashboard = () => {
     }
 
     try {
+      setCreatingAssignment(true);
+
       await axios.post(
         `${BASE_URL}/api/assignment`,
         {
-          cohortId: selectedCohortId, // singular key
+          cohortId: selectedCohortId,
           title: newTitle,
           description: newDescription,
           dueDate: newDueDate,
@@ -1618,6 +1622,8 @@ const CoachDashboard = () => {
     } catch (err) {
       console.error("Error creating assignment:", err?.response?.data || err);
       setMessage("Failed to create assignment");
+    } finally {
+      setCreatingAssignment(false);
     }
   };
 
@@ -2769,9 +2775,18 @@ const CoachDashboard = () => {
                   variant="contained"
                   color="success"
                   onClick={createAssignment}
-                  disabled={!newTitle || !newDueDate || !selectedCohortId}
+                  disabled={
+                    creatingAssignment ||
+                    !newTitle ||
+                    !newDueDate ||
+                    !selectedCohortId
+                  }
                 >
-                  Create Assignment
+                  {creatingAssignment ? (
+                    <CircularProgress size={22} color="inherit" />
+                  ) : (
+                    "Create Assignment"
+                  )}
                 </Button>
               </Box>
 
