@@ -544,6 +544,7 @@ const CoachDashboard = () => {
 
   const studentId = user?._id || user?.id;
   const studentName = user?.name || user?.fullName || "Coach";
+
   // fetch courses for selected cohort (for live class)
   useEffect(() => {
     if (!cohortId) {
@@ -2906,10 +2907,39 @@ const CoachDashboard = () => {
                                 const studentName = student.fullName;
                                 const gradeValue = s?.grade ?? null;
 
+                                // let status = "Pending";
+                                // if (gradeValue !== null) status = "Completed";
+                                // else if (new Date(a.dueDate) < new Date())
+                                //   status = "Expired";
                                 let status = "Pending";
-                                if (gradeValue !== null) status = "Completed";
-                                else if (new Date(a.dueDate) < new Date())
+
+                                if (s) {
+                                  status = "Submitted";
+                                  if (gradeValue !== null) status = "Completed";
+                                } else if (new Date(a.dueDate) < new Date()) {
                                   status = "Expired";
+                                }
+
+                                // return {
+                                //   id: s?._id || `${a._id}-${index}`,
+                                //   assignmentId: a._id,
+                                //   studentId: student?._id || null,
+                                //   studentName,
+                                //   title: a.title,
+                                //   description: a.description,
+                                //   grade:
+                                //     gradeValue !== null
+                                //       ? gradeValue
+                                //       : "Not Graded",
+                                //   status,
+                                //   isGraded:
+                                //     typeof gradeValue === "number" &&
+                                //     !Number.isNaN(gradeValue),
+                                //   dueDate: a.dueDate
+                                //     ? new Date(a.dueDate).toLocaleDateString()
+                                //     : "N/A",
+                                //   submission: s || null,
+                                // };
 
                                 return {
                                   id: s?._id || `${a._id}-${index}`,
@@ -2923,6 +2953,7 @@ const CoachDashboard = () => {
                                       ? gradeValue
                                       : "Not Graded",
                                   status,
+                                  hasSubmission: !!s,
                                   isGraded:
                                     typeof gradeValue === "number" &&
                                     !Number.isNaN(gradeValue),
@@ -2945,6 +2976,7 @@ const CoachDashboard = () => {
                                     new Date(a.dueDate) < new Date()
                                       ? "Expired"
                                       : "Pending",
+                                  hasSubmission: false,
                                   isGraded: false,
                                   dueDate: a.dueDate
                                     ? new Date(a.dueDate).toLocaleDateString()
@@ -2985,11 +3017,16 @@ const CoachDashboard = () => {
                                 variant="contained"
                                 size="small"
                                 sx={{
-                                  bgcolor: params.row.isGraded
-                                    ? "#94a3b8"
-                                    : "#10b981",
+                                  bgcolor:
+                                    params.row.isGraded ||
+                                    !params.row.hasSubmission
+                                      ? "#94a3b8"
+                                      : "#10b981",
                                 }}
-                                disabled={params.row.isGraded}
+                                disabled={
+                                  params.row.isGraded ||
+                                  !params.row.hasSubmission
+                                }
                                 onClick={() =>
                                   handleOpenAssignmentModal(
                                     safeAssignments.find(
@@ -2999,7 +3036,9 @@ const CoachDashboard = () => {
                                   )
                                 }
                               >
-                                {params.row.isGraded
+                                {!params.row.hasSubmission
+                                  ? "No Submission"
+                                  : params.row.isGraded
                                   ? "Graded"
                                   : "View & Grade"}
                               </Button>
