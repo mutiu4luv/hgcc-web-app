@@ -482,6 +482,8 @@ const CoachDashboard = () => {
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
   const [creatingAssignment, setCreatingAssignment] = useState(false);
+  const [editDueDate, setEditDueDate] = useState("");
+  const [updatingDueDate, setUpdatingDueDate] = useState(false);
 
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -1170,11 +1172,51 @@ const CoachDashboard = () => {
     setGradeInput("");
     setOpenAssignmentModal(false);
   };
+  const updateAssignmentDueDate = async () => {
+    try {
+      await axios.patch(
+        `${BASE_URL}/api/assignment/${selectedAssignment.assignmentId}`,
+        { dueDate: editDueDate },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      loadAssignments();
+      setMessage("Assignment reopened successfully");
+      handleCloseAssignmentModal();
+    } catch (err) {
+      console.error(err);
+      setMessage("Failed to update assignment");
+    }
+  };
+
+  // const updateAssignmentDueDate = async () => {
+  //   if (!selectedAssignment?.assignmentId || !editDueDate) return;
+
+  //   try {
+  //     setUpdatingDueDate(true);
+
+  //     await axios.patch(
+  //       `${BASE_URL}/api/assignment/${selectedAssignment.assignmentId}`,
+  //       { dueDate: editDueDate },
+  //       { headers: { Authorization: `Bearer ${token}` } }
+  //     );
+
+  //     setMessage("Due date updated successfully");
+  //     setOpenAssignmentModal(false);
+  //     setEditDueDate("");
+  //     loadAssignments();
+  //   } catch (err) {
+  //     console.error("Failed to update due date", err);
+  //     setMessage("Failed to update due date");
+  //   } finally {
+  //     setUpdatingDueDate(false);
+  //   }
+  // };
 
   // submit grade
   const submitGrade = async (studentId) => {
     if (!gradeInput || !selectedAssignment || !studentId) {
-      setMessage("❌ Missing grade or student ID");
+      toast.error("❌ Missing grade or student ID");
       return;
     }
 
@@ -1182,7 +1224,7 @@ const CoachDashboard = () => {
       typeof studentId === "string" ? studentId : studentId?._id;
 
     if (!studentIdStr) {
-      setMessage("❌ Invalid student ID");
+      toast.error("❌ Invalid student ID");
       return;
     }
 
@@ -1191,29 +1233,48 @@ const CoachDashboard = () => {
 
       const gradeValue = Number(gradeInput);
       if (Number.isNaN(gradeValue)) {
-        setMessage("❌ Grade must be a number");
-        setGradingLoading(false);
+        toast.error("❌ Grade must be a number");
         return;
       }
 
       const assignmentId =
         selectedAssignment.assignmentId || selectedAssignment._id;
 
-      const res = await axios.put(
+      await axios.put(
         `${BASE_URL}/api/assignment/grade/${assignmentId}/${studentIdStr}`,
         { grade: gradeValue },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      setMessage("✅ Grade submitted successfully");
+      toast.success("✅ Grade submitted successfully");
+
+      // Update local state so DataGrid shows new grade immediately
+      setSelectedAssignment((prev) => ({
+        ...prev,
+        submission: { ...prev.submission, grade: gradeValue },
+        isGraded: true,
+      }));
+
       handleCloseAssignmentModal();
-      // ... update state as before
     } catch (err) {
       console.error("Failed to submit grade:", err?.response?.data || err);
-      setMessage("❌ Failed to submit grade — check console for details");
+      toast.error("❌ Failed to submit grade — check console");
     } finally {
       setGradingLoading(false);
     }
+  };
+  const isExpired =
+    selectedAssignment?.dueDate &&
+    new Date(selectedAssignment.dueDate) < new Date();
+
+  const handleGradeAssignment = () => {
+    if (!selectedAssignment || !selectedAssignment.submission) {
+      toast.error("❌ No submission selected");
+      return;
+    }
+
+    const studentId = selectedAssignment.submission.studentId?._id;
+    submitGrade(studentId);
   };
   // Fetch assigned courses from API
   const fetchAssignedCourses = async () => {
@@ -2896,91 +2957,50 @@ const CoachDashboard = () => {
                   ) : (
                     <div style={{ height: 500, width: "100%" }}>
                       <DataGrid
-                        rows={filteredAssignments.flatMap((a) =>
+                        rows={filteredAssignments.flatMap((a, index) =>
                           Array.isArray(a.submissions) &&
                           a.submissions.length > 0
-                            ? a.submissions.map((s, index) => {
-                                const student = s?.studentId ?? {
-                                  fullName: "Unknown Student",
-                                  _id: null,
-                                };
-                                const studentName = student.fullName;
-                                const gradeValue = s?.grade ?? null;
-
-                                // let status = "Pending";
-                                // if (gradeValue !== null) status = "Completed";
-                                // else if (new Date(a.dueDate) < new Date())
-                                //   status = "Expired";
-                                let status = "Pending";
-
-                                if (s) {
-                                  status = "Submitted";
-                                  if (gradeValue !== null) status = "Completed";
-                                } else if (new Date(a.dueDate) < new Date()) {
-                                  status = "Expired";
-                                }
-
-                                // return {
-                                //   id: s?._id || `${a._id}-${index}`,
-                                //   assignmentId: a._id,
-                                //   studentId: student?._id || null,
-                                //   studentName,
-                                //   title: a.title,
-                                //   description: a.description,
-                                //   grade:
-                                //     gradeValue !== null
-                                //       ? gradeValue
-                                //       : "Not Graded",
-                                //   status,
-                                //   isGraded:
-                                //     typeof gradeValue === "number" &&
-                                //     !Number.isNaN(gradeValue),
-                                //   dueDate: a.dueDate
-                                //     ? new Date(a.dueDate).toLocaleDateString()
-                                //     : "N/A",
-                                //   submission: s || null,
-                                // };
-
-                                return {
-                                  id: s?._id || `${a._id}-${index}`,
-                                  assignmentId: a._id,
-                                  studentId: student?._id || null,
-                                  studentName,
-                                  title: a.title,
-                                  description: a.description,
-                                  grade:
-                                    gradeValue !== null
-                                      ? gradeValue
-                                      : "Not Graded",
-                                  status,
-                                  hasSubmission: !!s,
-                                  isGraded:
-                                    typeof gradeValue === "number" &&
-                                    !Number.isNaN(gradeValue),
-                                  dueDate: a.dueDate
-                                    ? new Date(a.dueDate).toLocaleDateString()
-                                    : "N/A",
-                                  submission: s || null,
-                                };
-                              })
+                            ? a.submissions.map((s, i) => ({
+                                id: s?._id || `${a._id}-${i}`,
+                                assignment: a,
+                                studentName:
+                                  s?.studentId?.fullName || "Unknown Student",
+                                title: a.title,
+                                description: a.description,
+                                dueDate: a.dueDate
+                                  ? new Date(a.dueDate).toLocaleDateString()
+                                  : "N/A",
+                                grade:
+                                  s?.grade !== null && s?.grade !== undefined
+                                    ? s.grade
+                                    : "Not Graded",
+                                status:
+                                  s?.grade != null
+                                    ? "Completed"
+                                    : new Date(a.dueDate) < new Date()
+                                    ? "Expired"
+                                    : "Submitted",
+                                hasSubmission: true,
+                                isGraded: s?.grade != null,
+                                submission: s,
+                              }))
                             : [
                                 {
                                   id: `${a._id}-no-submission`,
-                                  assignmentId: a._id,
-                                  studentId: null,
+                                  assignment: a,
                                   studentName: "-",
                                   title: a.title,
                                   description: a.description,
-                                  grade: "No submission",
+                                  dueDate: a.dueDate
+                                    ? new Date(a.dueDate).toLocaleDateString()
+                                    : "N/A",
+                                  grade: "No Submission",
                                   status:
                                     new Date(a.dueDate) < new Date()
                                       ? "Expired"
                                       : "Pending",
                                   hasSubmission: false,
                                   isGraded: false,
-                                  dueDate: a.dueDate
-                                    ? new Date(a.dueDate).toLocaleDateString()
-                                    : "N/A",
                                   submission: null,
                                 },
                               ]
@@ -2994,7 +3014,7 @@ const CoachDashboard = () => {
                           {
                             field: "title",
                             headerName: "Assignment",
-                            width: 250,
+                            width: 220,
                           },
                           {
                             field: "description",
@@ -3007,52 +3027,61 @@ const CoachDashboard = () => {
                             width: 150,
                           },
                           { field: "grade", headerName: "Grade", width: 120 },
-                          { field: "status", headerName: "Status", width: 150 },
+                          { field: "status", headerName: "Status", width: 140 },
                           {
                             field: "actions",
                             headerName: "Actions",
                             width: 180,
-                            renderCell: (params) => (
-                              <Button
-                                variant="contained"
-                                size="small"
-                                sx={{
-                                  bgcolor:
+                            renderCell: (params) => {
+                              const isExpired =
+                                params.row.assignment?.dueDate &&
+                                new Date(params.row.assignment.dueDate) <
+                                  new Date();
+
+                              return (
+                                <Button
+                                  variant="contained"
+                                  size="small"
+                                  disabled={
+                                    !params.row.hasSubmission ||
                                     params.row.isGraded ||
-                                    !params.row.hasSubmission
-                                      ? "#94a3b8"
-                                      : "#10b981",
-                                }}
-                                disabled={
-                                  params.row.isGraded ||
-                                  !params.row.hasSubmission
-                                }
-                                onClick={() =>
-                                  handleOpenAssignmentModal(
-                                    safeAssignments.find(
-                                      (a) => a._id === params.row.assignmentId
-                                    ),
-                                    params.row.submission
-                                  )
-                                }
-                              >
-                                {!params.row.hasSubmission
-                                  ? "No Submission"
-                                  : params.row.isGraded
-                                  ? "Graded"
-                                  : "View & Grade"}
-                              </Button>
-                            ),
+                                    isExpired
+                                  }
+                                  sx={{
+                                    bgcolor:
+                                      !params.row.hasSubmission ||
+                                      params.row.isGraded ||
+                                      isExpired
+                                        ? "#94a3b8"
+                                        : "#10b981",
+                                  }}
+                                  onClick={() =>
+                                    handleOpenAssignmentModal(
+                                      params.row.assignment,
+                                      params.row.submission
+                                    )
+                                  }
+                                >
+                                  {!params.row.hasSubmission
+                                    ? "No Submission"
+                                    : isExpired
+                                    ? "Expired"
+                                    : params.row.isGraded
+                                    ? "Graded"
+                                    : "View & Grade"}
+                                </Button>
+                              );
+                            },
                           },
                         ]}
                         pageSize={5}
-                        rowsPerPageOptions={[5]}
                       />
                     </div>
                   );
                 })()
               )}
               {/* Assignment Modal */}
+
               <Drawer
                 anchor="right"
                 open={openAssignmentModal}
@@ -3074,12 +3103,12 @@ const CoachDashboard = () => {
                       </IconButton>
                     </Box>
 
-                    <Typography variant="subtitle1" sx={{ mb: 1 }}>
+                    <Typography variant="subtitle1" sx={{ mb: 2 }}>
                       {selectedAssignment.title}
                     </Typography>
 
                     {selectedAssignment.submission?.file ? (
-                      <Typography variant="body2" sx={{ mb: 2 }}>
+                      <Typography sx={{ mb: 2 }}>
                         <a
                           href={selectedAssignment.submission.file}
                           target="_blank"
@@ -3089,9 +3118,9 @@ const CoachDashboard = () => {
                         </a>
                       </Typography>
                     ) : (
-                      <Typography variant="body2" sx={{ mb: 2 }}>
+                      <Alert severity="info" sx={{ mb: 2 }}>
                         No submission available
-                      </Typography>
+                      </Alert>
                     )}
 
                     {selectedAssignment.submission?.grade != null ? (
@@ -3101,8 +3130,8 @@ const CoachDashboard = () => {
                     ) : (
                       <TextField
                         label="Grade"
-                        fullWidth
                         type="number"
+                        fullWidth
                         value={gradeInput}
                         onChange={(e) => setGradeInput(e.target.value)}
                         sx={{ mb: 2 }}
@@ -3112,25 +3141,31 @@ const CoachDashboard = () => {
                     <Button
                       variant="contained"
                       color="success"
-                      fullWidth
-                      disabled={
-                        gradingLoading ||
-                        selectedAssignment.submission?.grade != null
-                      }
-                      onClick={async () => {
-                        await submitGrade(
-                          selectedAssignment.submission?.studentId ||
-                            selectedAssignment.studentId
-                        );
-                        // Refresh assignments instantly after grading
-                        await loadAssignments();
-                      }}
+                      disabled={!gradeInput || gradingLoading || isExpired}
+                      onClick={handleGradeAssignment}
+                      sx={{ mb: 3 }}
                     >
-                      {gradingLoading ? (
-                        <CircularProgress size={24} />
-                      ) : (
-                        "Submit Grade"
-                      )}
+                      {gradingLoading ? "Submitting..." : "Submit Grade"}
+                    </Button>
+
+                    <Divider sx={{ mb: 2 }} />
+
+                    <TextField
+                      type="date"
+                      label="Edit Due Date"
+                      fullWidth
+                      InputLabelProps={{ shrink: true }}
+                      value={editDueDate}
+                      onChange={(e) => setEditDueDate(e.target.value)}
+                      sx={{ mb: 2 }}
+                    />
+
+                    <Button
+                      variant="contained"
+                      disabled={updatingDueDate || !editDueDate}
+                      onClick={updateAssignmentDueDate}
+                    >
+                      {updatingDueDate ? "Updating..." : "Update Due Date"}
                     </Button>
                   </>
                 )}
