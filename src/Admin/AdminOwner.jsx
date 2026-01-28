@@ -133,6 +133,8 @@ const AdminOwner = () => {
   const [freeCoachId, setFreeCoachId] = useState("");
   const [creatingFree, setCreatingFree] = useState(false);
   const [loadingFreeCourses, setLoadingFreeCourses] = useState(false);
+  const [studentsLoading, setStudentsLoading] = useState(true);
+  const [student, setStudents] = useState([]);
 
   // ✅ Filter students by name, email, or phone number
   const filteredStudent = useMemo(() => {
@@ -157,6 +159,38 @@ const AdminOwner = () => {
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const user = JSON.parse(localStorage.getItem("user"));
+
+  // ========================= // FETCH COACH STUDENTS // =========================
+  useEffect(() => {
+    const loadStudents = async () => {
+      console.log("📡 Fetching students...");
+      setStudentsLoading(true); // set loading true at the start
+
+      try {
+        const res = await axios.get(`${BASE_URL}/api/cohort/students/coach`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        if (res.data.students) {
+          setStudents(res.data.students);
+        } else {
+          console.warn("⚠ No 'students' field found in response");
+          setStudents([]); // fallback
+        }
+      } catch (err) {
+        console.error(
+          "❌ Error fetching students:",
+          err?.response?.data || err
+        );
+        setMessage("Failed to load students");
+        setStudents([]); // fallback
+      } finally {
+        setStudentsLoading(false);
+      }
+    };
+
+    loadStudents();
+  }, [BASE_URL, token]);
 
   // FETCH STUDENTS COMMENTS FOR SELECTED COACH
   const fetchCoachComments = async (coachId) => {
@@ -976,13 +1010,8 @@ const AdminOwner = () => {
     { text: "Owner Tools", icon: <ManageAccounts />, key: "owner" },
   ];
 
-  // 📊 Dummy chart data
-  // const chartData = [
-  //   { name: "Jan", users: 400, videos: 24 },
-  //   { name: "Feb", users: 300, videos: 18 },
-  //   { name: "Mar", users: 500, videos: 30 },
-  //   { name: "Apr", users: 600, videos: 40 },
-  // ];
+  // total students taught
+  const studentsTaughtCount = Array.isArray(student) ? student.length : 0;
 
   // chart data
   const chartData = analytics.studentRegistrations.map((item, idx) => ({
@@ -990,6 +1019,8 @@ const AdminOwner = () => {
     students: item.count,
     assignments: analytics.assignmentSubmissions[idx]?.count || 0,
     coaching: analytics.coachingSessions[idx]?.count || 0,
+
+    studentsTaught: studentsTaughtCount,
   }));
 
   // 🧑‍🎓 Filter users
@@ -1074,11 +1105,38 @@ const AdminOwner = () => {
   }, []);
 
   // 📊 Fetch monthly performance whenever coach changes
+  // useEffect(() => {
+  //   if (!selectedCoach) return;
+  //   const fetchPerformance = async () => {
+  //     try {
+  //       setLoading(true);
+  //       const res = await axios.get(
+  //         `${BASE_URL}/api/analytics/coach?coachId=${selectedCoach}`,
+  //         { headers: { Authorization: `Bearer ${token}` } }
+  //       );
+
+  //       console.log("✅ Coach performance:", res.data);
+
+  //       setCoachPerformance(res.data);
+  //     } catch (error) {
+  //       console.error("❌ Error fetching coach performance:", error);
+
+  //       setCoachPerformance([]);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   };
+
+  //   fetchPerformance();
+  // }, [selectedCoach, BASE_URL, token]);
+  // 📊 Fetch monthly performance whenever coach changes
   useEffect(() => {
     if (!selectedCoach) return;
+
     const fetchPerformance = async () => {
       try {
         setLoading(true);
+
         const res = await axios.get(
           `${BASE_URL}/api/analytics/coach?coachId=${selectedCoach}`,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -1086,10 +1144,16 @@ const AdminOwner = () => {
 
         console.log("✅ Coach performance:", res.data);
 
-        setCoachPerformance(res.data);
+        const studentsTaughtCount = Array.isArray(student) ? student.length : 0;
+
+        const enhancedPerformance = res.data.map((item) => ({
+          ...item,
+          studentsTaught: studentsTaughtCount,
+        }));
+
+        setCoachPerformance(enhancedPerformance);
       } catch (error) {
         console.error("❌ Error fetching coach performance:", error);
-
         setCoachPerformance([]);
       } finally {
         setLoading(false);
@@ -1097,7 +1161,8 @@ const AdminOwner = () => {
     };
 
     fetchPerformance();
-  }, [selectedCoach, BASE_URL, token]);
+  }, [selectedCoach, BASE_URL, token, student]);
+
   useEffect(() => {
     if (selectedCoach) {
       // fetchPerformance(selectedCoach);
@@ -1369,21 +1434,21 @@ const AdminOwner = () => {
                         <YAxis />
                         <Tooltip />
                         <Legend />
-                        <Bar
+                        {/* <Bar
                           dataKey="sessions"
                           fill="#3b82f6"
                           name="Sessions"
-                        />
-                        <Bar
+                        /> */}
+                        {/* <Bar
                           dataKey="studentsTaught"
                           fill="#10b981"
                           name="Students Taught"
-                        />
-                        <Bar
+                        /> */}
+                        {/* <Bar
                           dataKey="assignmentsReviewed"
                           fill="#f59e0b"
                           name="Assignments Reviewed"
-                        />
+                        /> */}
                         <Bar
                           dataKey="avgRating"
                           fill="#ef4444"
