@@ -51,6 +51,7 @@ import { useParams } from "react-router-dom";
 import DeleteIcon from "@mui/icons-material/Delete";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
+import { useInView } from "react-intersection-observer";
 
 const drawerWidth = 250;
 const CHAT_SIDEBAR_WIDTH = 300;
@@ -546,6 +547,19 @@ const CoachDashboard = () => {
 
   const studentId = user?._id || user?.id;
   const studentName = user?.name || user?.fullName || "Coach";
+
+  const LazyVideoWrapper = ({ children }) => {
+    const { ref, inView } = useInView({
+      triggerOnce: true,
+      rootMargin: "300px",
+    });
+
+    return (
+      <div ref={ref} style={{ minHeight: 120 }}>
+        {inView ? children : <Typography>Loading video...</Typography>}
+      </div>
+    );
+  };
 
   // fetch courses for selected cohort (for live class)
   useEffect(() => {
@@ -2074,7 +2088,193 @@ const CoachDashboard = () => {
             </Paper>
           )}
           {/* Upload Video */}
+
           {activeTab === "upload-video" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h6" sx={{ mt: 4 }}>
+                🎥 Upload Video
+              </Typography>
+
+              {/* Upload Instructions */}
+              <Typography sx={{ mb: 2, color: "text.secondary" }}>
+                ⚠️ Upload Guidelines:
+                <br />• Videos must not exceed <b>20MB</b>
+                <br />• Documents must not exceed <b>8MB</b>
+              </Typography>
+
+              <form
+                onSubmit={async (e) => {
+                  e.preventDefault();
+                  if (!videoTitle) return alert("Video title is required!");
+                  if (!videoFile) return alert("Please select a video file!");
+                  if (!classStartTime)
+                    return alert("Class start time is required!");
+                  if (!selectedCourseId)
+                    return alert("Please select a course!");
+                  if (!selectedCohortId)
+                    return alert("Please select a cohort!");
+
+                  const utcTime = new Date(classStartTime).toISOString();
+
+                  const formData = new FormData();
+                  formData.append("title", videoTitle);
+                  formData.append("file", videoFile);
+                  formData.append("classStartTime", utcTime);
+                  formData.append("courseId", selectedCourseId);
+                  formData.append("cohortId", selectedCohortId);
+
+                  try {
+                    setLoading(true);
+                    const { data } = await axios.post(
+                      `${BASE_URL}/api/coach/upload-video`,
+                      formData,
+                      { headers: { Authorization: `Bearer ${token}` } }
+                    );
+                    setMessage(data.message);
+                    setVideoTitle("");
+                    setVideoFile(null);
+                    setClassStartTime("");
+                    setSelectedCourseId(courses[0]?._id || "");
+                    setSelectedCohortId(cohorts[0]?.cohortId || "");
+                    loadVideos();
+                    await fetchMyVideos();
+                  } catch (err) {
+                    console.error(err);
+                    const errMsg =
+                      err.response?.data?.message ||
+                      err.message ||
+                      "Upload failed";
+                    setMessage(`❌ ${errMsg}`);
+                  } finally {
+                    setLoading(false);
+                  }
+                }}
+              >
+                <TextField
+                  label="Video Title"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={videoTitle}
+                  onChange={(e) => setVideoTitle(e.target.value)}
+                />
+                <TextField
+                  label="Class Start Time"
+                  type="datetime-local"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  InputLabelProps={{ shrink: true }}
+                  value={classStartTime}
+                  onChange={(e) => setClassStartTime(e.target.value)}
+                />
+                <TextField
+                  label="Select Course"
+                  select
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={selectedCourseId}
+                  onChange={(e) => setSelectedCourseId(e.target.value)}
+                >
+                  {courses.length === 0 ? (
+                    <MenuItem disabled>No courses available</MenuItem>
+                  ) : (
+                    courses.map((course) => (
+                      <MenuItem key={course._id} value={course._id}>
+                        {course.name}
+                      </MenuItem>
+                    ))
+                  )}
+                </TextField>
+
+                <TextField
+                  label="Select Cohort"
+                  select
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={selectedCohortId}
+                  onChange={(e) => setSelectedCohortId(e.target.value)}
+                >
+                  {cohorts.length === 0 ? (
+                    <MenuItem disabled>No cohorts available</MenuItem>
+                  ) : (
+                    cohorts.map((cohort) => (
+                      <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                        {cohort.cohortName}
+                      </MenuItem>
+                    ))
+                  )}
+                </TextField>
+
+                <Box
+                  sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}
+                >
+                  <Button variant="contained" component="label">
+                    Choose Video
+                    <input
+                      hidden
+                      type="file"
+                      accept="video/*"
+                      onChange={(e) => {
+                        const file = e.target.files[0];
+                        if (!file) return;
+
+                        const maxVideoSize = 20 * 1024 * 1024; // 20MB
+                        if (file.size > maxVideoSize) {
+                          alert("❌ Video must not be more than 20MB");
+                          e.target.value = "";
+                          return;
+                        }
+
+                        setVideoFile(file);
+                      }}
+                    />
+                  </Button>
+
+                  {videoFile && (
+                    <Typography sx={{ mt: 1 }}>
+                      Selected: {videoFile.name}
+                    </Typography>
+                  )}
+
+                  <Button type="submit" variant="contained" disabled={loading}>
+                    {loading ? <CircularProgress size={24} /> : "Upload Video"}
+                  </Button>
+                </Box>
+              </form>
+
+              {message && (
+                <Typography
+                  color={message.includes("failed") ? "error" : "green"}
+                >
+                  {message}
+                </Typography>
+              )}
+
+              <Typography variant="h6">🎬 My Uploaded Videos</Typography>
+
+              {Array.isArray(myVideos) && myVideos.length > 0 ? (
+                myVideos.map((video) => (
+                  <LazyVideoWrapper key={video._id}>
+                    <VideoChatCard
+                      video={video}
+                      chatMessages={chatMessages}
+                      newMessages={newMessages}
+                      setNewMessages={setNewMessages}
+                      sendStudentMessage={sendStudentMessage}
+                      handleDeleteVideo={handleDeleteVideo}
+                      studentId={studentId}
+                    />
+                  </LazyVideoWrapper>
+                ))
+              ) : (
+                <Typography sx={{ mt: 2 }}>No videos uploaded yet.</Typography>
+              )}
+            </Paper>
+          )}
+          {/* {activeTab === "upload-video" && (
             <Paper sx={{ p: 4 }}>
               <Typography variant="h6" sx={{ mt: 4 }}>
                 🎥 Upload Video
@@ -2235,13 +2435,20 @@ const CoachDashboard = () => {
                 <Typography sx={{ mt: 2 }}>No videos uploaded yet.</Typography>
               )}
             </Paper>
-          )}
+          )} */}
 
           {/* Upload Document */}
           {activeTab === "upload-doc" && (
             <Paper sx={{ p: 4 }}>
               <Typography variant="h6" sx={{ mt: 4, mb: 2 }}>
                 📄 Upload Document
+              </Typography>
+
+              {/* Upload Instruction */}
+              <Typography sx={{ mb: 2, color: "text.secondary" }}>
+                ⚠️ Upload Guidelines:
+                <br />• Documents must not exceed <b>8MB</b>
+                <br />• Only PDF, DOC, DOCX allowed
               </Typography>
 
               <form onSubmit={handleDocumentUpload}>
@@ -2296,13 +2503,15 @@ const CoachDashboard = () => {
                     hidden
                     type="file"
                     accept="
-                        .pdf,application/pdf,
-                        .doc,application/msword,
-                        .docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document
-                    "
+            .pdf,application/pdf,
+            .doc,application/msword,
+            .docx,application/vnd.openxmlformats-officedocument.wordprocessingml.document
+          "
                     onChange={(e) => {
                       const file = e.target.files[0];
                       if (!file) return;
+
+                      const maxDocSize = 8 * 1024 * 1024; // 8MB
 
                       const allowedTypes = [
                         "application/pdf",
@@ -2311,7 +2520,15 @@ const CoachDashboard = () => {
                       ];
 
                       if (!allowedTypes.includes(file.type)) {
-                        alert("❌ Only PDF, DOC, and DOCX files are allowed.");
+                        toast.error(
+                          "Only PDF, DOC, and DOCX files are allowed."
+                        );
+                        e.target.value = "";
+                        return;
+                      }
+
+                      if (file.size > maxDocSize) {
+                        toast.error("Document must not exceed 8MB.");
                         e.target.value = "";
                         return;
                       }
@@ -2392,6 +2609,13 @@ const CoachDashboard = () => {
                 📚 Upload Self-Learning Content
               </Typography>
 
+              {/* Upload Instruction */}
+              <Typography sx={{ mb: 2, color: "text.secondary" }}>
+                ⚠️ Upload Guidelines:
+                <br />• Documents must not exceed <b>8MB</b> (PDF, DOC, DOCX)
+                <br />• Videos must not exceed <b>20MB</b>
+              </Typography>
+
               <form
                 onSubmit={async (e) => {
                   e.preventDefault();
@@ -2402,7 +2626,8 @@ const CoachDashboard = () => {
                     !selectedSelfLearningCourseId ||
                     (!file && !url)
                   ) {
-                    return alert("All required fields must be filled");
+                    toast.error("All required fields must be filled");
+                    return;
                   }
 
                   const formData = new FormData();
@@ -2425,17 +2650,15 @@ const CoachDashboard = () => {
                       }
                     );
 
-                    alert("Content uploaded successfully ✅");
+                    toast.success("Content uploaded successfully ✅");
 
-                    // reset
                     setTitle("");
                     setFile(null);
                     setUrl("");
 
-                    // reload content
                     fetchMyCourseContent();
                   } catch (err) {
-                    alert(err.response?.data?.message || "Upload failed");
+                    toast.error(err.response?.data?.message || "Upload failed");
                   } finally {
                     setLoading(false);
                   }
@@ -2452,7 +2675,6 @@ const CoachDashboard = () => {
                 >
                   <MenuItem value="document">Document</MenuItem>
                   <MenuItem value="video">Video</MenuItem>
-                  {/* <MenuItem value="link">External Link</MenuItem> */}
                 </TextField>
 
                 {/* Title */}
@@ -2502,7 +2724,47 @@ const CoachDashboard = () => {
                             ? "video/*"
                             : ".pdf,.doc,.docx"
                         }
-                        onChange={(e) => setFile(e.target.files[0])}
+                        onChange={(e) => {
+                          const selected = e.target.files[0];
+                          if (!selected) return;
+
+                          // Document rules
+                          if (contentType === "document") {
+                            const maxDocSize = 8 * 1024 * 1024;
+                            const allowedTypes = [
+                              "application/pdf",
+                              "application/msword",
+                              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            ];
+
+                            if (!allowedTypes.includes(selected.type)) {
+                              toast.error(
+                                "Only PDF, DOC, and DOCX files are allowed."
+                              );
+                              e.target.value = "";
+                              return;
+                            }
+
+                            if (selected.size > maxDocSize) {
+                              toast.error("Document must not exceed 8MB.");
+                              e.target.value = "";
+                              return;
+                            }
+                          }
+
+                          // Video rules
+                          if (contentType === "video") {
+                            const maxVideoSize = 20 * 1024 * 1024;
+
+                            if (selected.size > maxVideoSize) {
+                              toast.error("Video must not exceed 20MB.");
+                              e.target.value = "";
+                              return;
+                            }
+                          }
+
+                          setFile(selected);
+                        }}
                       />
                     </Button>
 
@@ -2586,11 +2848,18 @@ const CoachDashboard = () => {
               )}
             </Paper>
           )}
+
           {/* upload free course */}
           {activeTab === "upload-free-learning-doc" && (
             <Paper sx={{ p: 4 }}>
               <Typography variant="h6" sx={{ mb: 2 }}>
                 🎁 Upload Free Learning Content
+              </Typography>
+
+              {/* Size Instructions */}
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                📌 Documents must not exceed <strong>8MB</strong>. Videos must
+                not exceed <strong>20MB</strong>.
               </Typography>
 
               <form
@@ -2643,7 +2912,10 @@ const CoachDashboard = () => {
                   fullWidth
                   sx={{ mb: 2 }}
                   value={freeContentType}
-                  onChange={(e) => setFreeContentType(e.target.value)}
+                  onChange={(e) => {
+                    setFreeContentType(e.target.value);
+                    setFreeFile(null);
+                  }}
                 >
                   <MenuItem value="document">Document</MenuItem>
                   <MenuItem value="video">Video</MenuItem>
@@ -2694,9 +2966,44 @@ const CoachDashboard = () => {
                         accept={
                           freeContentType === "video"
                             ? "video/*"
-                            : ".pdf,.doc,.docx"
+                            : ".pdf,.doc,.docx,application/pdf,application/msword,application/vnd.openxmlformats-officedocument.wordprocessingml.document"
                         }
-                        onChange={(e) => setFreeFile(e.target.files[0])}
+                        onChange={(e) => {
+                          const file = e.target.files[0];
+                          if (!file) return;
+
+                          const sizeMB = file.size / (1024 * 1024);
+
+                          if (freeContentType === "document") {
+                            const allowedTypes = [
+                              "application/pdf",
+                              "application/msword",
+                              "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                            ];
+
+                            if (!allowedTypes.includes(file.type)) {
+                              toast.error("Only PDF, DOC, DOCX allowed");
+                              e.target.value = "";
+                              return;
+                            }
+
+                            if (sizeMB > 8) {
+                              toast.error("Document must not exceed 8MB");
+                              e.target.value = "";
+                              return;
+                            }
+                          }
+
+                          if (freeContentType === "video") {
+                            if (sizeMB > 20) {
+                              toast.error("Video must not exceed 20MB");
+                              e.target.value = "";
+                              return;
+                            }
+                          }
+
+                          setFreeFile(file);
+                        }}
                       />
                     </Button>
 

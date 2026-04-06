@@ -94,9 +94,10 @@ const StudentDashboard = () => {
   const [videos, setVideos] = useState([]);
   const [loadingVideos, setLoadingVideos] = useState(true);
   const [countdown, setCountdown] = useState("");
-  const [liveSession, setLiveSession] = useState(null);
+  // const [liveSession, setLiveSession] = useState(null);
   const [loadingLive, setLoadingLive] = useState(false);
   const [liveCourseId, setLiveCourseId] = useState(null);
+  const [liveSession, setLiveSession] = useState({ isLive: false });
 
   const [selfLearningCourses, setSelfLearningCourses] = useState([]);
   const [loadingSelfLearning, setLoadingSelfLearning] = useState(false);
@@ -119,6 +120,12 @@ const StudentDashboard = () => {
   const [myFreeCourses, setMyFreeCourses] = useState([]);
   const [selectedMyFreeCourse, setSelectedMyFreeCourse] = useState("");
   const [freeCourseContents, setFreeCourseContents] = useState([]);
+  // set default live course id
+  useEffect(() => {
+    if (Array.isArray(courses) && courses.length > 0) {
+      setLiveCourseId(courses[0]._id);
+    }
+  }, [courses]);
 
   const hasPaid = paidCourses.some(
     (c) => String(c.courseId) === String(selectedMarketplaceCourse)
@@ -342,7 +349,8 @@ const StudentDashboard = () => {
   // set default live course id
   useEffect(() => {
     if (courses.length > 0) {
-      setLiveCourseId(courses[0].courseId);
+      // setLiveCourseId(courses[0].courseId);
+      setLiveCourseId(courses[0]._id);
     }
   }, [courses]);
 
@@ -382,7 +390,6 @@ const StudentDashboard = () => {
 
   // fetch live class status
   useEffect(() => {
-    // ✅ guard logic INSIDE effect
     if (activeTab !== "join-live") return;
     if (!cohortId || !liveCourseId) return;
 
@@ -402,25 +409,58 @@ const StudentDashboard = () => {
         );
 
         const data = await res.json();
-
         console.log("✅ Live session data:", data);
 
-        setLiveSession(data);
+        setLiveSession((prev) => {
+          if (prev.isLive) return prev; // 🔥 key line
+          return data;
+        });
       } catch (err) {
         console.error("❌ Live session error:", err);
-        setLiveSession({ isLive: false });
       } finally {
         setLoadingLive(false);
       }
     };
 
     fetchLiveSession();
-
-    // ✅ polling
     const interval = setInterval(fetchLiveSession, 10000);
 
     return () => clearInterval(interval);
   }, [activeTab, cohortId, liveCourseId]);
+
+  //   const fetchLiveSession = async () => {
+  //     try {
+  //       setLoadingLive(true);
+
+  //       const res = await fetch(
+  //         `${BASE_URL}/api/live/${cohortId}/${liveCourseId}`,
+  //         {
+  //           headers: {
+  //             Authorization: `Bearer ${token}`,
+  //           },
+  //         }
+  //       );
+
+  //       const data = await res.json();
+
+  //       console.log("✅ Live session data:", data);
+
+  //       setLiveSession(data);
+  //     } catch (err) {
+  //       console.error("❌ Live session error:", err);
+  //       setLiveSession({ isLive: false });
+  //     } finally {
+  //       setLoadingLive(false);
+  //     }
+  //   };
+
+  //   fetchLiveSession();
+
+  //   // ✅ polling
+  //   const interval = setInterval(fetchLiveSession, 10000);
+
+  //   return () => clearInterval(interval);
+  // }, [activeTab, cohortId, liveCourseId]);
 
   // Auto-scroll chat to bottom on new message
   useEffect(() => {
