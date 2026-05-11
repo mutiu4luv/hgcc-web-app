@@ -52,6 +52,26 @@ pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.9.179/buil
 
 const drawerWidth = 250;
 
+const getAssignmentDueDate = (dateValue) => {
+  if (!dateValue) return null;
+
+  const dueDate = new Date(dateValue);
+  if (Number.isNaN(dueDate.getTime())) return null;
+
+  const datePart = String(dateValue).slice(0, 10);
+  const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(String(dateValue));
+  const isMidnightDueDate = /T00:00(?::00(?:\.000)?)?(?:Z|[+-]\d{2}:\d{2})?$/.test(
+    String(dateValue)
+  );
+
+  if ((isDateOnly || isMidnightDueDate) && /^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+    const [year, month, day] = datePart.split("-").map(Number);
+    return new Date(year, month - 1, day, 23, 59, 0, 0);
+  }
+
+  return dueDate;
+};
+
 const StudentDashboard = () => {
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
@@ -1893,9 +1913,9 @@ const StudentDashboard = () => {
                       <Typography sx={{ mt: 1 }}>
                         <strong>Due Date:</strong>{" "}
                         {selectedAssignment.dueDate
-                          ? new Date(
+                          ? getAssignmentDueDate(
                               selectedAssignment.dueDate
-                            ).toLocaleDateString()
+                            )?.toLocaleDateString()
                           : "N/A"}
                       </Typography>
 
@@ -1982,7 +2002,7 @@ const StudentDashboard = () => {
                   <DataGrid
                     getRowId={(row) => row.assignmentId}
                     rows={assignments.map((a) => {
-                      const dueDate = a.dueDate ? new Date(a.dueDate) : null;
+                      const dueDate = getAssignmentDueDate(a.dueDate);
                       const isExpired = dueDate ? dueDate < new Date() : false;
 
                       return {

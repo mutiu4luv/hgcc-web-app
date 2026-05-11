@@ -58,6 +58,13 @@ const CHAT_SIDEBAR_WIDTH = 300;
 const STORAGE_KEY = "classChats";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
 
+const toAssignmentExpiry = (dateValue) => {
+  if (!dateValue) return "";
+
+  const [year, month, day] = dateValue.split("-").map(Number);
+  return new Date(year, month - 1, day, 23, 59, 0, 0).toISOString();
+};
+
 function ChatSidebarLocal({
   cohortId,
   courseId,
@@ -1187,10 +1194,14 @@ const CoachDashboard = () => {
     setOpenAssignmentModal(false);
   };
   const updateAssignmentDueDate = async () => {
+    if (!selectedAssignment?.assignmentId || !editDueDate) return;
+
     try {
+      setUpdatingDueDate(true);
+
       await axios.patch(
         `${BASE_URL}/api/assignment/${selectedAssignment.assignmentId}`,
-        { dueDate: editDueDate },
+        { dueDate: toAssignmentExpiry(editDueDate) },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -1200,6 +1211,8 @@ const CoachDashboard = () => {
     } catch (err) {
       console.error(err);
       setMessage("Failed to update assignment");
+    } finally {
+      setUpdatingDueDate(false);
     }
   };
 
@@ -1685,7 +1698,7 @@ const CoachDashboard = () => {
           cohortId: selectedCohortId,
           title: newTitle,
           description: newDescription,
-          dueDate: newDueDate,
+          dueDate: toAssignmentExpiry(newDueDate),
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
