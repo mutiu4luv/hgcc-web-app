@@ -160,6 +160,104 @@ const AdminOwner = () => {
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const user = JSON.parse(localStorage.getItem("user"));
 
+  const getEntityId = (value) => {
+    if (!value) return "";
+    if (typeof value === "string") return value;
+    return value._id || value.id || value.cohortId || value.courseId || "";
+  };
+
+  const normalizeCohortRecord = (record = {}) => {
+    const cohortId = getEntityId(record.cohortId || record.cohort);
+    const courseId = getEntityId(record.courseId || record.course);
+    const proofOfPayment = record.proofOfPayment || {};
+    const proofUrl =
+      proofOfPayment.url ||
+      record.proofUrl ||
+      record.paymentProofUrl ||
+      record.paymentProof?.url ||
+      "";
+
+    return {
+      ...record,
+      cohortId,
+      courseId,
+      courseName:
+        record.courseName ||
+        record.course?.title ||
+        record.course?.name ||
+        record.courseTitle ||
+        "-",
+      proofOfPayment: {
+        ...proofOfPayment,
+        url: proofUrl,
+      },
+    };
+  };
+
+  const normalizePendingPaymentRows = (items = []) => {
+    return items.flatMap((item) => {
+      const studentData =
+        item.student ||
+        item.user ||
+        (typeof item.studentId === "object" ? item.studentId : null) ||
+        item;
+
+      const registrations = Array.isArray(item.registeredCohorts)
+        ? item.registeredCohorts
+        : Array.isArray(studentData?.registeredCohorts)
+        ? studentData.registeredCohorts
+        : [item.registeredCohort || item.registration || item];
+
+      return registrations
+        .filter(Boolean)
+        .map((registration) => {
+          const studentId =
+            getEntityId(item.student || item.user || item.studentId) ||
+            getEntityId(item.userId) ||
+            getEntityId(studentData);
+          const registeredCohort = normalizeCohortRecord({
+            ...item,
+            ...registration,
+            cohortId: registration.cohortId || item.cohortId || item.cohort,
+            courseId: registration.courseId || item.courseId || item.course,
+            proofOfPayment:
+              registration.proofOfPayment || item.proofOfPayment || {},
+            proofUrl: registration.proofUrl || item.proofUrl,
+          });
+          const status =
+            item.status ||
+            registration.status ||
+            registration.paymentStatus ||
+            "";
+          const paymentConfirmed =
+            item.paymentConfirmed ??
+            registration.paymentConfirmed ??
+            String(status).toLowerCase() === "approved";
+
+          return {
+            ...item,
+            _id: studentId,
+            fullName:
+              studentData?.fullName ||
+              studentData?.name ||
+              item.fullName ||
+              item.name ||
+              "Unknown student",
+            email: studentData?.email || item.email || "-",
+            phoneNumber:
+              studentData?.phoneNumber ||
+              studentData?.phone ||
+              item.phoneNumber ||
+              item.phone ||
+              "-",
+            paymentConfirmed,
+            registeredCohort,
+          };
+        })
+        .filter((row) => row._id && row.registeredCohort.courseId);
+    });
+  };
+
   // ========================= // FETCH COACH STUDENTS // =========================
   useEffect(() => {
     const loadStudents = async () => {
@@ -527,10 +625,14 @@ const AdminOwner = () => {
         }
       );
 
-      console.log("FULL RESPONSE:", res.data);
-
-      const students = res.data?.students ?? [];
-      setPendingStudents(students);
+      const pendingItems =
+        (Array.isArray(res.data) && res.data) ||
+        res.data?.students ||
+        res.data?.payments ||
+        res.data?.pendingStudents ||
+        res.data?.data ||
+        [];
+      setPendingStudents(normalizePendingPaymentRows(pendingItems));
       setLoading(false);
     } catch (err) {
       console.error("Fetch error:", err);
@@ -569,23 +671,31 @@ const AdminOwner = () => {
   const confirmPayment = async (studentId, registeredCohort) => {
     try {
       const token = localStorage.getItem("token");
+      const rc = normalizeCohortRecord(registeredCohort);
 
-      if (!registeredCohort?.cohortId || !registeredCohort?.courseId) {
+      if (!studentId || !rc.cohortId || !rc.courseId) {
         return alert("Student has no valid cohort or course assigned");
       }
 
       await axios.put(
         `${BASE_URL}/api/payment/users/${studentId}/confirm-payment`,
         {
-          cohortId: registeredCohort.cohortId,
-          courseId: registeredCohort.courseId,
+          cohortId: rc.cohortId,
+          courseId: rc.courseId,
         },
         {
           headers: { Authorization: `Bearer ${token}` },
         }
       );
 
-      setPendingStudents((prev) => prev.filter((s) => s._id !== studentId));
+      setPendingStudents((prev) =>
+        prev.filter(
+          (s) =>
+            s._id !== studentId ||
+            s.registeredCohort?.cohortId !== rc.cohortId ||
+            s.registeredCohort?.courseId !== rc.courseId
+        )
+      );
       alert("Payment confirmed!");
     } catch (err) {
       console.error("Confirm error:", err);
@@ -600,12 +710,17 @@ const AdminOwner = () => {
 
     try {
       const token = localStorage.getItem("token");
+      const registeredCohort = normalizeCohortRecord(rc);
+
+      if (!studentId || !registeredCohort.cohortId || !registeredCohort.courseId) {
+        return alert("Student has no valid cohort or course assigned");
+      }
 
       await axios.put(
         `${BASE_URL}/api/payment/users/${studentId}/reject-payment`,
         {
-          cohortId: rc.cohortId,
-          courseId: rc.courseId,
+          cohortId: registeredCohort.cohortId,
+          courseId: registeredCohort.courseId,
           reason,
         },
         {
@@ -633,11 +748,14 @@ const AdminOwner = () => {
   // SEARCH FILTERING
   // ---------------------------------------------------
   const filteredStudents = pendingStudents.filter((student) => {
-    const q = searchQuery.toLowerCase();
+    const q = searchQuery.toLowerCase().trim();
+    if (!q) return true;
+
     return (
-      student.fullName.toLowerCase().includes(q) ||
-      student.email.toLowerCase().includes(q) ||
-      student.phoneNumber.includes(q)
+      student.fullName?.toLowerCase().includes(q) ||
+      student.email?.toLowerCase().includes(q) ||
+      student.phoneNumber?.includes(q) ||
+      student.registeredCohort?.courseName?.toLowerCase().includes(q)
     );
   });
 
