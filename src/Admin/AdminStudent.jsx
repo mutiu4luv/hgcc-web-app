@@ -72,6 +72,19 @@ const getAssignmentDueDate = (dateValue) => {
   return dueDate;
 };
 
+const getAssignmentId = (assignment) =>
+  assignment?.assignmentId || assignment?._id || assignment?.id || null;
+
+const getSubmittedAssignmentFile = (assignment) =>
+  assignment?.submittedFile ||
+  assignment?.file ||
+  assignment?.fileUrl ||
+  assignment?.submission?.file ||
+  assignment?.submission?.fileUrl ||
+  assignment?.submissions?.[0]?.file ||
+  assignment?.submissions?.[0]?.fileUrl ||
+  null;
+
 const StudentDashboard = () => {
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
@@ -920,6 +933,13 @@ const StudentDashboard = () => {
       return;
     }
 
+    const assignmentId = getAssignmentId(selectedAssignment);
+
+    if (!assignmentId) {
+      alert("Unable to submit this assignment. Please refresh and try again.");
+      return;
+    }
+
     setSubmittingAssignment(true); // start submitting
 
     const formData = new FormData();
@@ -927,7 +947,7 @@ const StudentDashboard = () => {
 
     try {
       const res = await axios.post(
-        `${BASE_URL}/api/assignment/${selectedAssignment.assignmentId}/submit`,
+        `${BASE_URL}/api/assignment/${assignmentId}/submit`,
         formData,
         {
           headers: {
@@ -937,14 +957,21 @@ const StudentDashboard = () => {
         }
       );
 
+      const submittedFileUrl =
+        res.data.fileUrl ||
+        res.data.file ||
+        res.data.submission?.fileUrl ||
+        res.data.submission?.file ||
+        "";
+
       alert("Assignment submitted successfully!");
 
       // Update mySubmissions with correct assignmentId from backend
       setMySubmissions((prev) => [
         ...prev,
         {
-          assignmentId: selectedAssignment.assignmentId,
-          fileUrl: res.data.fileUrl,
+          assignmentId,
+          fileUrl: submittedFileUrl,
           submittedAt: res.data.submittedAt,
           grade: null, // grade will come later
         },
@@ -953,11 +980,12 @@ const StudentDashboard = () => {
       // Update assignments list so UI shows 'Submitted' immediately
       setAssignments((prev) =>
         prev.map((a) =>
-          a.assignmentId === selectedAssignment.assignmentId
+          getAssignmentId(a) === assignmentId
             ? {
                 ...a,
-                submissions: [{ fileUrl: res.data.fileUrl }],
-                submittedFile: res.data.fileUrl,
+                assignmentId,
+                submissions: [{ fileUrl: submittedFileUrl }],
+                submittedFile: submittedFileUrl,
                 status: "Submitted",
                 justSubmitted: true,
                 grade: "-",
@@ -2000,21 +2028,23 @@ const StudentDashboard = () => {
               ) : (
                 <div style={{ width: "100%", overflowX: "auto" }}>
                   <DataGrid
-                    getRowId={(row) => row.assignmentId}
-                    rows={assignments.map((a) => {
+                    getRowId={(row) => row.id}
+                    rows={assignments.map((a, index) => {
+                      const assignmentId = getAssignmentId(a);
                       const dueDate = getAssignmentDueDate(a.dueDate);
                       const isExpired = dueDate ? dueDate < new Date() : false;
+                      const submittedFile = getSubmittedAssignmentFile(a);
 
                       return {
-                        id: a.assignmentId,
-                        assignmentId: a.assignmentId,
+                        id: assignmentId || `assignment-${index}`,
+                        assignmentId,
                         title: a.title,
                         courseName: a.courseName || "N/A",
                         description: a.description,
                         dueDate: dueDate ? dueDate.toLocaleDateString() : "N/A",
-                        submittedFile: a.file || null,
+                        submittedFile,
                         status:
-                          a.status?.toLowerCase() === "submitted"
+                          submittedFile || a.status?.toLowerCase() === "submitted"
                             ? "Submitted"
                             : isExpired
                             ? "Expired"
@@ -2067,9 +2097,19 @@ const StudentDashboard = () => {
                         width: 220,
                         renderCell: (params) => {
                           const disabled =
+                            !params.row.assignmentId ||
                             params.row.status === "Submitted" ||
                             params.row.isExpired ||
                             params.row.justSubmitted;
+                          const buttonLabel =
+                            params.row.justSubmitted ||
+                            params.row.status === "Submitted"
+                              ? "Submitted"
+                              : params.row.isExpired
+                              ? "Expired"
+                              : !params.row.assignmentId
+                              ? "Not Available"
+                              : "View Details / Submit";
 
                           return (
                             <Button
@@ -2079,14 +2119,7 @@ const StudentDashboard = () => {
                               disabled={disabled}
                               onClick={() => handleViewAssignment(params.row)}
                             >
-                              {disabled
-                                ? params.row.justSubmitted ||
-                                  params.row.status === "Submitted"
-                                  ? "Submitted"
-                                  : params.row.isExpired
-                                  ? "Expired"
-                                  : "Not Available"
-                                : "View Details / Submit"}
+                              {buttonLabel}
                             </Button>
                           );
                         },
