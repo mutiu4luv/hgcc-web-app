@@ -3,3 +3,23 @@
   margin: 0;
   box-sizing: border-box;
 }
+
+html,
+body,
+#root {
+  width: 100%;
+  max-width: 100%;
+  overflow-x: hidden;
+}
+
+img,
+video,
+iframe {
+  max-width: 100%;
+}
+
+@media (max-width: 900px) {
+  body {
+    padding-bottom: 72px;
+  }
+}

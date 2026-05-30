@@ -27,6 +27,7 @@ import {
   TableCell,
   TableBody,
   Stack,
+  Badge,
 } from "@mui/material";
 import {
   MenuItem,
@@ -51,6 +52,7 @@ import {
   Menu as MenuIcon,
   Close as CloseIcon,
   Announcement,
+  Chat as ChatIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import {
@@ -66,6 +68,8 @@ import {
 import { motion } from "framer-motion";
 import axios from "axios";
 import { toast } from "react-toastify";
+import GlobalChatPanel from "../Component/GlobalChatPanel";
+import MobileBottomNav from "../Component/MobileBottomNav";
 
 const AdminOwner = () => {
   const [title, setTitle] = useState("");
@@ -135,6 +139,11 @@ const AdminOwner = () => {
   const [loadingFreeCourses, setLoadingFreeCourses] = useState(false);
   const [studentsLoading, setStudentsLoading] = useState(true);
   const [student, setStudents] = useState([]);
+  const [broadcastAudience, setBroadcastAudience] = useState("students");
+  const [broadcastSubject, setBroadcastSubject] = useState("");
+  const [broadcastMessage, setBroadcastMessage] = useState("");
+  const [sendingBroadcast, setSendingBroadcast] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   // ✅ Filter students by name, email, or phone number
   const filteredStudent = useMemo(() => {
@@ -155,10 +164,102 @@ const AdminOwner = () => {
       });
   }, [users, searchQuery]);
 
+  const totalStudents = useMemo(
+    () => users.filter((u) => u?.role === "student").length,
+    [users]
+  );
+  const totalCoaches = useMemo(
+    () => users.filter((u) => u?.role === "coach").length,
+    [users]
+  );
+  const audienceCount =
+    broadcastAudience === "students"
+      ? totalStudents
+      : broadcastAudience === "coaches"
+      ? totalCoaches
+      : totalStudents + totalCoaches;
+
   const isMobile = useMediaQuery("(max-width:900px)");
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const user = JSON.parse(localStorage.getItem("user"));
+
+  useEffect(() => {
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUserId = currentUser?.id || currentUser?._id;
+    const channels = ["students", "coaches"];
+    const makeKey = (channel) => `group_chat_last_seen_owner_${channel}`;
+
+    if (activeTab === "chat") {
+      const now = new Date().toISOString();
+      channels.forEach((ch) => localStorage.setItem(makeKey(ch), now));
+      setChatUnreadCount(0);
+    }
+
+    const pollUnread = async () => {
+      try {
+        let total = 0;
+        for (const channel of channels) {
+          const { data } = await axios.get(
+            `${BASE_URL}/api/group-chat/${channel}/messages`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const messages = Array.isArray(data?.messages) ? data.messages : [];
+          const lastSeen = new Date(localStorage.getItem(makeKey(channel)) || 0);
+          total += messages.filter((m) => {
+            const senderId = m?.senderId?._id || m?.senderId;
+            return (
+              new Date(m.createdAt || m.updatedAt || 0) > lastSeen &&
+              String(senderId) !== String(currentUserId)
+            );
+          }).length;
+        }
+        if (activeTab !== "chat") setChatUnreadCount(total);
+      } catch {
+        // no-op
+      }
+    };
+
+    pollUnread();
+    const interval = setInterval(pollUnread, 7000);
+    return () => clearInterval(interval);
+  }, [activeTab, BASE_URL, token]);
+
+  const handleSendBroadcastEmail = async () => {
+    if (!broadcastSubject.trim() || !broadcastMessage.trim()) {
+      toast.error("Subject and message are required");
+      return;
+    }
+
+    try {
+      setSendingBroadcast(true);
+      const { data } = await axios.post(
+        `${BASE_URL}/api/users/broadcast-email`,
+        {
+          audience: broadcastAudience,
+          subject: broadcastSubject.trim(),
+          message: broadcastMessage.trim(),
+        },
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      toast.success(
+        `Broadcast complete: ${data.sent} sent, ${data.failed} failed`
+      );
+      setBroadcastSubject("");
+      setBroadcastMessage("");
+    } catch (err) {
+      toast.error(
+        err.response?.data?.message || "Failed to send broadcast email"
+      );
+    } finally {
+      setSendingBroadcast(false);
+    }
+  };
 
   const getEntityId = (value) => {
     if (!value) return "";
@@ -1090,6 +1191,15 @@ const AdminOwner = () => {
   // 🧭 Sidebar items
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
+    {
+      text: "Chat",
+      icon: (
+        <Badge color="error" badgeContent={chatUnreadCount}>
+          <ChatIcon />
+        </Badge>
+      ),
+      key: "chat",
+    },
     { text: "Create Course", icon: <ManageAccounts />, key: "create-course" },
     {
       text: "Create Self Learning Course",
@@ -3125,6 +3235,22 @@ const AdminOwner = () => {
           </Container>
         )}
 
+        {activeTab === "chat" && (
+          <Container>
+            <GlobalChatPanel
+              role="owner"
+              token={token}
+              baseUrl={BASE_URL}
+              onSeen={() => {
+                const now = new Date().toISOString();
+                localStorage.setItem("group_chat_last_seen_owner_students", now);
+                localStorage.setItem("group_chat_last_seen_owner_coaches", now);
+                setChatUnreadCount(0);
+              }}
+            />
+          </Container>
+        )}
+
         {/* === Owner Tools === */}
         {activeTab === "owner" && (
           <Container>
@@ -3137,53 +3263,165 @@ const AdminOwner = () => {
               >
                 🧠 Owner Control Panel
               </Typography>
-              <Typography sx={{ mb: 3 }}>
-                Manage notifications, send broadcast emails, or perform
-                maintenance.
+              <Typography sx={{ mb: 2 }}>
+                Run platform-wide communication and fast admin actions from one
+                place.
               </Typography>
 
-              <Grid container spacing={2}>
-                <Grid item xs={12} md={6}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    sx={{
-                      bgcolor: "#10b981",
-                      color: "white",
-                      fontWeight: "bold",
-                      py: 2,
-                      "&:hover": { bgcolor: "#047857" },
-                    }}
-                    startIcon={<Email />}
-                    onClick={() => alert("Email broadcast tool coming soon")}
-                  >
-                    Send Broadcast Email
-                  </Button>
+              <Grid container spacing={2} sx={{ mb: 3 }}>
+                <Grid item xs={12} md={4}>
+                  <Card sx={{ p: 2, borderRadius: 3 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Students
+                    </Typography>
+                    <Typography variant="h5" fontWeight="bold">
+                      {totalStudents}
+                    </Typography>
+                  </Card>
                 </Grid>
-                <Grid item xs={12} md={6}>
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    sx={{
-                      bgcolor: "#f59e0b",
-                      color: "white",
-                      fontWeight: "bold",
-                      py: 2,
-                      "&:hover": { bgcolor: "#d97706" },
-                    }}
-                    startIcon={<Notifications />}
-                    onClick={() =>
-                      alert("Push notification feature coming soon")
-                    }
-                  >
-                    Send Notification
-                  </Button>
+                <Grid item xs={12} md={4}>
+                  <Card sx={{ p: 2, borderRadius: 3 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Coaches
+                    </Typography>
+                    <Typography variant="h5" fontWeight="bold">
+                      {totalCoaches}
+                    </Typography>
+                  </Card>
+                </Grid>
+                <Grid item xs={12} md={4}>
+                  <Card sx={{ p: 2, borderRadius: 3 }}>
+                    <Typography variant="body2" color="text.secondary">
+                      Total Audience
+                    </Typography>
+                    <Typography variant="h5" fontWeight="bold">
+                      {totalStudents + totalCoaches}
+                    </Typography>
+                  </Card>
                 </Grid>
               </Grid>
+
+              <Paper
+                variant="outlined"
+                sx={{ p: 3, borderRadius: 3, mb: 3, borderColor: "#d1fae5" }}
+              >
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 2 }}>
+                  Broadcast Email
+                </Typography>
+
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Audience</InputLabel>
+                  <Select
+                    value={broadcastAudience}
+                    label="Audience"
+                    onChange={(e) => setBroadcastAudience(e.target.value)}
+                  >
+                    <MenuItem value="students">Students ({totalStudents})</MenuItem>
+                    <MenuItem value="coaches">Coaches ({totalCoaches})</MenuItem>
+                    <MenuItem value="all">All Users ({totalStudents + totalCoaches})</MenuItem>
+                  </Select>
+                </FormControl>
+
+                <TextField
+                  fullWidth
+                  label="Subject"
+                  value={broadcastSubject}
+                  onChange={(e) => setBroadcastSubject(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={5}
+                  label="Message"
+                  value={broadcastMessage}
+                  onChange={(e) => setBroadcastMessage(e.target.value)}
+                  sx={{ mb: 2 }}
+                />
+
+                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                  This will send to approximately {audienceCount} users.
+                </Typography>
+
+                <Button
+                  variant="contained"
+                  startIcon={<Email />}
+                  disabled={sendingBroadcast}
+                  onClick={handleSendBroadcastEmail}
+                  sx={{
+                    bgcolor: "#10b981",
+                    color: "white",
+                    fontWeight: "bold",
+                    "&:hover": { bgcolor: "#047857" },
+                  }}
+                >
+                  {sendingBroadcast ? "Sending..." : "Send Broadcast Email"}
+                </Button>
+              </Paper>
+
+              <Paper
+                variant="outlined"
+                sx={{ p: 3, borderRadius: 3, borderColor: "#fde68a" }}
+              >
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
+                  More
+                </Typography>
+                <Button
+                  variant="contained"
+                  sx={{ mb: 2 }}
+                  onClick={() => {
+                    window.location.href = "/profile";
+                  }}
+                >
+                  Open Profile & Change Password
+                </Button>
+                <Typography variant="body2" sx={{ mb: 1 }} color="text.secondary">
+                  Old password is required before changing to a new one.
+                </Typography>
+                <Typography variant="h6" fontWeight="bold" sx={{ mb: 1, mt: 2 }}>
+                  Sharp Admin Ideas
+                </Typography>
+                <Stack spacing={1}>
+                  <Typography variant="body2">
+                    1. Weekly digest: send progress summary to coaches every Monday.
+                  </Typography>
+                  <Typography variant="body2">
+                    2. Smart nudges: notify students with pending assignments due in 24 hours.
+                  </Typography>
+                  <Typography variant="body2">
+                    3. Win-back campaign: email inactive students with re-engagement offers.
+                  </Typography>
+                  <Typography variant="body2">
+                    4. Coach leaderboard: highlight top-performing coaches monthly.
+                  </Typography>
+                </Stack>
+              </Paper>
             </Paper>
           </Container>
         )}
       </Box>
+      {isMobile && (
+        <MobileBottomNav
+          value={
+            activeTab === "create-course" ||
+            activeTab === "create-self-learning-course" ||
+            activeTab === "create-free-learning-course" ||
+            activeTab === "courses"
+              ? "courses"
+              : activeTab
+          }
+          onChange={(next) => {
+            if (next === "courses") setActiveTab("courses");
+            else if (next === "more") setActiveTab("owner");
+            else if (next === "profile") window.location.href = "/profile";
+            else setActiveTab(next);
+          }}
+          onProfile={() => {
+            window.location.href = "/profile";
+          }}
+        />
+      )}
     </Box>
   );
 };

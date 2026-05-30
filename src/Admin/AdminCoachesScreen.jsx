@@ -52,6 +52,8 @@ import DeleteIcon from "@mui/icons-material/Delete";
 import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import { useInView } from "react-intersection-observer";
+import GlobalChatPanel from "../Component/GlobalChatPanel";
+import MobileBottomNav from "../Component/MobileBottomNav";
 
 const drawerWidth = 250;
 const CHAT_SIDEBAR_WIDTH = 300;
@@ -527,6 +529,7 @@ const CoachDashboard = () => {
   const [meetLink, setMeetLink] = useState("");
   const [startingLive, setStartingLive] = useState(false);
   const [endingLive, setEndingLive] = useState(false);
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   const [contentType, setContentType] = useState("");
   const [title, setTitle] = useState("");
@@ -927,6 +930,15 @@ const CoachDashboard = () => {
 
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
+    {
+      text: "Chat",
+      icon: (
+        <Badge color="error" badgeContent={chatUnreadCount}>
+          <ChatIcon />
+        </Badge>
+      ),
+      key: "chat",
+    },
     { text: "Upload Cohort Video", icon: <UploadFile />, key: "upload-video" },
     { text: "Upload Cohort Document", icon: <UploadFile />, key: "upload-doc" },
     // { text: "All Videos", icon: <UploadFile />, key: "videos" },
@@ -949,6 +961,7 @@ const CoachDashboard = () => {
       key: "course-control",
     },
     { text: "Live Mode", icon: <LiveTv />, key: "live" },
+    { text: "More", icon: <UploadFile />, key: "more" },
   ];
 
   useEffect(() => {
@@ -974,6 +987,47 @@ const CoachDashboard = () => {
       }
     };
   }, [cohortId, courseId]);
+
+  useEffect(() => {
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUserId = currentUser?.id || currentUser?._id;
+    const channels = ["students", "coaches"];
+    const makeKey = (channel) => `group_chat_last_seen_coach_${channel}`;
+
+    if (activeTab === "chat") {
+      const now = new Date().toISOString();
+      channels.forEach((ch) => localStorage.setItem(makeKey(ch), now));
+      setChatUnreadCount(0);
+    }
+
+    const pollUnread = async () => {
+      try {
+        let total = 0;
+        for (const channel of channels) {
+          const { data } = await axios.get(
+            `${BASE_URL}/api/group-chat/${channel}/messages`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          );
+          const messages = Array.isArray(data?.messages) ? data.messages : [];
+          const lastSeen = new Date(localStorage.getItem(makeKey(channel)) || 0);
+          total += messages.filter((m) => {
+            const senderId = m?.senderId?._id || m?.senderId;
+            return (
+              new Date(m.createdAt || m.updatedAt || 0) > lastSeen &&
+              String(senderId) !== String(currentUserId)
+            );
+          }).length;
+        }
+        if (activeTab !== "chat") setChatUnreadCount(total);
+      } catch {
+        // no-op
+      }
+    };
+
+    pollUnread();
+    const interval = setInterval(pollUnread, 7000);
+    return () => clearInterval(interval);
+  }, [activeTab, BASE_URL, token]);
   // Listen for incoming messages
   useEffect(() => {
     if (!socketRef.current) return;
@@ -3749,6 +3803,40 @@ const CoachDashboard = () => {
               </Button>
             </Paper>
           )}
+          {activeTab === "chat" && (
+            <GlobalChatPanel
+              role="coach"
+              token={token}
+              baseUrl={BASE_URL}
+              onSeen={() => {
+                const now = new Date().toISOString();
+                localStorage.setItem("group_chat_last_seen_coach_students", now);
+                localStorage.setItem("group_chat_last_seen_coach_coaches", now);
+                setChatUnreadCount(0);
+              }}
+            />
+          )}
+          {activeTab === "more" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
+                More
+              </Typography>
+              <Typography sx={{ mb: 2 }}>
+                Update your profile or change password from your profile page.
+              </Typography>
+              <Button
+                variant="contained"
+                onClick={() => {
+                  window.location.href = "/profile";
+                }}
+              >
+                Open Profile & Change Password
+              </Button>
+              <Typography sx={{ mt: 2 }} color="text.secondary">
+                Old password is required before setting a new password.
+              </Typography>
+            </Paper>
+          )}
         </Box>
         {!isMobile && (
           <Box
@@ -3823,6 +3911,27 @@ const CoachDashboard = () => {
           />
         </Box>
       </Drawer>
+      {isMobile && (
+        <MobileBottomNav
+          value={
+            activeTab === "upload-video" ||
+            activeTab === "upload-doc" ||
+            activeTab === "upload-sl-doc" ||
+            activeTab === "upload-free-learning-doc"
+              ? "courses"
+              : activeTab
+          }
+          onChange={(next) => {
+            if (next === "courses") setActiveTab("upload-doc");
+            else if (next === "more") setActiveTab("more");
+            else if (next === "profile") window.location.href = "/profile";
+            else setActiveTab(next);
+          }}
+          onProfile={() => {
+            window.location.href = "/profile";
+          }}
+        />
+      )}
     </Box>
   );
 };

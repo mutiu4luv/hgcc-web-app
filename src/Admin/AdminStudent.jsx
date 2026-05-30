@@ -23,6 +23,7 @@ import {
   FormControl,
   InputLabel,
   Select,
+  Badge,
 } from "@mui/material";
 import { Grid, Card, CardContent, CardMedia, CardActions } from "@mui/material";
 
@@ -36,6 +37,7 @@ import {
   StarRate,
   LiveTv,
   School,
+  Chat as ChatIcon,
 } from "@mui/icons-material";
 import { DataGrid } from "@mui/x-data-grid";
 import axios from "axios";
@@ -50,6 +52,8 @@ import { defaultLayoutPlugin } from "@react-pdf-viewer/default-layout";
 import "../Admin/AdninStudent.css";
 import io from "socket.io-client";
 import { toast } from "react-toastify";
+import GlobalChatPanel from "../Component/GlobalChatPanel";
+import MobileBottomNav from "../Component/MobileBottomNav";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js`;
 
@@ -151,6 +155,7 @@ const StudentDashboard = () => {
   const [liveCohorts, setLiveCohorts] = useState([]);
   const [liveCohortId, setLiveCohortId] = useState("");
   const [liveSession, setLiveSession] = useState({ isLive: false });
+  const [chatUnreadCount, setChatUnreadCount] = useState(0);
 
   const [selfLearningCourses, setSelfLearningCourses] = useState([]);
   const [loadingSelfLearning, setLoadingSelfLearning] = useState(false);
@@ -634,6 +639,15 @@ const StudentDashboard = () => {
   const menuItems = [
     { text: "Dashboard", icon: <Dashboard />, key: "dashboard" },
     {
+      text: "Chat",
+      icon: (
+        <Badge color="error" badgeContent={chatUnreadCount}>
+          <ChatIcon />
+        </Badge>
+      ),
+      key: "chat",
+    },
+    {
       text: "My Assignments",
       icon: <AssignmentTurnedIn />,
       key: "assignments",
@@ -644,10 +658,12 @@ const StudentDashboard = () => {
       icon: <AssignmentTurnedIn />,
       key: "register-course",
     },
+    { text: "Courses", icon: <School />, key: "courses" },
     { text: "Self Learning", icon: <School />, key: "self-learning" },
     { text: "Free Learning", icon: <School />, key: "free-learning" },
     { text: "Join Cohort Class", icon: <Videocam />, key: "join-class" },
     { text: "Join Live Class", icon: <LiveTv />, key: "join-live" },
+    { text: "More", icon: <UploadFile />, key: "more" },
   ];
   useEffect(() => {
     const fetchCohorts = async () => {
@@ -667,6 +683,41 @@ const StudentDashboard = () => {
 
     fetchCohorts();
   }, []);
+
+  useEffect(() => {
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUserId = currentUser?.id || currentUser?._id;
+    const lastSeenKey = "group_chat_last_seen_student_students";
+
+    if (activeTab === "chat") {
+      localStorage.setItem(lastSeenKey, new Date().toISOString());
+      setChatUnreadCount(0);
+    }
+
+    const pollUnread = async () => {
+      try {
+        const { data } = await axios.get(`${BASE_URL}/api/group-chat/students/messages`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+        const messages = Array.isArray(data?.messages) ? data.messages : [];
+        const lastSeen = new Date(localStorage.getItem(lastSeenKey) || 0);
+        const unread = messages.filter((m) => {
+          const senderId = m?.senderId?._id || m?.senderId;
+          return (
+            new Date(m.createdAt || m.updatedAt || 0) > lastSeen &&
+            String(senderId) !== String(currentUserId)
+          );
+        }).length;
+        if (activeTab !== "chat") setChatUnreadCount(unread);
+      } catch {
+        // no-op
+      }
+    };
+
+    pollUnread();
+    const interval = setInterval(pollUnread, 7000);
+    return () => clearInterval(interval);
+  }, [activeTab, BASE_URL, token]);
 
   // Send cohort chat message
   const sendMessage = async () => {
@@ -3077,8 +3128,81 @@ const StudentDashboard = () => {
               )}
             </Paper>
           )}
+
+          {activeTab === "chat" && (
+            <GlobalChatPanel
+              role="student"
+              token={token}
+              baseUrl={BASE_URL}
+              onSeen={() => {
+                localStorage.setItem(
+                  "group_chat_last_seen_student_students",
+                  new Date().toISOString()
+                );
+                setChatUnreadCount(0);
+              }}
+            />
+          )}
+
+          {activeTab === "courses" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
+                All Courses We Offer
+              </Typography>
+              {Array.isArray(courses) && courses.length > 0 ? (
+                <Stack spacing={1.5}>
+                  {courses.map((course) => (
+                    <Paper key={course._id} sx={{ p: 2, borderRadius: 2 }}>
+                      <Typography fontWeight="bold">
+                        {course.name || course.title || "Untitled Course"}
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        {course.category || "General"} • {course.duration || "N/A"}
+                      </Typography>
+                    </Paper>
+                  ))}
+                </Stack>
+              ) : (
+                <Typography>No courses available yet.</Typography>
+              )}
+            </Paper>
+          )}
+
+          {activeTab === "more" && (
+            <Paper sx={{ p: 4 }}>
+              <Typography variant="h5" fontWeight="bold" gutterBottom>
+                More
+              </Typography>
+              <Typography sx={{ mb: 2 }}>
+                Use profile to update details and change password.
+              </Typography>
+              <Button variant="contained" onClick={() => navigate("/profile")}>
+                Open Profile & Change Password
+              </Button>
+              <Typography sx={{ mt: 2 }} color="text.secondary">
+                Password change requires your old password before new password.
+              </Typography>
+            </Paper>
+          )}
         </Box>
       </Box>
+
+      {isMobile && (
+        <MobileBottomNav
+          value={
+            activeTab === "self-learning" || activeTab === "free-learning"
+              ? "courses"
+              : activeTab
+          }
+          onChange={(next) => {
+            if (next === "courses") setActiveTab("courses");
+            else if (next === "more") setActiveTab("more");
+            else if (next === "profile") navigate("/profile");
+            else setActiveTab(next);
+          }}
+          onProfile={() => navigate("/profile")}
+        />
+      )}
 
       {/* Success Modal */}
       <Modal open={successModalOpen} onClose={() => setSuccessModalOpen(false)}>
