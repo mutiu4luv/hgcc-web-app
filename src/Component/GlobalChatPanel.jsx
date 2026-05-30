@@ -137,10 +137,7 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
           String(m._id) === String(messageId)
             ? {
                 ...m,
-                likedBy: new Array(data.likedCount).fill("x"),
-                dislikedBy: new Array(data.dislikedCount).fill("x"),
-                likedByMe: data.likedByMe,
-                dislikedByMe: data.dislikedByMe,
+                ...(data?.message || {}),
               }
             : m
         )
