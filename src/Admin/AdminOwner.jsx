@@ -3435,6 +3435,16 @@ const AdminOwner = () => {
           onProfile={() => {
             window.location.href = "/profile";
           }}
+          moreActions={[
+            { label: "Coach Ratings", onClick: () => setActiveTab("coaches") },
+            {
+              label: "Change Password",
+              onClick: () => {
+                window.location.href = "/profile";
+              },
+            },
+            { label: "Logout", onClick: handleLogout },
+          ]}
         />
       )}
     </Box>

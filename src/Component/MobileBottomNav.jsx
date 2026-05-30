@@ -1,5 +1,11 @@
 import React from "react";
-import { BottomNavigation, BottomNavigationAction, Paper } from "@mui/material";
+import {
+  BottomNavigation,
+  BottomNavigationAction,
+  Menu,
+  MenuItem,
+  Paper,
+} from "@mui/material";
 import {
   Dashboard,
   Chat,
@@ -8,7 +14,9 @@ import {
   MoreHoriz,
 } from "@mui/icons-material";
 
-const MobileBottomNav = ({ value, onChange, onProfile }) => {
+const MobileBottomNav = ({ value, onChange, onProfile, moreActions = [] }) => {
+  const [moreAnchor, setMoreAnchor] = React.useState(null);
+
   return (
     <Paper
       sx={{
@@ -25,8 +33,30 @@ const MobileBottomNav = ({ value, onChange, onProfile }) => {
         <BottomNavigationAction label="Chat" value="chat" icon={<Chat />} />
         <BottomNavigationAction label="Courses" value="courses" icon={<School />} />
         <BottomNavigationAction label="Profile" value="profile" icon={<Person />} onClick={onProfile} />
-        <BottomNavigationAction label="More" value="more" icon={<MoreHoriz />} />
+        <BottomNavigationAction
+          label="More"
+          value="more"
+          icon={<MoreHoriz />}
+          onClick={(e) => setMoreAnchor(e.currentTarget)}
+        />
       </BottomNavigation>
+      <Menu
+        anchorEl={moreAnchor}
+        open={Boolean(moreAnchor)}
+        onClose={() => setMoreAnchor(null)}
+      >
+        {moreActions.map((item, idx) => (
+          <MenuItem
+            key={`${item.label}-${idx}`}
+            onClick={() => {
+              setMoreAnchor(null);
+              item.onClick?.();
+            }}
+          >
+            {item.label}
+          </MenuItem>
+        ))}
+      </Menu>
     </Paper>
   );
 };

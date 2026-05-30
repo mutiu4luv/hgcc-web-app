@@ -13,6 +13,8 @@ import {
 } from "@mui/material";
 import ThumbUpAltOutlinedIcon from "@mui/icons-material/ThumbUpAltOutlined";
 import ThumbDownAltOutlinedIcon from "@mui/icons-material/ThumbDownAltOutlined";
+import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
+import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import axios from "axios";
 
 const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
@@ -29,6 +31,8 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
+  const [editingMessageId, setEditingMessageId] = useState("");
+  const [editText, setEditText] = useState("");
 
   const channelOptions = useMemo(() => {
     const map = {
@@ -40,6 +44,13 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
       label: map[id] || id,
     }));
   }, [allowedChannels]);
+
+  const storageKey = `group_chat_selected_channel_${role}`;
+
+  useEffect(() => {
+    const saved = localStorage.getItem(storageKey);
+    if (saved) setChannel(saved);
+  }, [storageKey]);
 
   useEffect(() => {
     setChannel(defaultChannel);
@@ -55,7 +66,11 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
         });
         const channels = Array.isArray(data?.channels) ? data.channels : ["students"];
         setAllowedChannels(channels);
-        if (!channels.includes(channel)) setChannel(channels[0] || "students");
+        if (!channels.includes(channel)) {
+          const fallback = channels[0] || defaultChannel;
+          setChannel(fallback);
+          localStorage.setItem(storageKey, fallback);
+        }
       } catch {
         const fallback =
           role === "student"
@@ -64,11 +79,15 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
             ? ["students", "coaches"]
             : ["students", "coaches"];
         setAllowedChannels(fallback);
-        if (!fallback.includes(channel)) setChannel(fallback[0]);
+        if (!fallback.includes(channel)) {
+          const fb = fallback[0];
+          setChannel(fb);
+          localStorage.setItem(storageKey, fb);
+        }
       }
     };
     loadChannels();
-  }, [token, baseUrl, role]);
+  }, [token, baseUrl, role, storageKey, defaultChannel]);
 
   const withLegacyStudentsFallback = async (fn) => {
     try {
@@ -170,10 +189,55 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
             ? {
                 ...m,
                 ...(data?.message || {}),
+                likedBy:
+                  data?.message?.likedBy ||
+                  (Array.isArray(m.likedBy)
+                    ? new Array(data?.likedCount ?? m.likedBy.length).fill("x")
+                    : []),
+                dislikedBy:
+                  data?.message?.dislikedBy ||
+                  (Array.isArray(m.dislikedBy)
+                    ? new Array(data?.dislikedCount ?? m.dislikedBy.length).fill("x")
+                    : []),
               }
             : m
         )
       );
+    } catch {
+      // no-op
+    }
+  };
+
+  const saveEditedMessage = async (messageId) => {
+    if (!editText.trim()) return;
+    try {
+      const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+        axios.patch(
+          `${baseUrl}/api/group-chat/${resolvedChannel}/messages/${messageId}`,
+          { text: editText.trim() },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
+      );
+      setMessages((prev) =>
+        prev.map((m) =>
+          String(m._id) === String(messageId) ? { ...m, ...(data?.message || {}) } : m
+        )
+      );
+      setEditingMessageId("");
+      setEditText("");
+    } catch {
+      // no-op
+    }
+  };
+
+  const removeMessage = async (messageId) => {
+    try {
+      await withLegacyStudentsFallback((resolvedChannel) =>
+        axios.delete(`${baseUrl}/api/group-chat/${resolvedChannel}/messages/${messageId}`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+      );
+      setMessages((prev) => prev.filter((m) => String(m._id) !== String(messageId)));
     } catch {
       // no-op
     }
@@ -215,7 +279,11 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
         <Select
           value={channel}
           label="Chat Room"
-          onChange={(e) => setChannel(e.target.value)}
+          onChange={(e) => {
+            const next = e.target.value;
+            setChannel(next);
+            localStorage.setItem(storageKey, next);
+          }}
         >
           {channelOptions.map((option) => (
             <MenuItem key={option.value} value={option.value}>
@@ -285,7 +353,23 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
                   >
                     {mine ? `You (${senderRole || "user"})` : `${senderName} (${senderRole || "user"})`}
                   </Typography>
-                  <Typography sx={{ fontSize: 14 }}>{msg.text}</Typography>
+                  {editingMessageId === String(msg._id) ? (
+                    <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        multiline
+                        minRows={2}
+                        value={editText}
+                        onChange={(e) => setEditText(e.target.value)}
+                      />
+                      <Button size="small" onClick={() => saveEditedMessage(msg._id)}>
+                        Save
+                      </Button>
+                    </Stack>
+                  ) : (
+                    <Typography sx={{ fontSize: 14 }}>{msg.text}</Typography>
+                  )}
                   <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
                     <Button
                       size="small"
@@ -302,6 +386,25 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
                       sx={{ minWidth: 0, px: 1, color: mine ? "#fecaca" : "inherit" }}
                     >
                       {Array.isArray(msg.dislikedBy) ? msg.dislikedBy.length : 0}
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => {
+                        setEditingMessageId(String(msg._id));
+                        setEditText(msg.text || "");
+                      }}
+                      startIcon={<EditOutlinedIcon fontSize="small" />}
+                      sx={{ minWidth: 0, px: 1 }}
+                    >
+                      Edit
+                    </Button>
+                    <Button
+                      size="small"
+                      onClick={() => removeMessage(msg._id)}
+                      startIcon={<DeleteOutlineOutlinedIcon fontSize="small" />}
+                      sx={{ minWidth: 0, px: 1 }}
+                    >
+                      Delete
                     </Button>
                   </Box>
                 </Box>

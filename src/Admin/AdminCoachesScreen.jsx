@@ -3949,6 +3949,16 @@ const CoachDashboard = () => {
           onProfile={() => {
             window.location.href = "/profile";
           }}
+          moreActions={[
+            { label: "My Students", onClick: () => setActiveTab("students") },
+            {
+              label: "Change Password",
+              onClick: () => {
+                window.location.href = "/profile";
+              },
+            },
+            { label: "Logout", onClick: handleLogout },
+          ]}
         />
       )}
     </Box>

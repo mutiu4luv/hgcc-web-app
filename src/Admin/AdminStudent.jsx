@@ -3216,6 +3216,11 @@ const StudentDashboard = () => {
             else setActiveTab(next);
           }}
           onProfile={() => navigate("/profile")}
+          moreActions={[
+            { label: "Rate Coach", onClick: () => setActiveTab("rate-coach") },
+            { label: "Change Password", onClick: () => navigate("/profile") },
+            { label: "Logout", onClick: handleLogout },
+          ]}
         />
       )}
 
