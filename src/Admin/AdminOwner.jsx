@@ -3369,12 +3369,27 @@ const AdminOwner = () => {
                 </Typography>
                 <Button
                   variant="contained"
-                  sx={{ mb: 2 }}
+                  sx={{ mb: 1, mr: 1 }}
                   onClick={() => {
                     window.location.href = "/profile";
                   }}
                 >
                   Open Profile & Change Password
+                </Button>
+                <Button
+                  variant="outlined"
+                  sx={{ mb: 1, mr: 1 }}
+                  onClick={() => setActiveTab("coaches")}
+                >
+                  See Coaches Ratings
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="error"
+                  sx={{ mb: 1 }}
+                  onClick={handleLogout}
+                >
+                  Logout
                 </Button>
                 <Typography variant="body2" sx={{ mb: 1 }} color="text.secondary">
                   Old password is required before changing to a new one.

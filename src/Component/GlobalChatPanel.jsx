@@ -16,8 +16,12 @@ import ThumbDownAltOutlinedIcon from "@mui/icons-material/ThumbDownAltOutlined";
 import axios from "axios";
 
 const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
-  const [channel, setChannel] = useState("users");
-  const [allowedChannels, setAllowedChannels] = useState(["users"]);
+  const defaultChannel =
+    role === "coach" || role === "owner" || role === "admin"
+      ? "coaches"
+      : "students";
+  const [channel, setChannel] = useState(defaultChannel);
+  const [allowedChannels, setAllowedChannels] = useState([defaultChannel]);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
   const [loading, setLoading] = useState(false);
@@ -36,6 +40,11 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
       label: map[id] || id,
     }));
   }, [allowedChannels]);
+
+  useEffect(() => {
+    setChannel(defaultChannel);
+    setAllowedChannels([defaultChannel]);
+  }, [defaultChannel]);
 
   useEffect(() => {
     const loadChannels = async () => {
@@ -61,6 +70,23 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     loadChannels();
   }, [token, baseUrl, role]);
 
+  const withLegacyStudentsFallback = async (fn) => {
+    try {
+      return await fn(channel);
+    } catch (err) {
+      const status = err?.response?.status;
+      const looksLikeInvalidChannel =
+        status === 400 &&
+        String(err?.response?.data?.message || "")
+          .toLowerCase()
+          .includes("invalid chat channel");
+      if (channel === "students" && looksLikeInvalidChannel) {
+        return fn("users");
+      }
+      throw err;
+    }
+  };
+
   useEffect(() => {
     if (!token || !baseUrl || !channel) return;
     let mounted = true;
@@ -70,9 +96,11 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     const loadMessages = async (silent = false) => {
       try {
         if (!silent) setLoading(true);
-        const { data } = await axios.get(
-          `${baseUrl}/api/group-chat/${channel}/messages?page=1&limit=30`,
-          { headers: { Authorization: `Bearer ${token}` } }
+        const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+          axios.get(
+            `${baseUrl}/api/group-chat/${resolvedChannel}/messages?page=1&limit=30`,
+            { headers: { Authorization: `Bearer ${token}` } }
+          )
         );
         if (mounted) {
           const incoming = Array.isArray(data?.messages) ? data.messages : [];
@@ -105,9 +133,11 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     try {
       setLoadingMore(true);
       const nextPage = page + 1;
-      const { data } = await axios.get(
-        `${baseUrl}/api/group-chat/${channel}/messages?page=${nextPage}&limit=30`,
-        { headers: { Authorization: `Bearer ${token}` } }
+      const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+        axios.get(
+          `${baseUrl}/api/group-chat/${resolvedChannel}/messages?page=${nextPage}&limit=30`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
       );
       const older = Array.isArray(data?.messages) ? data.messages : [];
       setMessages((prev) => {
@@ -126,10 +156,12 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
 
   const reactToMessage = async (messageId, reaction) => {
     try {
-      const { data } = await axios.patch(
-        `${baseUrl}/api/group-chat/${channel}/messages/${messageId}/reaction`,
-        { reaction },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+        axios.patch(
+          `${baseUrl}/api/group-chat/${resolvedChannel}/messages/${messageId}/reaction`,
+          { reaction },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
       );
 
       setMessages((prev) =>
@@ -155,10 +187,12 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     if (!text.trim()) return;
     try {
       setSending(true);
-      const { data } = await axios.post(
-        `${baseUrl}/api/group-chat/${channel}/messages`,
-        { text: text.trim() },
-        { headers: { Authorization: `Bearer ${token}` } }
+      const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+        axios.post(
+          `${baseUrl}/api/group-chat/${resolvedChannel}/messages`,
+          { text: text.trim() },
+          { headers: { Authorization: `Bearer ${token}` } }
+        )
       );
       if (data?.message) setMessages((prev) => [...prev, data.message]);
       setText("");

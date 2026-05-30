@@ -3176,8 +3176,23 @@ const StudentDashboard = () => {
               <Typography sx={{ mb: 2 }}>
                 Use profile to update details and change password.
               </Typography>
-              <Button variant="contained" onClick={() => navigate("/profile")}>
+              <Button variant="contained" sx={{ mr: 1, mb: 1 }} onClick={() => navigate("/profile")}>
                 Open Profile & Change Password
+              </Button>
+              <Button
+                variant="outlined"
+                sx={{ mr: 1, mb: 1 }}
+                onClick={() => setActiveTab("rate-coach")}
+              >
+                Rate Coach
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                sx={{ mb: 1 }}
+                onClick={handleLogout}
+              >
+                Logout
               </Button>
               <Typography sx={{ mt: 2 }} color="text.secondary">
                 Password change requires your old password before new password.

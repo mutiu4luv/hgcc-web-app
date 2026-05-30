@@ -3821,16 +3821,35 @@ const CoachDashboard = () => {
               <Typography variant="h5" fontWeight="bold" gutterBottom>
                 More
               </Typography>
+              <Typography sx={{ mb: 1 }}>
+                Current Cohort: <strong>{cohortId || "Not selected"}</strong>
+              </Typography>
               <Typography sx={{ mb: 2 }}>
                 Update your profile or change password from your profile page.
               </Typography>
               <Button
                 variant="contained"
+                sx={{ mr: 1, mb: 1 }}
                 onClick={() => {
                   window.location.href = "/profile";
                 }}
               >
                 Open Profile & Change Password
+              </Button>
+              <Button
+                variant="outlined"
+                sx={{ mr: 1, mb: 1 }}
+                onClick={() => setActiveTab("students")}
+              >
+                My Students (Current Cohort)
+              </Button>
+              <Button
+                variant="outlined"
+                color="error"
+                sx={{ mb: 1 }}
+                onClick={handleLogout}
+              >
+                Logout
               </Button>
               <Typography sx={{ mt: 2 }} color="text.secondary">
                 Old password is required before setting a new password.
