@@ -955,22 +955,60 @@ const StudentDashboard = () => {
 
     setSubmittingAssignment(true); // start submitting
 
-    const formData = new FormData();
-    submittedFiles.forEach((file) => {
-      formData.append("files", file);
-    });
+    const submitWithFieldMode = async (mode) => {
+      const formData = new FormData();
 
-    try {
-      const res = await axios.post(
+      if (mode === "file") {
+        submittedFiles.forEach((file) => {
+          formData.append("file", file);
+        });
+      } else if (mode === "filesBracket") {
+        submittedFiles.forEach((file) => {
+          formData.append("files[]", file);
+        });
+      } else {
+        submittedFiles.forEach((file) => {
+          formData.append("files", file);
+        });
+      }
+
+      return axios.post(
         `${BASE_URL}/api/assignment/${assignmentId}/submit`,
         formData,
         {
           headers: {
-            "Content-Type": "multipart/form-data",
             Authorization: `Bearer ${token}`,
           },
         }
       );
+    };
+
+    try {
+      let res;
+      try {
+        res = await submitWithFieldMode(
+          submittedFiles.length === 1 ? "file" : "files"
+        );
+      } catch (firstErr) {
+        const message = firstErr?.response?.data?.message || "";
+        const isUnexpectedField =
+          firstErr?.response?.status === 400 &&
+          String(message).toLowerCase().includes("unexpected field");
+
+        if (!isUnexpectedField) throw firstErr;
+
+        try {
+          res = await submitWithFieldMode("filesBracket");
+        } catch (secondErr) {
+          const message2 = secondErr?.response?.data?.message || "";
+          const isUnexpectedField2 =
+            secondErr?.response?.status === 400 &&
+            String(message2).toLowerCase().includes("unexpected field");
+
+          if (!isUnexpectedField2) throw secondErr;
+          res = await submitWithFieldMode("file");
+        }
+      }
 
       const submittedFileUrls =
         (Array.isArray(res.data.files) && res.data.files) ||
