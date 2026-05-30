@@ -3144,6 +3144,9 @@ const CoachDashboard = () => {
                   label="Description"
                   value={newDescription}
                   onChange={(e) => setNewDescription(e.target.value)}
+                  multiline
+                  minRows={4}
+                  sx={{ minWidth: 320 }}
                 />
                 <TextField
                   type="date"

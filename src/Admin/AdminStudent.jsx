@@ -85,6 +85,19 @@ const getSubmittedAssignmentFile = (assignment) =>
   assignment?.submissions?.[0]?.fileUrl ||
   null;
 
+const getSubmittedAssignmentFiles = (assignment) => {
+  const files =
+    assignment?.submittedFiles ||
+    assignment?.files ||
+    assignment?.submission?.files ||
+    assignment?.submissions?.[0]?.files;
+
+  if (Array.isArray(files) && files.length > 0) return files;
+
+  const fallback = getSubmittedAssignmentFile(assignment);
+  return fallback ? [fallback] : [];
+};
+
 const StudentDashboard = () => {
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
 
@@ -121,7 +134,7 @@ const StudentDashboard = () => {
   const [openAssignmentModal, setOpenAssignmentModal] = useState(false);
   const [selectedAssignment, setSelectedAssignment] = useState(null);
   const [submittingAssignment, setSubmittingAssignment] = useState(false);
-  const [submittedFile, setSubmittedFile] = useState(null);
+  const [submittedFiles, setSubmittedFiles] = useState([]);
   const [nextClass, setNextClass] = useState(null);
   const [nextClassCountdown, setNextClassCountdown] = useState("");
   const [videos, setVideos] = useState([]);
@@ -920,7 +933,7 @@ const StudentDashboard = () => {
   // Function to handle viewing or submitting assignment
   const handleViewAssignment = (assignments) => {
     setSelectedAssignment(assignments);
-    setSubmittedFile(null);
+    setSubmittedFiles([]);
     setOpenAssignmentModal(true);
     // console.log(assignments);
     // navigate(`/assignments/${assignments.id}`);
@@ -928,8 +941,8 @@ const StudentDashboard = () => {
 
   // submit assignment by student
   const handleSubmitAssignment = async () => {
-    if (!submittedFile) {
-      alert("Please upload a file before submitting.");
+    if (!submittedFiles.length) {
+      alert("Please upload at least one file before submitting.");
       return;
     }
 
@@ -943,7 +956,9 @@ const StudentDashboard = () => {
     setSubmittingAssignment(true); // start submitting
 
     const formData = new FormData();
-    formData.append("file", submittedFile);
+    submittedFiles.forEach((file) => {
+      formData.append("files", file);
+    });
 
     try {
       const res = await axios.post(
@@ -957,12 +972,13 @@ const StudentDashboard = () => {
         }
       );
 
-      const submittedFileUrl =
-        res.data.fileUrl ||
-        res.data.file ||
-        res.data.submission?.fileUrl ||
-        res.data.submission?.file ||
-        "";
+      const submittedFileUrls =
+        (Array.isArray(res.data.files) && res.data.files) ||
+        (res.data.file ? [res.data.file] : []) ||
+        (res.data.fileUrl ? [res.data.fileUrl] : []) ||
+        (Array.isArray(res.data.submission?.files) && res.data.submission.files) ||
+        (res.data.submission?.file ? [res.data.submission.file] : []) ||
+        (res.data.submission?.fileUrl ? [res.data.submission.fileUrl] : []);
 
       alert("Assignment submitted successfully!");
 
@@ -971,7 +987,8 @@ const StudentDashboard = () => {
         ...prev,
         {
           assignmentId,
-          fileUrl: submittedFileUrl,
+          fileUrl: submittedFileUrls[0] || "",
+          files: submittedFileUrls,
           submittedAt: res.data.submittedAt,
           grade: null, // grade will come later
         },
@@ -984,8 +1001,9 @@ const StudentDashboard = () => {
             ? {
                 ...a,
                 assignmentId,
-                submissions: [{ fileUrl: submittedFileUrl }],
-                submittedFile: submittedFileUrl,
+                submissions: [{ fileUrl: submittedFileUrls[0], files: submittedFileUrls }],
+                submittedFile: submittedFileUrls[0] || null,
+                submittedFiles: submittedFileUrls,
                 status: "Submitted",
                 justSubmitted: true,
                 grade: "-",
@@ -995,7 +1013,7 @@ const StudentDashboard = () => {
       );
 
       setOpenAssignmentModal(false);
-      setSubmittedFile(null);
+      setSubmittedFiles([]);
     } catch (err) {
       console.error(err);
       alert(err?.response?.data?.message || "Error submitting assignment");
@@ -1948,21 +1966,27 @@ const StudentDashboard = () => {
                       </Typography>
 
                       {/* Already Submitted */}
-                      {selectedAssignment.submittedFile ? (
+                      {getSubmittedAssignmentFiles(selectedAssignment).length > 0 ? (
                         <Box sx={{ mt: 3 }}>
                           <Typography color="green" fontWeight="bold">
                             ✔ You already submitted this assignment
                           </Typography>
 
-                          <Button
-                            sx={{ mt: 2 }}
-                            variant="contained"
-                            color="success"
-                            href={selectedAssignment.submittedFile}
-                            target="_blank"
-                          >
-                            View Submitted File
-                          </Button>
+                          <Stack spacing={1} sx={{ mt: 2 }}>
+                            {getSubmittedAssignmentFiles(selectedAssignment).map(
+                              (fileUrl, index) => (
+                                <Button
+                                  key={`${fileUrl}-${index}`}
+                                  variant="contained"
+                                  color="success"
+                                  href={fileUrl}
+                                  target="_blank"
+                                >
+                                  View Submitted File {index + 1}
+                                </Button>
+                              )
+                            )}
+                          </Stack>
                         </Box>
                       ) : selectedAssignment.isExpired ? (
                         <Typography
@@ -1980,11 +2004,18 @@ const StudentDashboard = () => {
                             </Typography>
                             <input
                               type="file"
+                              multiple
+                              accept="image/*,.pdf,.doc,.docx,.txt"
                               style={{ marginTop: 10 }}
                               onChange={(e) =>
-                                setSubmittedFile(e.target.files[0])
+                                setSubmittedFiles(Array.from(e.target.files || []))
                               }
                             />
+                            {submittedFiles.length > 0 && (
+                              <Typography sx={{ mt: 1, fontSize: 13, color: "gray" }}>
+                                {submittedFiles.length} file(s) selected
+                              </Typography>
+                            )}
                           </Box>
 
                           <Button
@@ -2034,6 +2065,7 @@ const StudentDashboard = () => {
                       const dueDate = getAssignmentDueDate(a.dueDate);
                       const isExpired = dueDate ? dueDate < new Date() : false;
                       const submittedFile = getSubmittedAssignmentFile(a);
+                      const submittedFiles = getSubmittedAssignmentFiles(a);
 
                       return {
                         id: assignmentId || `assignment-${index}`,
@@ -2043,8 +2075,10 @@ const StudentDashboard = () => {
                         description: a.description,
                         dueDate: dueDate ? dueDate.toLocaleDateString() : "N/A",
                         submittedFile,
+                        submittedFiles,
                         status:
-                          submittedFile || a.status?.toLowerCase() === "submitted"
+                          submittedFiles.length > 0 ||
+                          a.status?.toLowerCase() === "submitted"
                             ? "Submitted"
                             : isExpired
                             ? "Expired"
