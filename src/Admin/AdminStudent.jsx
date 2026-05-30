@@ -20,6 +20,9 @@ import {
   Modal,
   Chip,
   Stack,
+  FormControl,
+  InputLabel,
+  Select,
 } from "@mui/material";
 import { Grid, Card, CardContent, CardMedia, CardActions } from "@mui/material";
 
@@ -143,6 +146,8 @@ const StudentDashboard = () => {
   // const [liveSession, setLiveSession] = useState(null);
   const [loadingLive, setLoadingLive] = useState(false);
   const [liveCourseId, setLiveCourseId] = useState(null);
+  const [liveCohorts, setLiveCohorts] = useState([]);
+  const [liveCohortId, setLiveCohortId] = useState("");
   const [liveSession, setLiveSession] = useState({ isLive: false });
 
   const [selfLearningCourses, setSelfLearningCourses] = useState([]);
@@ -166,12 +171,12 @@ const StudentDashboard = () => {
   const [myFreeCourses, setMyFreeCourses] = useState([]);
   const [selectedMyFreeCourse, setSelectedMyFreeCourse] = useState("");
   const [freeCourseContents, setFreeCourseContents] = useState([]);
-  // set default live course id
-  useEffect(() => {
-    if (Array.isArray(courses) && courses.length > 0) {
-      setLiveCourseId(courses[0]._id);
-    }
-  }, [courses]);
+  const selectedLiveCohortData = liveCohorts.find(
+    (c) => String(c.cohortId) === String(liveCohortId)
+  );
+  const liveCoursesForSelectedCohort = (
+    selectedLiveCohortData?.courses || []
+  ).filter((c) => c?.enrolled && c?.paymentConfirmed);
 
   const hasPaid = paidCourses.some(
     (c) => String(c.courseId) === String(selectedMarketplaceCourse)
@@ -392,13 +397,50 @@ const StudentDashboard = () => {
     fetchSelfLearningCourses();
   }, [activeTab]);
 
-  // set default live course id
   useEffect(() => {
-    if (courses.length > 0) {
-      // setLiveCourseId(courses[0].courseId);
-      setLiveCourseId(courses[0]._id);
-    }
-  }, [courses]);
+    if (activeTab !== "join-live") return;
+
+    const loadLiveEligibleCohorts = async () => {
+      try {
+        const res = await axios.get(`${BASE_URL}/api/cohort/active-cohorts`, {
+          headers: { Authorization: `Bearer ${token}` },
+        });
+
+        const cohorts = Array.isArray(res.data?.cohorts) ? res.data.cohorts : [];
+        setLiveCohorts(cohorts);
+
+        if (!cohorts.length) {
+          setLiveCohortId("");
+          setLiveCourseId(null);
+          return;
+        }
+
+        const firstCohortWithAccess = cohorts.find((cohort) =>
+          (cohort.courses || []).some((c) => c?.enrolled && c?.paymentConfirmed)
+        );
+
+        if (!firstCohortWithAccess) {
+          setLiveCohortId("");
+          setLiveCourseId(null);
+          return;
+        }
+
+        const firstCourse = (firstCohortWithAccess.courses || []).find(
+          (c) => c?.enrolled && c?.paymentConfirmed
+        );
+
+        setLiveCohortId(firstCohortWithAccess.cohortId);
+        setLiveCourseId(firstCourse?.courseId || null);
+      } catch (err) {
+        console.error("Failed to load live cohorts:", err);
+        setLiveCohorts([]);
+        setLiveCohortId("");
+        setLiveCourseId(null);
+      }
+    };
+
+    loadLiveEligibleCohorts();
+  }, [activeTab, BASE_URL, token]);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = user?._id || user?.id;
@@ -437,7 +479,7 @@ const StudentDashboard = () => {
   // fetch live class status
   useEffect(() => {
     if (activeTab !== "join-live") return;
-    if (!cohortId || !liveCourseId) return;
+    if (!liveCohortId || !liveCourseId) return;
 
     const token = localStorage.getItem("token");
 
@@ -446,7 +488,7 @@ const StudentDashboard = () => {
         setLoadingLive(true);
 
         const res = await fetch(
-          `${BASE_URL}/api/live/${cohortId}/${liveCourseId}`,
+          `${BASE_URL}/api/live/${liveCohortId}/${liveCourseId}`,
           {
             headers: {
               Authorization: `Bearer ${token}`,
@@ -468,7 +510,7 @@ const StudentDashboard = () => {
     const interval = setInterval(fetchLiveSession, 10000);
 
     return () => clearInterval(interval);
-  }, [activeTab, cohortId, liveCourseId]);
+  }, [activeTab, liveCohortId, liveCourseId]);
 
   //   const fetchLiveSession = async () => {
   //     try {
@@ -627,7 +669,7 @@ const StudentDashboard = () => {
   // for live video google meet link
   useEffect(() => {
     if (activeTab !== "join-live") return;
-    if (!cohortId || !liveCourseId) return;
+    if (!liveCohortId || !liveCourseId) return;
 
     const liveSocket = io(BASE_URL, {
       auth: { token },
@@ -647,7 +689,7 @@ const StudentDashboard = () => {
       setLiveSession({ isLive: false });
     };
 
-    liveSocket.emit("joinCohort", { cohortId, courseId: liveCourseId });
+    liveSocket.emit("joinCohort", { cohortId: liveCohortId, courseId: liveCourseId });
     liveSocket.on("liveStarted", handleLiveStarted);
     liveSocket.on("liveEnded", handleLiveEnded);
 
@@ -656,7 +698,7 @@ const StudentDashboard = () => {
       liveSocket.off("liveEnded", handleLiveEnded);
       liveSocket.disconnect();
     };
-  }, [activeTab, cohortId, liveCourseId, BASE_URL, token]);
+  }, [activeTab, liveCohortId, liveCourseId, BASE_URL, token]);
 
   // Chat socket for cohort messages
   useEffect(() => {
@@ -2501,6 +2543,47 @@ const StudentDashboard = () => {
               <Typography variant="h5" fontWeight="bold" color="error">
                 🔴 Live Class
               </Typography>
+
+              <FormControl fullWidth sx={{ mt: 2 }}>
+                <InputLabel>Select Cohort</InputLabel>
+                <Select
+                  value={liveCohortId}
+                  label="Select Cohort"
+                  onChange={(e) => {
+                    const nextCohortId = e.target.value;
+                    setLiveCohortId(nextCohortId);
+
+                    const nextCohort = liveCohorts.find(
+                      (c) => String(c.cohortId) === String(nextCohortId)
+                    );
+                    const firstCourse = (nextCohort?.courses || []).find(
+                      (c) => c?.enrolled && c?.paymentConfirmed
+                    );
+                    setLiveCourseId(firstCourse?.courseId || null);
+                  }}
+                >
+                  {liveCohorts.map((cohort) => (
+                    <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                      {cohort.cohortName}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+
+              <FormControl fullWidth sx={{ mt: 2 }}>
+                <InputLabel>Select Course</InputLabel>
+                <Select
+                  value={liveCourseId || ""}
+                  label="Select Course"
+                  onChange={(e) => setLiveCourseId(e.target.value)}
+                >
+                  {liveCoursesForSelectedCohort.map((course) => (
+                    <MenuItem key={course.courseId} value={course.courseId}>
+                      {course.name}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
 
               {loadingLive ? (
                 <Typography sx={{ mt: 2 }}>Checking live session...</Typography>
