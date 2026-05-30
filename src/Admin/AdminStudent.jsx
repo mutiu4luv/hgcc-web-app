@@ -456,11 +456,7 @@ const StudentDashboard = () => {
 
         const data = await res.json();
         console.log("✅ Live session data:", data);
-
-        setLiveSession((prev) => {
-          if (prev.isLive) return prev; // 🔥 key line
-          return data;
-        });
+        setLiveSession(data);
       } catch (err) {
         console.error("❌ Live session error:", err);
       } finally {
@@ -630,23 +626,37 @@ const StudentDashboard = () => {
 
   // for live video google meet link
   useEffect(() => {
-    if (!socketRef.current) return;
+    if (activeTab !== "join-live") return;
+    if (!cohortId || !liveCourseId) return;
+
+    const liveSocket = io(BASE_URL, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+    });
 
     const handleLiveStarted = (payload) => {
       console.log("🔴 Live started:", payload);
-
       setLiveSession({
         isLive: true,
-        meetLink: payload.meetLink,
+        meetLink: payload?.meetLink || "",
+        startedAt: payload?.startedAt || new Date().toISOString(),
       });
     };
 
-    socketRef.current.on("liveStarted", handleLiveStarted);
+    const handleLiveEnded = () => {
+      setLiveSession({ isLive: false });
+    };
+
+    liveSocket.emit("joinCohort", { cohortId, courseId: liveCourseId });
+    liveSocket.on("liveStarted", handleLiveStarted);
+    liveSocket.on("liveEnded", handleLiveEnded);
 
     return () => {
-      socketRef.current.off("liveStarted", handleLiveStarted);
+      liveSocket.off("liveStarted", handleLiveStarted);
+      liveSocket.off("liveEnded", handleLiveEnded);
+      liveSocket.disconnect();
     };
-  }, []);
+  }, [activeTab, cohortId, liveCourseId, BASE_URL, token]);
 
   // Chat socket for cohort messages
   useEffect(() => {
