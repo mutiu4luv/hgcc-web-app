@@ -526,6 +526,7 @@ const CoachDashboard = () => {
   const [unreadCount, setUnreadCount] = useState(0);
   const [meetLink, setMeetLink] = useState("");
   const [startingLive, setStartingLive] = useState(false);
+  const [endingLive, setEndingLive] = useState(false);
 
   const [contentType, setContentType] = useState("");
   const [title, setTitle] = useState("");
@@ -783,6 +784,39 @@ const CoachDashboard = () => {
       );
     } finally {
       setStartingLive(false);
+    }
+  };
+
+  const endLiveVideo = async () => {
+    if (!cohortId || !selectedCourse) {
+      toast.error("Cohort or course not selected");
+      return;
+    }
+
+    if (!token) {
+      toast.error("Session expired. Please log in again.");
+      return;
+    }
+
+    try {
+      setEndingLive(true);
+      await axios.patch(
+        `${BASE_URL}/api/live/${cohortId}/${selectedCourse}/end`,
+        {},
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+      toast.success("Live class ended successfully ✅");
+    } catch (err) {
+      console.error("Live end failed:", err);
+      toast.error(
+        err.response?.data?.message || "Failed to end live class. Please try again."
+      );
+    } finally {
+      setEndingLive(false);
     }
   };
 
@@ -3703,6 +3737,15 @@ const CoachDashboard = () => {
                 onClick={startLiveVideo}
               >
                 {startingLive ? "Starting..." : "Start Live Class"}
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                sx={{ mt: 2, ml: 2 }}
+                disabled={endingLive}
+                onClick={endLiveVideo}
+              >
+                {endingLive ? "Ending..." : "End Live Class"}
               </Button>
             </Paper>
           )}

@@ -103,6 +103,8 @@ const getSubmittedAssignmentFiles = (assignment) => {
 
 const StudentDashboard = () => {
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
+  const BASE_URL = import.meta.env.VITE_BASE_URL;
+  const token = localStorage.getItem("token");
 
   const [activeTab, setActiveTab] = useState("dashboard");
   const [globalLoading, setGlobalLoading] = useState(true);
@@ -171,12 +173,19 @@ const StudentDashboard = () => {
   const [myFreeCourses, setMyFreeCourses] = useState([]);
   const [selectedMyFreeCourse, setSelectedMyFreeCourse] = useState("");
   const [freeCourseContents, setFreeCourseContents] = useState([]);
-  const selectedLiveCohortData = liveCohorts.find(
+  const liveCohortsWithAppliedCourses = (liveCohorts || [])
+    .map((cohort) => ({
+      ...cohort,
+      courses: (cohort.courses || []).filter(
+        (course) => course?.enrolled && course?.paymentConfirmed
+      ),
+    }))
+    .filter((cohort) => cohort.courses.length > 0);
+
+  const selectedLiveCohortData = liveCohortsWithAppliedCourses.find(
     (c) => String(c.cohortId) === String(liveCohortId)
   );
-  const liveCoursesForSelectedCohort = (
-    selectedLiveCohortData?.courses || []
-  ).filter((c) => c?.enrolled && c?.paymentConfirmed);
+  const liveCoursesForSelectedCohort = selectedLiveCohortData?.courses || [];
 
   const hasPaid = paidCourses.some(
     (c) => String(c.courseId) === String(selectedMarketplaceCourse)
@@ -415,21 +424,28 @@ const StudentDashboard = () => {
           return;
         }
 
-        const firstCohortWithAccess = cohorts.find((cohort) =>
-          (cohort.courses || []).some((c) => c?.enrolled && c?.paymentConfirmed)
+        const filteredCohorts = cohorts
+          .map((cohort) => ({
+            ...cohort,
+            courses: (cohort.courses || []).filter(
+              (course) => course?.enrolled && course?.paymentConfirmed
+            ),
+          }))
+          .filter((cohort) => cohort.courses.length > 0);
+
+        const firstCohortWithCourses = filteredCohorts.find((cohort) =>
+          (cohort.courses || []).length > 0
         );
 
-        if (!firstCohortWithAccess) {
+        if (!firstCohortWithCourses) {
           setLiveCohortId("");
           setLiveCourseId(null);
           return;
         }
 
-        const firstCourse = (firstCohortWithAccess.courses || []).find(
-          (c) => c?.enrolled && c?.paymentConfirmed
-        );
+        const firstCourse = (firstCohortWithCourses.courses || [])[0];
 
-        setLiveCohortId(firstCohortWithAccess.cohortId);
+        setLiveCohortId(firstCohortWithCourses.cohortId);
         setLiveCourseId(firstCourse?.courseId || null);
       } catch (err) {
         console.error("Failed to load live cohorts:", err);
@@ -441,6 +457,24 @@ const StudentDashboard = () => {
 
     loadLiveEligibleCohorts();
   }, [activeTab, BASE_URL, token]);
+
+  useEffect(() => {
+    if (!liveCohortId) return;
+
+    const nextCohort = liveCohortsWithAppliedCourses.find(
+      (c) => String(c.cohortId) === String(liveCohortId)
+    );
+
+    const selectedStillExists = (nextCohort?.courses || []).some(
+      (c) => String(c.courseId) === String(liveCourseId)
+    );
+
+    if (selectedStillExists) return;
+
+    const fallbackCourse = (nextCohort?.courses || [])[0];
+
+    setLiveCourseId(fallbackCourse?.courseId || null);
+  }, [liveCohortId, liveCohortsWithAppliedCourses, liveCourseId]);
 
   const user = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = user?._id || user?.id;
@@ -480,8 +514,6 @@ const StudentDashboard = () => {
   useEffect(() => {
     if (activeTab !== "join-live") return;
     if (!liveCohortId || !liveCourseId) return;
-
-    const token = localStorage.getItem("token");
 
     const fetchLiveSession = async () => {
       try {
@@ -550,9 +582,6 @@ const StudentDashboard = () => {
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages]);
-
-  const BASE_URL = import.meta.env.VITE_BASE_URL;
-  const token = localStorage.getItem("token");
 
   const isMobile = useMediaQuery("(max-width:900px)");
 
@@ -2553,16 +2582,14 @@ const StudentDashboard = () => {
                     const nextCohortId = e.target.value;
                     setLiveCohortId(nextCohortId);
 
-                    const nextCohort = liveCohorts.find(
+                    const nextCohort = liveCohortsWithAppliedCourses.find(
                       (c) => String(c.cohortId) === String(nextCohortId)
                     );
-                    const firstCourse = (nextCohort?.courses || []).find(
-                      (c) => c?.enrolled && c?.paymentConfirmed
-                    );
+                    const firstCourse = (nextCohort?.courses || [])[0];
                     setLiveCourseId(firstCourse?.courseId || null);
                   }}
                 >
-                  {liveCohorts.map((cohort) => (
+                  {liveCohortsWithAppliedCourses.map((cohort) => (
                     <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
                       {cohort.cohortName}
                     </MenuItem>
@@ -2584,6 +2611,13 @@ const StudentDashboard = () => {
                   ))}
                 </Select>
               </FormControl>
+
+              {liveCohortsWithAppliedCourses.length === 0 && (
+                <Typography sx={{ mt: 2 }} color="warning.main">
+                  You have not been assigned any active class yet. Please tell your
+                  coach to start your course so it appears here.
+                </Typography>
+              )}
 
               {loadingLive ? (
                 <Typography sx={{ mt: 2 }}>Checking live session...</Typography>
