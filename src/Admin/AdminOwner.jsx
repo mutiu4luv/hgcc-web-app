@@ -3360,58 +3360,6 @@ const AdminOwner = () => {
                 </Button>
               </Paper>
 
-              <Paper
-                variant="outlined"
-                sx={{ p: 3, borderRadius: 3, borderColor: "#fde68a" }}
-              >
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 1 }}>
-                  More
-                </Typography>
-                <Button
-                  variant="contained"
-                  sx={{ mb: 1, mr: 1 }}
-                  onClick={() => {
-                    window.location.href = "/profile";
-                  }}
-                >
-                  Open Profile & Change Password
-                </Button>
-                <Button
-                  variant="outlined"
-                  sx={{ mb: 1, mr: 1 }}
-                  onClick={() => setActiveTab("coaches")}
-                >
-                  See Coaches Ratings
-                </Button>
-                <Button
-                  variant="outlined"
-                  color="error"
-                  sx={{ mb: 1 }}
-                  onClick={handleLogout}
-                >
-                  Logout
-                </Button>
-                <Typography variant="body2" sx={{ mb: 1 }} color="text.secondary">
-                  Old password is required before changing to a new one.
-                </Typography>
-                <Typography variant="h6" fontWeight="bold" sx={{ mb: 1, mt: 2 }}>
-                  Sharp Admin Ideas
-                </Typography>
-                <Stack spacing={1}>
-                  <Typography variant="body2">
-                    1. Weekly digest: send progress summary to coaches every Monday.
-                  </Typography>
-                  <Typography variant="body2">
-                    2. Smart nudges: notify students with pending assignments due in 24 hours.
-                  </Typography>
-                  <Typography variant="body2">
-                    3. Win-back campaign: email inactive students with re-engagement offers.
-                  </Typography>
-                  <Typography variant="body2">
-                    4. Coach leaderboard: highlight top-performing coaches monthly.
-                  </Typography>
-                </Stack>
-              </Paper>
             </Paper>
           </Container>
         )}

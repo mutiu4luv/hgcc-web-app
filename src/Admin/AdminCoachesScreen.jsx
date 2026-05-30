@@ -991,7 +991,7 @@ const CoachDashboard = () => {
   useEffect(() => {
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const currentUserId = currentUser?.id || currentUser?._id;
-    const channels = ["students", "coaches"];
+    const channels = ["coaches"];
     const makeKey = (channel) => `group_chat_last_seen_coach_${channel}`;
 
     if (activeTab === "chat") {

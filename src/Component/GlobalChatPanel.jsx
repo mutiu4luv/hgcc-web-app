@@ -18,11 +18,14 @@ import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined
 import axios from "axios";
 
 const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
+  const storageKey = `group_chat_selected_channel_${role}`;
   const defaultChannel =
     role === "coach" || role === "owner" || role === "admin"
       ? "coaches"
       : "students";
-  const [channel, setChannel] = useState(defaultChannel);
+  const [channel, setChannel] = useState(
+    () => localStorage.getItem(storageKey) || defaultChannel
+  );
   const [allowedChannels, setAllowedChannels] = useState([defaultChannel]);
   const [messages, setMessages] = useState([]);
   const [text, setText] = useState("");
@@ -45,17 +48,16 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     }));
   }, [allowedChannels]);
 
-  const storageKey = `group_chat_selected_channel_${role}`;
-
   useEffect(() => {
     const saved = localStorage.getItem(storageKey);
-    if (saved) setChannel(saved);
-  }, [storageKey]);
-
-  useEffect(() => {
-    setChannel(defaultChannel);
+    const next =
+      role === "coach" || role === "owner" || role === "admin"
+        ? "coaches"
+        : saved || defaultChannel;
+    setChannel(next);
+    localStorage.setItem(storageKey, next);
     setAllowedChannels([defaultChannel]);
-  }, [defaultChannel]);
+  }, [defaultChannel, role, storageKey]);
 
   useEffect(() => {
     const loadChannels = async () => {
@@ -67,7 +69,9 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
         const channels = Array.isArray(data?.channels) ? data.channels : ["students"];
         setAllowedChannels(channels);
         if (!channels.includes(channel)) {
-          const fallback = channels[0] || defaultChannel;
+          const fallback = channels.includes(defaultChannel)
+            ? defaultChannel
+            : channels[0] || defaultChannel;
           setChannel(fallback);
           localStorage.setItem(storageKey, fallback);
         }
@@ -80,7 +84,9 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
             : ["students", "coaches"];
         setAllowedChannels(fallback);
         if (!fallback.includes(channel)) {
-          const fb = fallback[0];
+          const fb = fallback.includes(defaultChannel)
+            ? defaultChannel
+            : fallback[0];
           setChannel(fb);
           localStorage.setItem(storageKey, fb);
         }
