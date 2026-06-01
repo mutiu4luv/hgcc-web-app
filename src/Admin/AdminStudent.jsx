@@ -69,11 +69,13 @@ const getAssignmentDueDate = (dateValue) => {
 
   const datePart = String(dateValue).slice(0, 10);
   const isDateOnly = /^\d{4}-\d{2}-\d{2}$/.test(String(dateValue));
-  const isMidnightDueDate = /T00:00(?::00(?:\.000)?)?(?:Z|[+-]\d{2}:\d{2})?$/.test(
-    String(dateValue)
-  );
+  const isMidnightDueDate =
+    /T00:00(?::00(?:\.000)?)?(?:Z|[+-]\d{2}:\d{2})?$/.test(String(dateValue));
 
-  if ((isDateOnly || isMidnightDueDate) && /^\d{4}-\d{2}-\d{2}$/.test(datePart)) {
+  if (
+    (isDateOnly || isMidnightDueDate) &&
+    /^\d{4}-\d{2}-\d{2}$/.test(datePart)
+  ) {
     const [year, month, day] = datePart.split("-").map(Number);
     return new Date(year, month - 1, day, 23, 59, 0, 0);
   }
@@ -439,7 +441,9 @@ const StudentDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        const cohorts = Array.isArray(res.data?.cohorts) ? res.data.cohorts : [];
+        const cohorts = Array.isArray(res.data?.cohorts)
+          ? res.data.cohorts
+          : [];
         setLiveCohorts(cohorts);
 
         if (!cohorts.length) {
@@ -457,8 +461,8 @@ const StudentDashboard = () => {
           }))
           .filter((cohort) => cohort.courses.length > 0);
 
-        const firstCohortWithCourses = filteredCohorts.find((cohort) =>
-          (cohort.courses || []).length > 0
+        const firstCohortWithCourses = filteredCohorts.find(
+          (cohort) => (cohort.courses || []).length > 0
         );
 
         if (!firstCohortWithCourses) {
@@ -682,7 +686,6 @@ const StudentDashboard = () => {
     { text: "Free Learning", icon: <School />, key: "free-learning" },
     { text: "Join Cohort Class", icon: <Videocam />, key: "join-class" },
     { text: "Join Live Class", icon: <LiveTv />, key: "join-live" },
-    { text: "More", icon: <UploadFile />, key: "more" },
   ];
   useEffect(() => {
     const fetchCohorts = async () => {
@@ -717,9 +720,12 @@ const StudentDashboard = () => {
       try {
         let data;
         try {
-          const res = await axios.get(`${BASE_URL}/api/group-chat/students/messages`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const res = await axios.get(
+            `${BASE_URL}/api/group-chat/students/messages`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
           data = res.data;
         } catch (error) {
           const looksLikeLegacyStudents =
@@ -728,9 +734,12 @@ const StudentDashboard = () => {
               .toLowerCase()
               .includes("invalid chat channel");
           if (!looksLikeLegacyStudents) throw error;
-          const legacyRes = await axios.get(`${BASE_URL}/api/group-chat/users/messages`, {
-            headers: { Authorization: `Bearer ${token}` },
-          });
+          const legacyRes = await axios.get(
+            `${BASE_URL}/api/group-chat/users/messages`,
+            {
+              headers: { Authorization: `Bearer ${token}` },
+            }
+          );
           data = legacyRes.data;
         }
         const messages = Array.isArray(data?.messages) ? data.messages : [];
@@ -768,10 +777,7 @@ const StudentDashboard = () => {
     const handleGroupMessage = ({ channel, message }) => {
       if (channel !== "students") return;
       const senderId = message?.senderId?._id || message?.senderId;
-      if (
-        activeTab !== "chat" &&
-        String(senderId) !== String(currentUserId)
-      ) {
+      if (activeTab !== "chat" && String(senderId) !== String(currentUserId)) {
         setChatUnreadCount((count) => count + 1);
       }
     };
@@ -834,7 +840,10 @@ const StudentDashboard = () => {
       setLiveSession({ isLive: false });
     };
 
-    liveSocket.emit("joinCohort", { cohortId: liveCohortId, courseId: liveCourseId });
+    liveSocket.emit("joinCohort", {
+      cohortId: liveCohortId,
+      courseId: liveCourseId,
+    });
     liveSocket.on("liveStarted", handleLiveStarted);
     liveSocket.on("liveEnded", handleLiveEnded);
 
@@ -1211,7 +1220,8 @@ const StudentDashboard = () => {
         (Array.isArray(res.data.files) && res.data.files) ||
         (res.data.file ? [res.data.file] : []) ||
         (res.data.fileUrl ? [res.data.fileUrl] : []) ||
-        (Array.isArray(res.data.submission?.files) && res.data.submission.files) ||
+        (Array.isArray(res.data.submission?.files) &&
+          res.data.submission.files) ||
         (res.data.submission?.file ? [res.data.submission.file] : []) ||
         (res.data.submission?.fileUrl ? [res.data.submission.fileUrl] : []);
 
@@ -1236,7 +1246,9 @@ const StudentDashboard = () => {
             ? {
                 ...a,
                 assignmentId,
-                submissions: [{ fileUrl: submittedFileUrls[0], files: submittedFileUrls }],
+                submissions: [
+                  { fileUrl: submittedFileUrls[0], files: submittedFileUrls },
+                ],
                 submittedFile: submittedFileUrls[0] || null,
                 submittedFiles: submittedFileUrls,
                 status: "Submitted",
@@ -1484,9 +1496,13 @@ const StudentDashboard = () => {
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", width: "100%", minWidth: 0 }}>
+    <Box
+      sx={{ display: "flex", minHeight: "100vh", width: "100%", minWidth: 0 }}
+    >
       {/* Sidebar */}
-      <Box sx={{ display: "flex", minHeight: "100vh", minWidth: 0, width: "100%" }}>
+      <Box
+        sx={{ display: "flex", minHeight: "100vh", minWidth: 0, width: "100%" }}
+      >
         <Drawer
           variant={isMobile ? "temporary" : "permanent"}
           open={isMobile ? mobileOpen : true}
@@ -1611,20 +1627,24 @@ const StudentDashboard = () => {
                   mb: 4,
                 }}
               >
-                <Paper
-                  sx={{ p: 2, minWidth: 0, bgcolor: "#d1fae5" }}
-                >
+                <Paper sx={{ p: 2, minWidth: 0, bgcolor: "#d1fae5" }}>
                   <Typography variant="subtitle1">Assignments</Typography>
-                  <Typography variant="h4" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
+                  <Typography
+                    variant="h4"
+                    fontWeight="bold"
+                    sx={{ lineHeight: 1.2 }}
+                  >
                     {assignments.length}
                   </Typography>
                 </Paper>
 
-                <Paper
-                  sx={{ p: 2, minWidth: 0, bgcolor: "#fef9c3" }}
-                >
+                <Paper sx={{ p: 2, minWidth: 0, bgcolor: "#fef9c3" }}>
                   <Typography variant="subtitle1">My Submissions</Typography>
-                  <Typography variant="h4" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
+                  <Typography
+                    variant="h4"
+                    fontWeight="bold"
+                    sx={{ lineHeight: 1.2 }}
+                  >
                     {
                       assignments.filter(
                         (a) => a.status?.toLowerCase() === "submitted"
@@ -1633,11 +1653,13 @@ const StudentDashboard = () => {
                   </Typography>
                 </Paper>
 
-                <Paper
-                  sx={{ p: 2, minWidth: 0, bgcolor: "#bfdbfe" }}
-                >
+                <Paper sx={{ p: 2, minWidth: 0, bgcolor: "#bfdbfe" }}>
                   <Typography variant="subtitle1">Active Courses</Typography>
-                  <Typography variant="h4" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
+                  <Typography
+                    variant="h4"
+                    fontWeight="bold"
+                    sx={{ lineHeight: 1.2 }}
+                  >
                     {courses.length}
                   </Typography>
                 </Paper>
@@ -1659,44 +1681,50 @@ const StudentDashboard = () => {
                   }}
                 >
                   <div style={{ height: 260, minWidth: 820 }}>
-                  <DataGrid
-                    rows={assignments.map((a, idx) => ({
-                      id: idx,
-                      title: a.title || "Untitled",
-                      status:
-                        a.status?.toLowerCase() === "submitted"
-                          ? "Submitted"
-                          : "Pending",
-                    }))}
-                    columns={[
-                      { field: "title", headerName: "Assignment", width: 300 },
-                      {
-                        field: "status",
-                        headerName: "Status",
-                        width: 200,
-                        renderCell: (params) => (
-                          <Typography
-                            color={
-                              (params.value || "Pending").toLowerCase() ===
-                              "pending"
-                                ? "red"
-                                : "green"
-                            }
-                          >
-                            {params.value || "Pending"}
-                          </Typography>
-                        ),
-                      },
-                    ]}
-                    pageSize={5}
-                    hideFooter
-                    sx={{
-                      "& .MuiDataGrid-columnHeaders": { whiteSpace: "nowrap" },
-                      "& .MuiDataGrid-virtualScroller": {
-                        overflowX: "auto !important",
-                      },
-                    }}
-                  />
+                    <DataGrid
+                      rows={assignments.map((a, idx) => ({
+                        id: idx,
+                        title: a.title || "Untitled",
+                        status:
+                          a.status?.toLowerCase() === "submitted"
+                            ? "Submitted"
+                            : "Pending",
+                      }))}
+                      columns={[
+                        {
+                          field: "title",
+                          headerName: "Assignment",
+                          width: 300,
+                        },
+                        {
+                          field: "status",
+                          headerName: "Status",
+                          width: 200,
+                          renderCell: (params) => (
+                            <Typography
+                              color={
+                                (params.value || "Pending").toLowerCase() ===
+                                "pending"
+                                  ? "red"
+                                  : "green"
+                              }
+                            >
+                              {params.value || "Pending"}
+                            </Typography>
+                          ),
+                        },
+                      ]}
+                      pageSize={5}
+                      hideFooter
+                      sx={{
+                        "& .MuiDataGrid-columnHeaders": {
+                          whiteSpace: "nowrap",
+                        },
+                        "& .MuiDataGrid-virtualScroller": {
+                          overflowX: "auto !important",
+                        },
+                      }}
+                    />
                   </div>
                 </div>
               </Box>
@@ -1710,9 +1738,7 @@ const StudentDashboard = () => {
                 }}
               >
                 {/* Quick Coach Rating */}
-                <Paper
-                  sx={{ minWidth: 0, p: 2, bgcolor: "#fef2f2" }}
-                >
+                <Paper sx={{ minWidth: 0, p: 2, bgcolor: "#fef2f2" }}>
                   <Typography variant="h6">Rate a Coach</Typography>
 
                   <TextField
@@ -1763,9 +1789,7 @@ const StudentDashboard = () => {
                 </Paper>
 
                 {/* Upcoming Class */}
-                <Paper
-                  sx={{ minWidth: 0, p: 2, bgcolor: "#e0f2fe" }}
-                >
+                <Paper sx={{ minWidth: 0, p: 2, bgcolor: "#e0f2fe" }}>
                   <Typography variant="h6" gutterBottom>
                     Upcoming Class
                   </Typography>
@@ -2252,26 +2276,27 @@ const StudentDashboard = () => {
                       </Typography>
 
                       {/* Already Submitted */}
-                      {getSubmittedAssignmentFiles(selectedAssignment).length > 0 ? (
+                      {getSubmittedAssignmentFiles(selectedAssignment).length >
+                      0 ? (
                         <Box sx={{ mt: 3 }}>
                           <Typography color="green" fontWeight="bold">
                             ✔ You already submitted this assignment
                           </Typography>
 
                           <Stack spacing={1} sx={{ mt: 2 }}>
-                            {getSubmittedAssignmentFiles(selectedAssignment).map(
-                              (fileUrl, index) => (
-                                <Button
-                                  key={`${fileUrl}-${index}`}
-                                  variant="contained"
-                                  color="success"
-                                  href={fileUrl}
-                                  target="_blank"
-                                >
-                                  View Submitted File {index + 1}
-                                </Button>
-                              )
-                            )}
+                            {getSubmittedAssignmentFiles(
+                              selectedAssignment
+                            ).map((fileUrl, index) => (
+                              <Button
+                                key={`${fileUrl}-${index}`}
+                                variant="contained"
+                                color="success"
+                                href={fileUrl}
+                                target="_blank"
+                              >
+                                View Submitted File {index + 1}
+                              </Button>
+                            ))}
                           </Stack>
                         </Box>
                       ) : selectedAssignment.isExpired ? (
@@ -2294,11 +2319,15 @@ const StudentDashboard = () => {
                               accept="image/*,.pdf,.doc,.docx,.txt"
                               style={{ marginTop: 10 }}
                               onChange={(e) =>
-                                setSubmittedFiles(Array.from(e.target.files || []))
+                                setSubmittedFiles(
+                                  Array.from(e.target.files || [])
+                                )
                               }
                             />
                             {submittedFiles.length > 0 && (
-                              <Typography sx={{ mt: 1, fontSize: 13, color: "gray" }}>
+                              <Typography
+                                sx={{ mt: 1, fontSize: 13, color: "gray" }}
+                              >
                                 {submittedFiles.length} file(s) selected
                               </Typography>
                             )}
@@ -2351,192 +2380,220 @@ const StudentDashboard = () => {
                         assignmentPage * ASSIGNMENTS_PER_PAGE
                       )
                       .map((a, index) => {
-                      const realIndex =
-                        (assignmentPage - 1) * ASSIGNMENTS_PER_PAGE + index;
-                      const assignmentId = getAssignmentId(a);
-                      const dueDate = getAssignmentDueDate(a.dueDate);
-                      const isExpired = dueDate ? dueDate < new Date() : false;
-                      const submittedFiles = getSubmittedAssignmentFiles(a);
-                      const row = {
-                        id: assignmentId || `assignment-${realIndex}`,
-                        assignmentId,
-                        title: a.title,
-                        courseName: a.courseName || "N/A",
-                        description: a.description,
-                        dueDate: dueDate ? dueDate.toLocaleDateString() : "N/A",
-                        submittedFiles,
-                        status:
-                          submittedFiles.length > 0 ||
-                          a.status?.toLowerCase() === "submitted"
-                            ? "Submitted"
-                            : isExpired
-                            ? "Expired"
-                            : "Pending",
-                        grade: getSubmittedAssignmentGrade(a),
-                        isExpired,
-                        justSubmitted: a.justSubmitted || false,
-                      };
-                      const disabled =
-                        !row.assignmentId ||
-                        row.isExpired ||
-                        row.justSubmitted;
-
-                      return (
-                        <Paper
-                          key={row.id}
-                          variant="outlined"
-                          sx={{
-                            p: 2,
-                            display: "flex",
-                            gap: 2,
-                            alignItems: { xs: "stretch", sm: "center" },
-                            justifyContent: "space-between",
-                            flexDirection: { xs: "column", sm: "row" },
-                            borderRadius: 2,
-                          }}
-                        >
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography fontWeight="bold">{row.title}</Typography>
-                            <Typography variant="body2" color="text.secondary">
-                            {row.courseName} • Due: {row.dueDate} • {row.status}
-                            {" "}• Grade: {row.grade}
-                            </Typography>
-                          </Box>
-                          <Button
-                            variant="contained"
-                            color="success"
-                            disabled={disabled}
-                            onClick={() => handleViewAssignment(row)}
-                            sx={{ flexShrink: 0 }}
-                          >
-                            {row.status === "Submitted"
-                              ? "View Submission"
-                              : row.isExpired
+                        const realIndex =
+                          (assignmentPage - 1) * ASSIGNMENTS_PER_PAGE + index;
+                        const assignmentId = getAssignmentId(a);
+                        const dueDate = getAssignmentDueDate(a.dueDate);
+                        const isExpired = dueDate
+                          ? dueDate < new Date()
+                          : false;
+                        const submittedFiles = getSubmittedAssignmentFiles(a);
+                        const row = {
+                          id: assignmentId || `assignment-${realIndex}`,
+                          assignmentId,
+                          title: a.title,
+                          courseName: a.courseName || "N/A",
+                          description: a.description,
+                          dueDate: dueDate
+                            ? dueDate.toLocaleDateString()
+                            : "N/A",
+                          submittedFiles,
+                          status:
+                            submittedFiles.length > 0 ||
+                            a.status?.toLowerCase() === "submitted"
+                              ? "Submitted"
+                              : isExpired
                               ? "Expired"
-                              : "View / Submit"}
-                          </Button>
-                        </Paper>
-                      );
-                    })}
+                              : "Pending",
+                          grade: getSubmittedAssignmentGrade(a),
+                          isExpired,
+                          justSubmitted: a.justSubmitted || false,
+                        };
+                        const disabled =
+                          !row.assignmentId ||
+                          row.isExpired ||
+                          row.justSubmitted;
+
+                        return (
+                          <Paper
+                            key={row.id}
+                            variant="outlined"
+                            sx={{
+                              p: 2,
+                              display: "flex",
+                              gap: 2,
+                              alignItems: { xs: "stretch", sm: "center" },
+                              justifyContent: "space-between",
+                              flexDirection: { xs: "column", sm: "row" },
+                              borderRadius: 2,
+                            }}
+                          >
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography fontWeight="bold">
+                                {row.title}
+                              </Typography>
+                              <Typography
+                                variant="body2"
+                                color="text.secondary"
+                              >
+                                {row.courseName} • Due: {row.dueDate} •{" "}
+                                {row.status} • Grade: {row.grade}
+                              </Typography>
+                            </Box>
+                            <Button
+                              variant="contained"
+                              color="success"
+                              disabled={disabled}
+                              onClick={() => handleViewAssignment(row)}
+                              sx={{ flexShrink: 0 }}
+                            >
+                              {row.status === "Submitted"
+                                ? "View Submission"
+                                : row.isExpired
+                                ? "Expired"
+                                : "View / Submit"}
+                            </Button>
+                          </Paper>
+                        );
+                      })}
                   </Stack>
                   {Math.ceil(assignments.length / ASSIGNMENTS_PER_PAGE) > 1 && (
                     <Stack alignItems="center" sx={{ mb: 3 }}>
                       <Pagination
-                        count={Math.ceil(assignments.length / ASSIGNMENTS_PER_PAGE)}
+                        count={Math.ceil(
+                          assignments.length / ASSIGNMENTS_PER_PAGE
+                        )}
                         page={assignmentPage}
                         color="success"
                         onChange={(_, page) => setAssignmentPage(page)}
                       />
                     </Stack>
                   )}
-                {false && (
-                <div style={{ height: 500, width: "100%" }}>
-                  <DataGrid
-                    getRowId={(row) => row.id}
-                    rows={assignments.map((a, index) => {
-                      const assignmentId = getAssignmentId(a);
-                      const dueDate = getAssignmentDueDate(a.dueDate);
-                      const isExpired = dueDate ? dueDate < new Date() : false;
-                      const submittedFile = getSubmittedAssignmentFile(a);
-                      const submittedFiles = getSubmittedAssignmentFiles(a);
+                  {false && (
+                    <div style={{ height: 500, width: "100%" }}>
+                      <DataGrid
+                        getRowId={(row) => row.id}
+                        rows={assignments.map((a, index) => {
+                          const assignmentId = getAssignmentId(a);
+                          const dueDate = getAssignmentDueDate(a.dueDate);
+                          const isExpired = dueDate
+                            ? dueDate < new Date()
+                            : false;
+                          const submittedFile = getSubmittedAssignmentFile(a);
+                          const submittedFiles = getSubmittedAssignmentFiles(a);
 
-                      return {
-                        id: assignmentId || `assignment-${index}`,
-                        assignmentId,
-                        title: a.title,
-                        courseName: a.courseName || "N/A",
-                        description: a.description,
-                        dueDate: dueDate ? dueDate.toLocaleDateString() : "N/A",
-                        submittedFile,
-                        submittedFiles,
-                        status:
-                          submittedFiles.length > 0 ||
-                          a.status?.toLowerCase() === "submitted"
-                            ? "Submitted"
-                            : isExpired
-                            ? "Expired"
-                            : "Pending",
-                        grade: a.grade || "-",
-                        isExpired,
-                        justSubmitted: a.justSubmitted || false, // flag after submission
-                      };
-                    })}
-                    columns={[
-                      {
-                        field: "actions",
-                        headerName: "Submit",
-                        width: 230,
-                        renderCell: (params) => {
-                          const disabled =
-                            !params.row.assignmentId ||
-                            params.row.status === "Submitted" ||
-                            params.row.isExpired ||
-                            params.row.justSubmitted;
-                          const buttonLabel =
-                            params.row.justSubmitted ||
-                            params.row.status === "Submitted"
-                              ? "Submitted"
-                              : params.row.isExpired
-                              ? "Expired"
-                              : !params.row.assignmentId
-                              ? "Not Available"
-                              : "View / Submit";
+                          return {
+                            id: assignmentId || `assignment-${index}`,
+                            assignmentId,
+                            title: a.title,
+                            courseName: a.courseName || "N/A",
+                            description: a.description,
+                            dueDate: dueDate
+                              ? dueDate.toLocaleDateString()
+                              : "N/A",
+                            submittedFile,
+                            submittedFiles,
+                            status:
+                              submittedFiles.length > 0 ||
+                              a.status?.toLowerCase() === "submitted"
+                                ? "Submitted"
+                                : isExpired
+                                ? "Expired"
+                                : "Pending",
+                            grade: a.grade || "-",
+                            isExpired,
+                            justSubmitted: a.justSubmitted || false, // flag after submission
+                          };
+                        })}
+                        columns={[
+                          {
+                            field: "actions",
+                            headerName: "Submit",
+                            width: 230,
+                            renderCell: (params) => {
+                              const disabled =
+                                !params.row.assignmentId ||
+                                params.row.status === "Submitted" ||
+                                params.row.isExpired ||
+                                params.row.justSubmitted;
+                              const buttonLabel =
+                                params.row.justSubmitted ||
+                                params.row.status === "Submitted"
+                                  ? "Submitted"
+                                  : params.row.isExpired
+                                  ? "Expired"
+                                  : !params.row.assignmentId
+                                  ? "Not Available"
+                                  : "View / Submit";
 
-                          return (
-                            <Button
-                              variant="contained"
-                              color="success"
-                              size="small"
-                              disabled={disabled}
-                              onClick={() => handleViewAssignment(params.row)}
-                              sx={{ whiteSpace: "nowrap" }}
-                            >
-                              {buttonLabel}
-                            </Button>
-                          );
-                        },
-                      },
-                      { field: "title", headerName: "Assignment", width: 250 },
-                      { field: "courseName", headerName: "Course", width: 180 },
-                      { field: "dueDate", headerName: "Due Date", width: 160 },
+                              return (
+                                <Button
+                                  variant="contained"
+                                  color="success"
+                                  size="small"
+                                  disabled={disabled}
+                                  onClick={() =>
+                                    handleViewAssignment(params.row)
+                                  }
+                                  sx={{ whiteSpace: "nowrap" }}
+                                >
+                                  {buttonLabel}
+                                </Button>
+                              );
+                            },
+                          },
+                          {
+                            field: "title",
+                            headerName: "Assignment",
+                            width: 250,
+                          },
+                          {
+                            field: "courseName",
+                            headerName: "Course",
+                            width: 180,
+                          },
+                          {
+                            field: "dueDate",
+                            headerName: "Due Date",
+                            width: 160,
+                          },
 
-                      {
-                        field: "status",
-                        headerName: "Status",
-                        width: 120,
-                        renderCell: (params) => (
-                          <Typography
-                            color={
-                              params.value === "Pending"
-                                ? "red"
-                                : params.value === "Expired"
-                                ? "gray"
-                                : "green"
-                            }
-                          >
-                            {params.value}
-                          </Typography>
-                        ),
-                      },
+                          {
+                            field: "status",
+                            headerName: "Status",
+                            width: 120,
+                            renderCell: (params) => (
+                              <Typography
+                                color={
+                                  params.value === "Pending"
+                                    ? "red"
+                                    : params.value === "Expired"
+                                    ? "gray"
+                                    : "green"
+                                }
+                              >
+                                {params.value}
+                              </Typography>
+                            ),
+                          },
 
-                      {
-                        field: "grade",
-                        headerName: "Grade",
-                        width: 100,
-                        renderCell: (params) => (
-                          <Typography
-                            color={params.value === "-" ? "gray" : "blue"}
-                          >
-                            {params.value}
-                          </Typography>
-                        ),
-                      },
-
-                    ]}
-                    pageSize={5}
-                  />
-                </div>
-                )}
+                          {
+                            field: "grade",
+                            headerName: "Grade",
+                            width: 100,
+                            renderCell: (params) => (
+                              <Typography
+                                color={params.value === "-" ? "gray" : "blue"}
+                              >
+                                {params.value}
+                              </Typography>
+                            ),
+                          },
+                        ]}
+                        pageSize={5}
+                      />
+                    </div>
+                  )}
                 </>
               )}
             </Paper>
@@ -2870,8 +2927,8 @@ const StudentDashboard = () => {
 
               {liveCohortsWithAppliedCourses.length === 0 && (
                 <Typography sx={{ mt: 2 }} color="warning.main">
-                  You have not been assigned any active class yet. Please tell your
-                  coach to start your course so it appears here.
+                  You have not been assigned any active class yet. Please tell
+                  your coach to start your course so it appears here.
                 </Typography>
               )}
 
@@ -3362,7 +3419,8 @@ const StudentDashboard = () => {
                         {course.name || course.title || "Untitled Course"}
                       </Typography>
                       <Typography variant="body2" color="text.secondary">
-                        {course.category || "General"} • {course.duration || "N/A"}
+                        {course.category || "General"} •{" "}
+                        {course.duration || "N/A"}
                       </Typography>
                     </Paper>
                   ))}
@@ -3370,38 +3428,6 @@ const StudentDashboard = () => {
               ) : (
                 <Typography>No courses available yet.</Typography>
               )}
-            </Paper>
-          )}
-
-          {activeTab === "more" && (
-            <Paper sx={{ p: 4 }}>
-              <Typography variant="h5" fontWeight="bold" gutterBottom>
-                More
-              </Typography>
-              <Typography sx={{ mb: 2 }}>
-                Use profile to update details and change password.
-              </Typography>
-              <Button variant="contained" sx={{ mr: 1, mb: 1 }} onClick={() => navigate("/profile")}>
-                Open Profile & Change Password
-              </Button>
-              <Button
-                variant="outlined"
-                sx={{ mr: 1, mb: 1 }}
-                onClick={() => setActiveTab("rate-coach")}
-              >
-                Rate Coach
-              </Button>
-              <Button
-                variant="outlined"
-                color="error"
-                sx={{ mb: 1 }}
-                onClick={handleLogout}
-              >
-                Logout
-              </Button>
-              <Typography sx={{ mt: 2 }} color="text.secondary">
-                Password change requires your old password before new password.
-              </Typography>
             </Paper>
           )}
         </Box>
