@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
+  IconButton,
   FormControl,
   InputLabel,
   Menu,
@@ -16,7 +17,10 @@ import ThumbUpAltOutlinedIcon from "@mui/icons-material/ThumbUpAltOutlined";
 import ThumbDownAltOutlinedIcon from "@mui/icons-material/ThumbDownAltOutlined";
 import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
+import ReplyOutlinedIcon from "@mui/icons-material/ReplyOutlined";
+import CloseIcon from "@mui/icons-material/Close";
 import axios from "axios";
+import { io } from "socket.io-client";
 
 const formatDayLabel = (value) => {
   const date = new Date(value || 0);
@@ -49,6 +53,15 @@ const canEditMessage = (message) => {
   return Date.now() - createdAt <= 20 * 60 * 1000;
 };
 
+const getTwoNames = (rawName = "User") => {
+  const parts = String(rawName)
+    .trim()
+    .split(/\s+/)
+    .filter(Boolean);
+  if (parts.length >= 2) return `${parts[0]} ${parts[1]}`;
+  return parts[0] || "User";
+};
+
 const GlobalChatPanel = ({
   role = "student",
   token,
@@ -76,7 +89,13 @@ const GlobalChatPanel = ({
   const [editText, setEditText] = useState("");
   const [deleteAnchorEl, setDeleteAnchorEl] = useState(null);
   const [deleteMessageId, setDeleteMessageId] = useState("");
+  const [replyTarget, setReplyTarget] = useState(null);
+  const [highlightedMessageId, setHighlightedMessageId] = useState("");
+  const swipeStartXRef = useRef(0);
   const scrollBoxRef = useRef(null);
+  const socketRef = useRef(null);
+  const typingTimeoutRef = useRef(null);
+  const [typingUsers, setTypingUsers] = useState([]);
   const hiddenMessagesKey = `group_chat_hidden_${role}_${channel}`;
   const lastSeenKey = `group_chat_last_seen_${role}_${channel}`;
   const [hiddenMessageIds, setHiddenMessageIds] = useState(() => {
@@ -369,17 +388,31 @@ const GlobalChatPanel = ({
 
   const sendMessage = async () => {
     if (!text.trim()) return;
+    const finalText = replyTarget
+      ? `↪ ${replyTarget.senderName}: ${replyTarget.preview}\n${text.trim()}`
+      : text.trim();
     try {
       setSending(true);
       const { data } = await callChatApiWithStudentsAlias((resolvedChannel) =>
         axios.post(
           `${baseUrl}/api/group-chat/${resolvedChannel}/messages`,
-          { text: text.trim() },
+          { text: finalText },
           { headers: { Authorization: `Bearer ${token}` } }
         )
       );
       if (data?.message) setMessages((prev) => [...prev, data.message]);
       setText("");
+      setReplyTarget(null);
+      setTypingUsers([]);
+      const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+      const currentUserId = currentUser?.id || currentUser?._id;
+      const firstName = getTwoNames(currentUser?.fullName || currentUser?.name || "User");
+      socketRef.current?.emit("groupChatTyping", {
+        channel,
+        userId: currentUserId,
+        firstName,
+        isTyping: false,
+      });
     } finally {
       setSending(false);
     }
@@ -396,6 +429,55 @@ const GlobalChatPanel = ({
     if (!box) return;
     box.scrollTop = box.scrollHeight;
   }, [channel, visibleMessages.length]);
+
+  useEffect(() => {
+    if (!baseUrl || !token) return;
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUserId = currentUser?.id || currentUser?._id;
+
+    const socket = io(baseUrl, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+    });
+    socketRef.current = socket;
+
+    const onGroupMessage = ({ channel: incomingChannel, message }) => {
+      const resolvedChannel =
+        incomingChannel === "users" ? "students" : incomingChannel;
+      if (resolvedChannel !== channel || !message?._id) return;
+      setMessages((prev) => {
+        const byId = new Map();
+        [...prev, message].forEach((m) => byId.set(String(m._id), m));
+        return Array.from(byId.values()).sort(
+          (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+        );
+      });
+    };
+
+    const onTyping = ({ channel: incomingChannel, userId, firstName, isTyping }) => {
+      const resolvedChannel =
+        incomingChannel === "users" ? "students" : incomingChannel;
+      if (resolvedChannel !== channel) return;
+      if (!userId || String(userId) === String(currentUserId)) return;
+      setTypingUsers((prev) => {
+        const cleaned = prev.filter((u) => String(u.userId) !== String(userId));
+        if (!isTyping) return cleaned;
+        return [...cleaned, { userId, firstName: getTwoNames(firstName || "User") }];
+      });
+    };
+
+    socket.on("groupChatMessage", onGroupMessage);
+    socket.on("groupChatTyping", onTyping);
+    socket.emit("joinGroupChat", { channel });
+
+    return () => {
+      socket.off("groupChatMessage", onGroupMessage);
+      socket.off("groupChatTyping", onTyping);
+      socket.disconnect();
+      socketRef.current = null;
+      if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+    };
+  }, [baseUrl, token, channel]);
 
   return (
     <Paper sx={{ p: 3, borderRadius: 3 }}>
@@ -446,6 +528,33 @@ const GlobalChatPanel = ({
             </Typography>
           </Box>
         )}
+      {replyTarget && (
+        <Box
+          sx={{
+            mb: 1.5,
+            p: 1,
+            borderRadius: 2,
+            border: "1px solid #cbd5e1",
+            bgcolor: "#f8fafc",
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            gap: 1,
+          }}
+        >
+          <Box>
+            <Typography sx={{ fontSize: 11, fontWeight: 700, color: "#0f172a" }}>
+              Replying to {replyTarget.senderName}
+            </Typography>
+            <Typography sx={{ fontSize: 12, color: "#334155" }}>
+              {replyTarget.preview}
+            </Typography>
+          </Box>
+          <IconButton size="small" onClick={() => setReplyTarget(null)}>
+            <CloseIcon fontSize="small" />
+          </IconButton>
+        </Box>
+      )}
 
       <Box
         ref={scrollBoxRef}
@@ -516,13 +625,36 @@ const GlobalChatPanel = ({
                 >
                   <Box
                     sx={{
-                      maxWidth: "80%",
+                      maxWidth: "92%",
                       px: 1.5,
                       py: 1,
                       borderRadius: 2,
                       bgcolor: mine ? "#10b981" : isUnread ? "#dbeafe" : "#e2e8f0",
                       color: mine ? "white" : "#0f172a",
-                      border: isUnread ? "1px solid #93c5fd" : "1px solid transparent",
+                      border:
+                        String(msg._id) === String(highlightedMessageId)
+                          ? "2px solid #2563eb"
+                          : isUnread
+                          ? "1px solid #93c5fd"
+                          : "1px solid transparent",
+                      transition: "border-color 0.15s ease",
+                    }}
+                    onTouchStart={(e) => {
+                      swipeStartXRef.current = e.touches?.[0]?.clientX || 0;
+                    }}
+                    onTouchEnd={(e) => {
+                      const endX = e.changedTouches?.[0]?.clientX || 0;
+                      const delta = endX - swipeStartXRef.current;
+                      if (Math.abs(delta) > 45) {
+                        const preview = String(msg?.text || "").slice(0, 70);
+                        const replyName = mine ? "You" : senderName;
+                        setHighlightedMessageId(String(msg._id));
+                        setReplyTarget({
+                          id: String(msg._id),
+                          senderName: replyName,
+                          preview,
+                        });
+                      }
                     }}
                   >
                     <Typography
@@ -565,7 +697,7 @@ const GlobalChatPanel = ({
                     >
                       {formatTimeLabel(msg?.createdAt || msg?.updatedAt)}
                     </Typography>
-                    <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
+                    <Box sx={{ display: "flex", gap: 1, mt: 0.5, flexWrap: "wrap" }}>
                       <Button
                         size="small"
                         onClick={() => reactToMessage(msg._id, "like")}
@@ -605,6 +737,23 @@ const GlobalChatPanel = ({
                           Delete
                         </Button>
                       )}
+                      <Button
+                        size="small"
+                        onClick={() => {
+                          const preview = String(msg?.text || "").slice(0, 70);
+                          const replyName = mine ? "You" : senderName;
+                          setHighlightedMessageId(String(msg._id));
+                          setReplyTarget({
+                            id: String(msg._id),
+                            senderName: replyName,
+                            preview,
+                          });
+                        }}
+                        startIcon={<ReplyOutlinedIcon fontSize="small" />}
+                        sx={{ minWidth: 0, px: 1 }}
+                      >
+                        Reply
+                      </Button>
                     </Box>
                   </Box>
                 </Box>
@@ -613,6 +762,11 @@ const GlobalChatPanel = ({
           })
         )}
       </Box>
+      {typingUsers.length > 0 && (
+        <Typography sx={{ mb: 1, fontSize: 12, color: "#64748b", fontWeight: 600 }}>
+          {typingUsers.map((u) => u.firstName).join(", ")} typing...
+        </Typography>
+      )}
 
       <Menu
         anchorEl={deleteAnchorEl}
@@ -653,7 +807,29 @@ const GlobalChatPanel = ({
           maxRows={6}
           placeholder="Type a message..."
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => {
+            const nextText = e.target.value;
+            setText(nextText);
+            if (!socketRef.current) return;
+            const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+            const currentUserId = currentUser?.id || currentUser?._id;
+            const firstName = getTwoNames(currentUser?.fullName || currentUser?.name || "User");
+            socketRef.current.emit("groupChatTyping", {
+              channel,
+              userId: currentUserId,
+              firstName,
+              isTyping: nextText.trim().length > 0,
+            });
+            if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
+            typingTimeoutRef.current = setTimeout(() => {
+              socketRef.current?.emit("groupChatTyping", {
+                channel,
+                userId: currentUserId,
+                firstName,
+                isTyping: false,
+              });
+            }, 1200);
+          }}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !e.shiftKey) {
               e.preventDefault();

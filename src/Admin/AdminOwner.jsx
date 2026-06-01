@@ -144,6 +144,10 @@ const AdminOwner = () => {
   const [broadcastMessage, setBroadcastMessage] = useState("");
   const [sendingBroadcast, setSendingBroadcast] = useState(false);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [chatUnreadByChannel, setChatUnreadByChannel] = useState({
+    students: 0,
+    coaches: 0,
+  });
 
   // ✅ Filter students by name, email, or phone number
   const filteredStudent = useMemo(() => {
@@ -199,6 +203,7 @@ const AdminOwner = () => {
     const pollUnread = async () => {
       try {
         let total = 0;
+        const nextByChannel = { students: 0, coaches: 0 };
         for (const channel of channels) {
           let data;
           try {
@@ -230,14 +235,17 @@ const AdminOwner = () => {
           }
           const messages = Array.isArray(data?.messages) ? data.messages : [];
           const lastSeen = new Date(localStorage.getItem(makeKey(channel)) || 0);
-          total += messages.filter((m) => {
+          const count = messages.filter((m) => {
             const senderId = m?.senderId?._id || m?.senderId;
             return (
               new Date(m.createdAt || m.updatedAt || 0) > lastSeen &&
               String(senderId) !== String(currentUserId)
             );
           }).length;
+          nextByChannel[channel] = count;
+          total += count;
         }
+        setChatUnreadByChannel(nextByChannel);
         if (activeTab !== "chat") setChatUnreadCount(total);
       } catch {
         // no-op
@@ -1223,6 +1231,10 @@ const AdminOwner = () => {
         </Badge>
       ),
       key: "chat",
+      secondary:
+        chatUnreadByChannel.students || chatUnreadByChannel.coaches
+          ? `${chatUnreadByChannel.students} unread from students, ${chatUnreadByChannel.coaches} unread from coaches`
+          : "No unread messages",
     },
     { text: "Create Course", icon: <ManageAccounts />, key: "create-course" },
     {
@@ -1510,6 +1522,10 @@ const AdminOwner = () => {
               <ListItemText
                 primary={item.text}
                 primaryTypographyProps={{ sx: { color: "#fff" } }}
+                secondary={item.secondary || ""}
+                secondaryTypographyProps={{
+                  sx: { color: "rgba(255,255,255,0.82)", fontSize: 11, fontWeight: 600 },
+                }}
               />
             </ListItemButton>
           ))}
@@ -3265,13 +3281,18 @@ const AdminOwner = () => {
               role="owner"
               token={token}
               baseUrl={BASE_URL}
+              unreadSummary={chatUnreadByChannel}
               onSeen={(seenChannel) => {
                 if (!seenChannel) return;
                 localStorage.setItem(
                   `group_chat_last_seen_owner_${seenChannel}`,
                   new Date().toISOString()
                 );
-                setChatUnreadCount(0);
+                setChatUnreadByChannel((prev) => {
+                  const next = { ...prev, [seenChannel]: 0 };
+                  setChatUnreadCount((next.students || 0) + (next.coaches || 0));
+                  return next;
+                });
               }}
             />
           </Container>

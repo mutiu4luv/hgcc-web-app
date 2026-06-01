@@ -23,6 +23,10 @@ const MobileBottomNav = ({
   chatUnreadCount = 0,
 }) => {
   const [moreAnchor, setMoreAnchor] = React.useState(null);
+  const handleNavChange = (_, next) => {
+    if (next === "more" || next === "profile") return;
+    onChange(next);
+  };
 
   return (
     <Paper
@@ -35,7 +39,7 @@ const MobileBottomNav = ({
       }}
       elevation={8}
     >
-      <BottomNavigation value={value} onChange={(_, next) => onChange(next)} showLabels>
+      <BottomNavigation value={value} onChange={handleNavChange} showLabels>
         <BottomNavigationAction label="Dashboard" value="dashboard" icon={<Dashboard />} />
         <BottomNavigationAction
           label="Chat"
