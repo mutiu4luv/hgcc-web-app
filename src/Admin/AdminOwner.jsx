@@ -200,10 +200,34 @@ const AdminOwner = () => {
       try {
         let total = 0;
         for (const channel of channels) {
-          const { data } = await axios.get(
-            `${BASE_URL}/api/group-chat/${channel}/messages`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          let data;
+          try {
+            if (channel === "students") {
+              const res = await axios.get(
+                `${BASE_URL}/api/group-chat/students/messages`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              data = res.data;
+            } else {
+              const res = await axios.get(
+                `${BASE_URL}/api/group-chat/coaches/messages`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              data = res.data;
+            }
+          } catch (error) {
+            const useLegacyUsers =
+              channel === "students" &&
+              (error?.response?.status === 400 ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404);
+            if (!useLegacyUsers) continue;
+            const legacyRes = await axios.get(
+              `${BASE_URL}/api/group-chat/users/messages`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            data = legacyRes.data;
+          }
           const messages = Array.isArray(data?.messages) ? data.messages : [];
           const lastSeen = new Date(localStorage.getItem(makeKey(channel)) || 0);
           total += messages.filter((m) => {
@@ -3241,10 +3265,12 @@ const AdminOwner = () => {
               role="owner"
               token={token}
               baseUrl={BASE_URL}
-              onSeen={() => {
-                const now = new Date().toISOString();
-                localStorage.setItem("group_chat_last_seen_owner_students", now);
-                localStorage.setItem("group_chat_last_seen_owner_coaches", now);
+              onSeen={(seenChannel) => {
+                if (!seenChannel) return;
+                localStorage.setItem(
+                  `group_chat_last_seen_owner_${seenChannel}`,
+                  new Date().toISOString()
+                );
                 setChatUnreadCount(0);
               }}
             />

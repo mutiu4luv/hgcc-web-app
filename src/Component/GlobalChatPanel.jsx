@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -76,6 +76,7 @@ const GlobalChatPanel = ({
   const [editText, setEditText] = useState("");
   const [deleteAnchorEl, setDeleteAnchorEl] = useState(null);
   const [deleteMessageId, setDeleteMessageId] = useState("");
+  const scrollBoxRef = useRef(null);
   const hiddenMessagesKey = `group_chat_hidden_${role}_${channel}`;
   const lastSeenKey = `group_chat_last_seen_${role}_${channel}`;
   const [hiddenMessageIds, setHiddenMessageIds] = useState(() => {
@@ -222,12 +223,13 @@ const GlobalChatPanel = ({
         );
         if (mounted) {
           const incoming = Array.isArray(data?.messages) ? data.messages : [];
-          const byId = new Map();
-          [...messages, ...incoming].forEach((m) => byId.set(String(m._id), m));
-          const merged = Array.from(byId.values()).sort(
-            (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
-          );
-          setMessages(merged);
+          setMessages((prev) => {
+            const byId = new Map();
+            [...prev, ...incoming].forEach((m) => byId.set(String(m._id), m));
+            return Array.from(byId.values()).sort(
+              (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+            );
+          });
           setHasMore(Boolean(data?.hasMore));
         }
       } catch {
@@ -380,6 +382,12 @@ const GlobalChatPanel = ({
     (msg) => !hiddenMessageIds.includes(String(msg._id))
   );
 
+  useEffect(() => {
+    const box = scrollBoxRef.current;
+    if (!box) return;
+    box.scrollTop = box.scrollHeight;
+  }, [channel, visibleMessages.length]);
+
   return (
     <Paper sx={{ p: 3, borderRadius: 3 }}>
       <Box sx={{ mb: 2, display: "flex", justifyContent: "space-between", gap: 1 }}>
@@ -431,6 +439,7 @@ const GlobalChatPanel = ({
         )}
 
       <Box
+        ref={scrollBoxRef}
         sx={{
           border: "1px solid #e5e7eb",
           borderRadius: 2,

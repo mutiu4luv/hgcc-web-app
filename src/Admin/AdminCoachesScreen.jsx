@@ -534,6 +534,7 @@ const CoachDashboard = () => {
   const [startingLive, setStartingLive] = useState(false);
   const [endingLive, setEndingLive] = useState(false);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const activeTabRef = useRef(activeTab);
   const [chatUnreadByChannel, setChatUnreadByChannel] = useState({
     students: 0,
     coaches: 0,
@@ -1001,6 +1002,10 @@ const CoachDashboard = () => {
   }, [cohortId, courseId]);
 
   useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
+  useEffect(() => {
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const currentUserId = currentUser?.id || currentUser?._id;
     const channels = ["coaches", "students"];
@@ -1059,9 +1064,9 @@ const CoachDashboard = () => {
     };
 
     pollUnread();
-    const interval = setInterval(pollUnread, 7000);
+    const interval = setInterval(pollUnread, 30000);
     return () => clearInterval(interval);
-  }, [activeTab, BASE_URL, token]);
+  }, [BASE_URL, token]);
 
   useEffect(() => {
     if (!BASE_URL || !token) return;
@@ -1082,6 +1087,7 @@ const CoachDashboard = () => {
       const incomingChannel = channel || message?.channel;
       if (incomingChannel !== "students" && incomingChannel !== "coaches") return;
 
+      if (activeTabRef.current === "chat") return;
       setChatUnreadByChannel((prev) => {
         const next = {
           ...prev,
@@ -1098,7 +1104,7 @@ const CoachDashboard = () => {
       socket.off("groupChatMessage", handleGroupMessage);
       socket.disconnect();
     };
-  }, [activeTab, BASE_URL, token]);
+  }, [BASE_URL, token]);
 
   const markGroupChannelSeen = (seenChannel) => {
     if (!seenChannel) return;
