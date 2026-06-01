@@ -1486,7 +1486,7 @@ const StudentDashboard = () => {
   return (
     <Box sx={{ display: "flex", minHeight: "100vh", width: "100%", minWidth: 0 }}>
       {/* Sidebar */}
-      <Box sx={{ display: "flex", minHeight: "100vh" }}>
+      <Box sx={{ display: "flex", minHeight: "100vh", minWidth: 0, width: "100%" }}>
         <Drawer
           variant={isMobile ? "temporary" : "permanent"}
           open={isMobile ? mobileOpen : true}
@@ -1575,16 +1575,17 @@ const StudentDashboard = () => {
             flexGrow: 1,
             minWidth: 0,
             // ml: isMobile ? 0 : `${drawerWidth}px`,
-            p: { xs: 2, md: 4 },
-            overflowY: "auto",
-            overflowX: "auto",
+            p: { xs: 1.5, md: 4 },
+            pt: { xs: 9, md: 4 },
+            pb: { xs: 10, md: 4 },
+            overflow: "visible",
           }}
         >
           {/* Dashboard */}
           {activeTab === "dashboard" && (
-            <Paper sx={{ p: 4, mb: 4 }}>
+            <Paper sx={{ p: { xs: 2, md: 4 }, mb: 4 }}>
               <Typography
-                variant="h4"
+                variant={isMobile ? "h5" : "h4"}
                 color="green"
                 fontWeight="bold"
                 gutterBottom
@@ -1643,12 +1644,20 @@ const StudentDashboard = () => {
               </Box>
 
               {/* Assignment Table */}
-              <Box sx={{ height: 300, mb: 4 }}>
+              <Box sx={{ height: { xs: 320, md: 300 }, mb: 4 }}>
                 <Typography variant="h6" gutterBottom>
                   Assignment Status
                 </Typography>
 
-                <div style={{ width: "100%", overflowX: "auto" }}>
+                <div
+                  style={{
+                    width: "100%",
+                    overflowX: "auto",
+                    overflowY: "hidden",
+                    WebkitOverflowScrolling: "touch",
+                    touchAction: "pan-x",
+                  }}
+                >
                   <div style={{ height: 260, minWidth: 820 }}>
                   <DataGrid
                     rows={assignments.map((a, idx) => ({
@@ -1683,6 +1692,9 @@ const StudentDashboard = () => {
                     hideFooter
                     sx={{
                       "& .MuiDataGrid-columnHeaders": { whiteSpace: "nowrap" },
+                      "& .MuiDataGrid-virtualScroller": {
+                        overflowX: "auto !important",
+                      },
                     }}
                   />
                   </div>
@@ -1690,10 +1702,16 @@ const StudentDashboard = () => {
               </Box>
 
               {/* Quick Coach Rating + Upcoming Class */}
-              <Box sx={{ display: "flex", gap: 2, flexWrap: "wrap" }}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: { xs: "1fr", md: "1fr 1fr" },
+                  gap: 2,
+                }}
+              >
                 {/* Quick Coach Rating */}
                 <Paper
-                  sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#fef2f2" }}
+                  sx={{ minWidth: 0, p: 2, bgcolor: "#fef2f2" }}
                 >
                   <Typography variant="h6">Rate a Coach</Typography>
 
@@ -1746,7 +1764,7 @@ const StudentDashboard = () => {
 
                 {/* Upcoming Class */}
                 <Paper
-                  sx={{ flex: 1, minWidth: 300, p: 2, bgcolor: "#e0f2fe" }}
+                  sx={{ minWidth: 0, p: 2, bgcolor: "#e0f2fe" }}
                 >
                   <Typography variant="h6" gutterBottom>
                     Upcoming Class
