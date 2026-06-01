@@ -24,6 +24,7 @@ import {
   InputLabel,
   Select,
   Badge,
+  Pagination,
 } from "@mui/material";
 import { Grid, Card, CardContent, CardMedia, CardActions } from "@mui/material";
 
@@ -58,6 +59,7 @@ import MobileBottomNav from "../Component/MobileBottomNav";
 pdfjs.GlobalWorkerOptions.workerSrc = `https://unpkg.com/pdfjs-dist@3.9.179/build/pdf.worker.min.js`;
 
 const drawerWidth = 250;
+const ASSIGNMENTS_PER_PAGE = 20;
 
 const getAssignmentDueDate = (dateValue) => {
   if (!dateValue) return null;
@@ -105,6 +107,20 @@ const getSubmittedAssignmentFiles = (assignment) => {
   return fallback ? [fallback] : [];
 };
 
+const getSubmittedAssignmentGrade = (assignment) => {
+  const grade =
+    assignment?.grade ??
+    assignment?.submission?.grade ??
+    assignment?.submissions?.[0]?.grade;
+
+  return grade === null || grade === undefined || grade === ""
+    || grade === "-"
+    || String(grade).toLowerCase() === "not graded"
+    || String(grade).toLowerCase() === "not graded yet"
+    ? "Not graded by coach"
+    : `${grade}%`;
+};
+
 const StudentDashboard = () => {
   const defaultLayoutPluginInstance = defaultLayoutPlugin();
   const BASE_URL = import.meta.env.VITE_BASE_URL;
@@ -117,6 +133,7 @@ const StudentDashboard = () => {
   const [myDocuments, setMyDocuments] = useState([]);
   const [loadingDocuments, setLoadingDocuments] = useState(false);
   const [assignments, setAssignments] = useState([]);
+  const [assignmentPage, setAssignmentPage] = useState(1);
   const [mySubmissions, setMySubmissions] = useState([]);
   const [coaches, setCoaches] = useState([]);
   const [courses, setCourses] = useState([]);
@@ -719,6 +736,37 @@ const StudentDashboard = () => {
     return () => clearInterval(interval);
   }, [activeTab, BASE_URL, token]);
 
+  useEffect(() => {
+    if (!BASE_URL || !token) return;
+
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUserId = currentUser?.id || currentUser?._id;
+    const socket = io(BASE_URL, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+    });
+
+    socket.emit("joinGroupChat", { channel: "students" });
+
+    const handleGroupMessage = ({ channel, message }) => {
+      if (channel !== "students") return;
+      const senderId = message?.senderId?._id || message?.senderId;
+      if (
+        activeTab !== "chat" &&
+        String(senderId) !== String(currentUserId)
+      ) {
+        setChatUnreadCount((count) => count + 1);
+      }
+    };
+
+    socket.on("groupChatMessage", handleGroupMessage);
+
+    return () => {
+      socket.off("groupChatMessage", handleGroupMessage);
+      socket.disconnect();
+    };
+  }, [activeTab, BASE_URL, token]);
+
   // Send cohort chat message
   const sendMessage = async () => {
     if (!canShowChat || !text.trim()) return;
@@ -1222,6 +1270,10 @@ const StudentDashboard = () => {
     loadAssignments();
   }, [token]);
 
+  useEffect(() => {
+    setAssignmentPage(1);
+  }, [assignments.length]);
+
   // =========================
   // FETCH SUBMISSIONS
   // =========================
@@ -1415,7 +1467,7 @@ const StudentDashboard = () => {
   }
 
   return (
-    <Box sx={{ display: "flex", minHeight: "100vh", width: "100%" }}>
+    <Box sx={{ display: "flex", minHeight: "100vh", width: "100%", minWidth: 0 }}>
       {/* Sidebar */}
       <Box sx={{ display: "flex", minHeight: "100vh" }}>
         <Drawer
@@ -1504,9 +1556,11 @@ const StudentDashboard = () => {
         <Box
           sx={{
             flexGrow: 1,
+            minWidth: 0,
             // ml: isMobile ? 0 : `${drawerWidth}px`,
             p: { xs: 2, md: 4 },
             overflowY: "auto",
+            overflowX: "hidden",
           }}
         >
           {/* Dashboard */}
@@ -1566,7 +1620,8 @@ const StudentDashboard = () => {
                   Assignment Status
                 </Typography>
 
-                <div style={{ height: 250, width: "100%" }}>
+                <div style={{ width: "100%", overflowX: "auto" }}>
+                  <div style={{ height: 250, minWidth: 700 }}>
                   <DataGrid
                     rows={assignments.map((a, idx) => ({
                       id: idx,
@@ -1599,6 +1654,7 @@ const StudentDashboard = () => {
                     pageSize={5}
                     hideFooter
                   />
+                  </div>
                 </div>
               </Box>
 
@@ -2098,16 +2154,22 @@ const StudentDashboard = () => {
               <Modal
                 open={openAssignmentModal}
                 onClose={() => setOpenAssignmentModal(false)}
+                sx={{
+                  display: "flex",
+                  alignItems: "center",
+                  justifyContent: "center",
+                  p: 2,
+                }}
               >
                 <Box
                   sx={{
                     width: "90%",
                     maxWidth: 500,
+                    maxHeight: "90vh",
+                    overflowY: "auto",
                     background: "#fff",
                     p: 4,
                     borderRadius: 4,
-                    mx: "auto",
-                    mt: 10,
                     boxShadow: 4,
                   }}
                 >
@@ -2133,6 +2195,11 @@ const StudentDashboard = () => {
                               selectedAssignment.dueDate
                             )?.toLocaleDateString()
                           : "N/A"}
+                      </Typography>
+
+                      <Typography sx={{ mt: 1 }}>
+                        <strong>Grade:</strong>{" "}
+                        {getSubmittedAssignmentGrade(selectedAssignment)}
                       </Typography>
 
                       {/* Already Submitted */}
@@ -2227,7 +2294,94 @@ const StudentDashboard = () => {
                   {message || "No assignments available."}
                 </Typography>
               ) : (
-                <div style={{ width: "100%", overflowX: "auto" }}>
+                <>
+                  <Stack spacing={1.5} sx={{ mb: 2 }}>
+                    {assignments
+                      .slice(
+                        (assignmentPage - 1) * ASSIGNMENTS_PER_PAGE,
+                        assignmentPage * ASSIGNMENTS_PER_PAGE
+                      )
+                      .map((a, index) => {
+                      const realIndex =
+                        (assignmentPage - 1) * ASSIGNMENTS_PER_PAGE + index;
+                      const assignmentId = getAssignmentId(a);
+                      const dueDate = getAssignmentDueDate(a.dueDate);
+                      const isExpired = dueDate ? dueDate < new Date() : false;
+                      const submittedFiles = getSubmittedAssignmentFiles(a);
+                      const row = {
+                        id: assignmentId || `assignment-${realIndex}`,
+                        assignmentId,
+                        title: a.title,
+                        courseName: a.courseName || "N/A",
+                        description: a.description,
+                        dueDate: dueDate ? dueDate.toLocaleDateString() : "N/A",
+                        submittedFiles,
+                        status:
+                          submittedFiles.length > 0 ||
+                          a.status?.toLowerCase() === "submitted"
+                            ? "Submitted"
+                            : isExpired
+                            ? "Expired"
+                            : "Pending",
+                        grade: getSubmittedAssignmentGrade(a),
+                        isExpired,
+                        justSubmitted: a.justSubmitted || false,
+                      };
+                      const disabled =
+                        !row.assignmentId ||
+                        row.isExpired ||
+                        row.justSubmitted;
+
+                      return (
+                        <Paper
+                          key={row.id}
+                          variant="outlined"
+                          sx={{
+                            p: 2,
+                            display: "flex",
+                            gap: 2,
+                            alignItems: { xs: "stretch", sm: "center" },
+                            justifyContent: "space-between",
+                            flexDirection: { xs: "column", sm: "row" },
+                            borderRadius: 2,
+                          }}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography fontWeight="bold">{row.title}</Typography>
+                            <Typography variant="body2" color="text.secondary">
+                            {row.courseName} • Due: {row.dueDate} • {row.status}
+                            {" "}• Grade: {row.grade}
+                            </Typography>
+                          </Box>
+                          <Button
+                            variant="contained"
+                            color="success"
+                            disabled={disabled}
+                            onClick={() => handleViewAssignment(row)}
+                            sx={{ flexShrink: 0 }}
+                          >
+                            {row.status === "Submitted"
+                              ? "View Submission"
+                              : row.isExpired
+                              ? "Expired"
+                              : "View / Submit"}
+                          </Button>
+                        </Paper>
+                      );
+                    })}
+                  </Stack>
+                  {Math.ceil(assignments.length / ASSIGNMENTS_PER_PAGE) > 1 && (
+                    <Stack alignItems="center" sx={{ mb: 3 }}>
+                      <Pagination
+                        count={Math.ceil(assignments.length / ASSIGNMENTS_PER_PAGE)}
+                        page={assignmentPage}
+                        color="success"
+                        onChange={(_, page) => setAssignmentPage(page)}
+                      />
+                    </Stack>
+                  )}
+                {false && (
+                <div style={{ height: 500, width: "100%" }}>
                   <DataGrid
                     getRowId={(row) => row.id}
                     rows={assignments.map((a, index) => {
@@ -2259,6 +2413,40 @@ const StudentDashboard = () => {
                       };
                     })}
                     columns={[
+                      {
+                        field: "actions",
+                        headerName: "Submit",
+                        width: 230,
+                        renderCell: (params) => {
+                          const disabled =
+                            !params.row.assignmentId ||
+                            params.row.status === "Submitted" ||
+                            params.row.isExpired ||
+                            params.row.justSubmitted;
+                          const buttonLabel =
+                            params.row.justSubmitted ||
+                            params.row.status === "Submitted"
+                              ? "Submitted"
+                              : params.row.isExpired
+                              ? "Expired"
+                              : !params.row.assignmentId
+                              ? "Not Available"
+                              : "View / Submit";
+
+                          return (
+                            <Button
+                              variant="contained"
+                              color="success"
+                              size="small"
+                              disabled={disabled}
+                              onClick={() => handleViewAssignment(params.row)}
+                              sx={{ whiteSpace: "nowrap" }}
+                            >
+                              {buttonLabel}
+                            </Button>
+                          );
+                        },
+                      },
                       { field: "title", headerName: "Assignment", width: 250 },
                       { field: "courseName", headerName: "Course", width: 180 },
                       { field: "dueDate", headerName: "Due Date", width: 160 },
@@ -2295,44 +2483,12 @@ const StudentDashboard = () => {
                         ),
                       },
 
-                      {
-                        field: "actions",
-                        headerName: "Actions",
-                        width: 220,
-                        renderCell: (params) => {
-                          const disabled =
-                            !params.row.assignmentId ||
-                            params.row.status === "Submitted" ||
-                            params.row.isExpired ||
-                            params.row.justSubmitted;
-                          const buttonLabel =
-                            params.row.justSubmitted ||
-                            params.row.status === "Submitted"
-                              ? "Submitted"
-                              : params.row.isExpired
-                              ? "Expired"
-                              : !params.row.assignmentId
-                              ? "Not Available"
-                              : "View Details / Submit";
-
-                          return (
-                            <Button
-                              variant="contained"
-                              color="success"
-                              size="small"
-                              disabled={disabled}
-                              onClick={() => handleViewAssignment(params.row)}
-                            >
-                              {buttonLabel}
-                            </Button>
-                          );
-                        },
-                      },
                     ]}
                     pageSize={5}
-                    hideFooter
                   />
                 </div>
+                )}
+                </>
               )}
             </Paper>
           )}
@@ -3216,6 +3372,7 @@ const StudentDashboard = () => {
             else setActiveTab(next);
           }}
           onProfile={() => navigate("/profile")}
+          chatUnreadCount={chatUnreadCount}
           moreActions={[
             { label: "Rate Coach", onClick: () => setActiveTab("rate-coach") },
             { label: "Change Password", onClick: () => navigate("/profile") },

@@ -21,6 +21,8 @@ import {
   FormControl,
   InputLabel,
   Select,
+  Stack,
+  Pagination,
 } from "@mui/material";
 import {
   Dashboard,
@@ -59,6 +61,7 @@ const drawerWidth = 250;
 const CHAT_SIDEBAR_WIDTH = 300;
 const STORAGE_KEY = "classChats";
 const BASE_URL = import.meta.env.VITE_BASE_URL;
+const ASSIGNMENTS_PER_PAGE = 20;
 
 const toAssignmentExpiry = (dateValue) => {
   if (!dateValue) return "";
@@ -486,6 +489,7 @@ const CoachDashboard = () => {
   const [courses, setCourses] = useState([]);
 
   const [assignments, setAssignments] = useState([]);
+  const [assignmentPage, setAssignmentPage] = useState(1);
   const [students, setStudents] = useState([]);
   const [ratingData, setRatingData] = useState([]);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -991,7 +995,7 @@ const CoachDashboard = () => {
   useEffect(() => {
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const currentUserId = currentUser?.id || currentUser?._id;
-    const channels = ["coaches"];
+    const channels = ["coaches", "students"];
     const makeKey = (channel) => `group_chat_last_seen_coach_${channel}`;
 
     if (activeTab === "chat") {
@@ -1004,10 +1008,27 @@ const CoachDashboard = () => {
       try {
         let total = 0;
         for (const channel of channels) {
-          const { data } = await axios.get(
-            `${BASE_URL}/api/group-chat/${channel}/messages`,
-            { headers: { Authorization: `Bearer ${token}` } }
-          );
+          let data;
+          try {
+            const res = await axios.get(
+              `${BASE_URL}/api/group-chat/${channel}/messages`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            data = res.data;
+          } catch (error) {
+            const looksLikeLegacyStudents =
+              channel === "students" &&
+              error?.response?.status === 400 &&
+              String(error?.response?.data?.message || "")
+                .toLowerCase()
+                .includes("invalid chat channel");
+            if (!looksLikeLegacyStudents) continue;
+            const legacyRes = await axios.get(
+              `${BASE_URL}/api/group-chat/users/messages`,
+              { headers: { Authorization: `Bearer ${token}` } }
+            );
+            data = legacyRes.data;
+          }
           const messages = Array.isArray(data?.messages) ? data.messages : [];
           const lastSeen = new Date(localStorage.getItem(makeKey(channel)) || 0);
           total += messages.filter((m) => {
@@ -1027,6 +1048,37 @@ const CoachDashboard = () => {
     pollUnread();
     const interval = setInterval(pollUnread, 7000);
     return () => clearInterval(interval);
+  }, [activeTab, BASE_URL, token]);
+
+  useEffect(() => {
+    if (!BASE_URL || !token) return;
+
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUserId = currentUser?.id || currentUser?._id;
+    const socket = io(BASE_URL, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+    });
+
+    socket.emit("joinGroupChat", { channel: "coaches" });
+    socket.emit("joinGroupChat", { channel: "students" });
+
+    const handleGroupMessage = ({ message }) => {
+      const senderId = message?.senderId?._id || message?.senderId;
+      if (
+        activeTab !== "chat" &&
+        String(senderId) !== String(currentUserId)
+      ) {
+        setChatUnreadCount((count) => count + 1);
+      }
+    };
+
+    socket.on("groupChatMessage", handleGroupMessage);
+
+    return () => {
+      socket.off("groupChatMessage", handleGroupMessage);
+      socket.disconnect();
+    };
   }, [activeTab, BASE_URL, token]);
   // Listen for incoming messages
   useEffect(() => {
@@ -1915,9 +1967,8 @@ const CoachDashboard = () => {
   const assignmentRows = Object.values(assignments || {})
     .flat()
     .flatMap((a) => {
-      // CASE 1 — assignment has submissions
-      if (Array.isArray(a.submissions) && a.submissions.length > 0) {
-        return a.submissions.map((s, idx) => ({
+      const submissions = Array.isArray(a.submissions) ? a.submissions : [];
+      const submittedRows = submissions.map((s, idx) => ({
           id: `${a._id}-${s.studentId?._id || idx}`,
           assignmentId: a._id,
           title: a.title,
@@ -1928,12 +1979,47 @@ const CoachDashboard = () => {
           studentName: s.studentId?.fullName || "Unknown",
           grade: s.grade ?? "Not Graded",
           isGraded: s.grade != null,
-          status: s.grade != null ? "Completed" : "Pending",
+          hasSubmission: true,
+          status: s.grade != null ? "Completed" : "Submitted",
           dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
           submission: s,
-        }));
+      }));
+
+      const submittedStudentIds = new Set(
+        submissions
+          .map((s) => String(s.studentId?._id || s.studentId || ""))
+          .filter(Boolean)
+      );
+
+      const noSubmissionRows = (Array.isArray(students) ? students : [])
+        .filter((student) => {
+          const studentId = String(student?.studentId || student?._id || "");
+          return studentId && !submittedStudentIds.has(studentId);
+        })
+        .map((student) => {
+          const studentId = student?.studentId || student?._id;
+          return {
+            id: `${a._id}-${studentId}-no-sub`,
+            assignmentId: a._id,
+            title: a.title,
+            description: a.description,
+            cohortId: a.cohortId?._id,
+            cohortName: a.cohortId?.name || "No Cohort",
+            studentId,
+            studentName: student?.fullName || "Unknown Student",
+            grade: "No submission",
+            isGraded: false,
+            hasSubmission: false,
+            status: new Date(a.dueDate) < new Date() ? "Expired" : "Not submitted",
+            dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
+            submission: null,
+          };
+        });
+
+      if (submittedRows.length > 0 || noSubmissionRows.length > 0) {
+        return [...submittedRows, ...noSubmissionRows];
       }
-      // CASE 2 — assignment has no submissions
+
       return [
         {
           id: `${a._id}-no-sub`,
@@ -1946,12 +2032,21 @@ const CoachDashboard = () => {
           studentName: "-",
           grade: "No submission",
           isGraded: false,
+          hasSubmission: false,
           status: new Date(a.dueDate) < new Date() ? "Expired" : "Pending",
           dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
           submission: null,
         },
       ];
     });
+
+  const filteredAssignmentRows = selectedCohortId
+    ? assignmentRows.filter((r) => r.cohortId === selectedCohortId)
+    : assignmentRows;
+
+  useEffect(() => {
+    setAssignmentPage(1);
+  }, [selectedCohortId, assignmentRows.length]);
 
   // console.log("RAW assignments:", assignments);
   // console.log("assignmentRows:", assignmentRows);
@@ -2141,6 +2236,7 @@ const CoachDashboard = () => {
         sx={{
           flex: 1,
           display: "flex",
+          minWidth: 0,
           minHeight: "100vh",
           overflow: "visible",
         }}
@@ -2148,7 +2244,9 @@ const CoachDashboard = () => {
         <Box
           sx={{
             flex: 1,
+            minWidth: 0,
             overflowY: "auto",
+            overflowX: "hidden",
             p: { xs: 2, md: 4 },
             bgcolor: "#f9fafb",
           }}
@@ -3193,12 +3291,20 @@ const CoachDashboard = () => {
               {/* Create Assignment Form */}
               <Box
                 sx={{
-                  display: "flex",
+                  display: "grid",
+                  gridTemplateColumns: {
+                    xs: "1fr",
+                    sm: "repeat(2, minmax(0, 1fr))",
+                    lg: "repeat(4, minmax(0, 1fr))",
+                  },
                   gap: 2,
                   mb: 3,
-                  flexWrap: "wrap",
-                  alignItems: "center",
-                  "> .MuiTextField-root": { minWidth: 200 }, // remove flex: 1
+                  alignItems: "stretch",
+                  p: 2,
+                  border: "1px solid #e5e7eb",
+                  borderRadius: 2,
+                  bgcolor: "#f8fafc",
+                  "> .MuiTextField-root": { width: "100%" },
                 }}
               >
                 <TextField
@@ -3206,7 +3312,6 @@ const CoachDashboard = () => {
                   label="Select Cohort"
                   value={selectedCohortId}
                   onChange={(e) => setSelectedCohortId(e.target.value)}
-                  sx={{ minWidth: 250 }}
                 >
                   {(Array.isArray(cohorts) ? cohorts : []).map((c) => {
                     const cohortId = (
@@ -3234,7 +3339,6 @@ const CoachDashboard = () => {
                   onChange={(e) => setNewDescription(e.target.value)}
                   multiline
                   minRows={4}
-                  sx={{ minWidth: 320 }}
                 />
                 <TextField
                   type="date"
@@ -3248,6 +3352,12 @@ const CoachDashboard = () => {
                   variant="contained"
                   color="success"
                   onClick={createAssignment}
+                  fullWidth
+                  sx={{
+                    minHeight: 56,
+                    alignSelf: "center",
+                    gridColumn: { xs: "1", sm: "1 / -1", lg: "1 / -1" },
+                  }}
                   disabled={
                     creatingAssignment ||
                     !newTitle ||
@@ -3276,9 +3386,75 @@ const CoachDashboard = () => {
                 >
                   <CircularProgress size={60} color="success" />
                 </Box>
-              ) : assignmentRows.length === 0 ? (
+              ) : filteredAssignmentRows.length === 0 ? (
                 <Typography>No assignments available yet.</Typography>
               ) : (
+                <>
+                  <Stack spacing={1.5} sx={{ mb: 2 }}>
+                    {filteredAssignmentRows
+                      .slice(
+                        (assignmentPage - 1) * ASSIGNMENTS_PER_PAGE,
+                        assignmentPage * ASSIGNMENTS_PER_PAGE
+                      )
+                      .map((row) => (
+                      <Paper
+                        key={row.id}
+                        variant="outlined"
+                        sx={{
+                          p: 2,
+                          display: "flex",
+                          gap: 2,
+                          alignItems: { xs: "stretch", sm: "center" },
+                          justifyContent: "space-between",
+                          flexDirection: { xs: "column", sm: "row" },
+                          borderRadius: 2,
+                        }}
+                      >
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography fontWeight="bold">{row.title}</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            {row.studentName} • {row.cohortName} • {row.status}
+                            {" "}• Grade: {row.grade}
+                          </Typography>
+                        </Box>
+                        <Button
+                          variant="contained"
+                          size="small"
+                          disabled={!row.hasSubmission || row.isGraded}
+                          sx={{
+                            bgcolor:
+                              !row.hasSubmission || row.isGraded
+                                ? "#94a3b8"
+                                : "#10b981",
+                            flexShrink: 0,
+                          }}
+                          onClick={() =>
+                            handleOpenAssignmentModal(row, row.submission)
+                          }
+                        >
+                          {!row.hasSubmission
+                            ? "No Submission"
+                            : row.isGraded
+                            ? "Graded"
+                            : "View & Grade"}
+                        </Button>
+                      </Paper>
+                    ))}
+                  </Stack>
+                  {Math.ceil(filteredAssignmentRows.length / ASSIGNMENTS_PER_PAGE) >
+                    1 && (
+                    <Stack alignItems="center" sx={{ mb: 3 }}>
+                      <Pagination
+                        count={Math.ceil(
+                          filteredAssignmentRows.length / ASSIGNMENTS_PER_PAGE
+                        )}
+                        page={assignmentPage}
+                        color="success"
+                        onChange={(_, page) => setAssignmentPage(page)}
+                      />
+                    </Stack>
+                  )}
+                {false && (
                 <div style={{ height: 500, width: "100%" }}>
                   <DataGrid
                     rows={
@@ -3289,6 +3465,32 @@ const CoachDashboard = () => {
                         : assignmentRows
                     }
                     columns={[
+                      {
+                        field: "actions",
+                        headerName: "Action",
+                        width: 190,
+                        renderCell: (params) => (
+                          <Button
+                            variant="contained"
+                            size="small"
+                            sx={{
+                              bgcolor: params.row.isGraded
+                                ? "#94a3b8"
+                                : "#10b981",
+                              whiteSpace: "nowrap",
+                            }}
+                            disabled={params.row.isGraded}
+                            onClick={() =>
+                              handleOpenAssignmentModal(
+                                params.row,
+                                params.row.submission
+                              )
+                            }
+                          >
+                            {params.row.isGraded ? "Graded" : "View & Grade"}
+                          </Button>
+                        ),
+                      },
                       { field: "cohortName", headerName: "Cohort", width: 180 },
                       {
                         field: "studentName",
@@ -3304,39 +3506,16 @@ const CoachDashboard = () => {
                       { field: "dueDate", headerName: "Due Date", width: 150 },
                       { field: "grade", headerName: "Grade", width: 120 },
                       { field: "status", headerName: "Status", width: 150 },
-                      {
-                        field: "actions",
-                        headerName: "Actions",
-                        width: 180,
-                        renderCell: (params) => (
-                          <Button
-                            variant="contained"
-                            size="small"
-                            sx={{
-                              bgcolor: params.row.isGraded
-                                ? "#94a3b8"
-                                : "#10b981",
-                            }}
-                            disabled={params.row.isGraded}
-                            onClick={() =>
-                              handleOpenAssignmentModal(
-                                params.row,
-                                params.row.submission
-                              )
-                            }
-                          >
-                            {params.row.isGraded ? "Graded" : "View & Grade"}
-                          </Button>
-                        ),
-                      },
                     ]}
                     pageSize={5}
                   />
                 </div>
+                )}
+                </>
               )}
 
               {/* Assignments Grouped by Cohort */}
-              {studentAssignmentsLoading || assignmentsLoading ? (
+              {false && (studentAssignmentsLoading || assignmentsLoading ? (
                 <Box
                   sx={{
                     height: 400,
@@ -3418,31 +3597,9 @@ const CoachDashboard = () => {
                         )}
                         columns={[
                           {
-                            field: "studentName",
-                            headerName: "Student",
-                            width: 200,
-                          },
-                          {
-                            field: "title",
-                            headerName: "Assignment",
-                            width: 220,
-                          },
-                          {
-                            field: "description",
-                            headerName: "Description",
-                            width: 300,
-                          },
-                          {
-                            field: "dueDate",
-                            headerName: "Due Date",
-                            width: 150,
-                          },
-                          { field: "grade", headerName: "Grade", width: 120 },
-                          { field: "status", headerName: "Status", width: 140 },
-                          {
                             field: "actions",
-                            headerName: "Actions",
-                            width: 180,
+                            headerName: "Action",
+                            width: 190,
                             renderCell: (params) => {
                               const isExpired =
                                 params.row.assignment?.dueDate &&
@@ -3465,6 +3622,7 @@ const CoachDashboard = () => {
                                       isExpired
                                         ? "#94a3b8"
                                         : "#10b981",
+                                    whiteSpace: "nowrap",
                                   }}
                                   onClick={() =>
                                     handleOpenAssignmentModal(
@@ -3484,13 +3642,35 @@ const CoachDashboard = () => {
                               );
                             },
                           },
+                          {
+                            field: "studentName",
+                            headerName: "Student",
+                            width: 200,
+                          },
+                          {
+                            field: "title",
+                            headerName: "Assignment",
+                            width: 220,
+                          },
+                          {
+                            field: "description",
+                            headerName: "Description",
+                            width: 300,
+                          },
+                          {
+                            field: "dueDate",
+                            headerName: "Due Date",
+                            width: 150,
+                          },
+                          { field: "grade", headerName: "Grade", width: 120 },
+                          { field: "status", headerName: "Status", width: 140 },
                         ]}
                         pageSize={5}
                       />
                     </div>
                   );
                 })()
-              )}
+              ))}
               {/* Assignment Modal */}
 
               <Drawer
@@ -3949,6 +4129,7 @@ const CoachDashboard = () => {
           onProfile={() => {
             window.location.href = "/profile";
           }}
+          chatUnreadCount={chatUnreadCount}
           moreActions={[
             { label: "My Students", onClick: () => setActiveTab("students") },
             {

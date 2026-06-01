@@ -5,6 +5,7 @@ import {
   Menu,
   MenuItem,
   Paper,
+  Badge,
 } from "@mui/material";
 import {
   Dashboard,
@@ -14,7 +15,13 @@ import {
   MoreHoriz,
 } from "@mui/icons-material";
 
-const MobileBottomNav = ({ value, onChange, onProfile, moreActions = [] }) => {
+const MobileBottomNav = ({
+  value,
+  onChange,
+  onProfile,
+  moreActions = [],
+  chatUnreadCount = 0,
+}) => {
   const [moreAnchor, setMoreAnchor] = React.useState(null);
 
   return (
@@ -30,7 +37,15 @@ const MobileBottomNav = ({ value, onChange, onProfile, moreActions = [] }) => {
     >
       <BottomNavigation value={value} onChange={(_, next) => onChange(next)} showLabels>
         <BottomNavigationAction label="Dashboard" value="dashboard" icon={<Dashboard />} />
-        <BottomNavigationAction label="Chat" value="chat" icon={<Chat />} />
+        <BottomNavigationAction
+          label="Chat"
+          value="chat"
+          icon={
+            <Badge color="error" badgeContent={chatUnreadCount}>
+              <Chat />
+            </Badge>
+          }
+        />
         <BottomNavigationAction label="Courses" value="courses" icon={<School />} />
         <BottomNavigationAction label="Profile" value="profile" icon={<Person />} onClick={onProfile} />
         <BottomNavigationAction

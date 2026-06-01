@@ -17,6 +17,37 @@ import EditOutlinedIcon from "@mui/icons-material/EditOutlined";
 import DeleteOutlineOutlinedIcon from "@mui/icons-material/DeleteOutlineOutlined";
 import axios from "axios";
 
+const formatDayLabel = (value) => {
+  const date = new Date(value || 0);
+  if (Number.isNaN(date.getTime())) return "";
+
+  const today = new Date();
+  const yesterday = new Date();
+  yesterday.setDate(today.getDate() - 1);
+
+  const sameDay = (a, b) =>
+    a.getFullYear() === b.getFullYear() &&
+    a.getMonth() === b.getMonth() &&
+    a.getDate() === b.getDate();
+
+  if (sameDay(date, today)) return "Today";
+  if (sameDay(date, yesterday)) return "Yesterday";
+
+  return date.toLocaleDateString("en-GB");
+};
+
+const formatTimeLabel = (value) => {
+  const date = new Date(value || 0);
+  if (Number.isNaN(date.getTime())) return "";
+  return date.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+};
+
+const canEditMessage = (message) => {
+  const createdAt = new Date(message?.createdAt || 0).getTime();
+  if (!createdAt) return false;
+  return Date.now() - createdAt <= 20 * 60 * 1000;
+};
+
 const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
   const storageKey = `group_chat_selected_channel_${role}`;
   const defaultChannel =
@@ -231,8 +262,8 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
       );
       setEditingMessageId("");
       setEditText("");
-    } catch {
-      // no-op
+    } catch (error) {
+      alert(error?.response?.data?.message || "Failed to edit message");
     }
   };
 
@@ -244,8 +275,8 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
         })
       );
       setMessages((prev) => prev.filter((m) => String(m._id) !== String(messageId)));
-    } catch {
-      // no-op
+    } catch (error) {
+      alert(error?.response?.data?.message || "Failed to delete message");
     }
   };
 
@@ -325,96 +356,135 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
         ) : messages.length === 0 ? (
           <Typography>No messages yet. Start the conversation.</Typography>
         ) : (
-          messages.map((msg) => {
+          messages.map((msg, index) => {
             const mine =
               String(msg?.senderId?._id || msg?.senderId) === String(currentUserId);
             const senderName = msg?.senderId?.fullName || "User";
             const senderRole = msg?.senderId?.role || "";
+            const canEdit = mine && canEditMessage(msg);
+            const canDelete = mine;
+            const currentDay = formatDayLabel(msg?.createdAt || msg?.updatedAt);
+            const prev = messages[index - 1];
+            const prevDay = prev
+              ? formatDayLabel(prev?.createdAt || prev?.updatedAt)
+              : "";
+            const showDayDivider = index === 0 || currentDay !== prevDay;
             return (
-              <Box
-                key={msg._id}
-                sx={{
-                  display: "flex",
-                  justifyContent: mine ? "flex-end" : "flex-start",
-                  mb: 1.2,
-                }}
-              >
+              <React.Fragment key={msg._id}>
+                {showDayDivider && (
+                  <Box sx={{ display: "flex", justifyContent: "center", my: 1 }}>
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        px: 1.2,
+                        py: 0.3,
+                        borderRadius: 999,
+                        bgcolor: "#e2e8f0",
+                        color: "#334155",
+                      }}
+                    >
+                      {currentDay}
+                    </Typography>
+                  </Box>
+                )}
                 <Box
                   sx={{
-                    maxWidth: "80%",
-                    px: 1.5,
-                    py: 1,
-                    borderRadius: 2,
-                    bgcolor: mine ? "#10b981" : "#e2e8f0",
-                    color: mine ? "white" : "#0f172a",
+                    display: "flex",
+                    justifyContent: mine ? "flex-end" : "flex-start",
+                    mb: 1.2,
                   }}
                 >
-                  <Typography
+                  <Box
                     sx={{
-                      fontSize: 11,
-                      fontWeight: 700,
-                      mb: 0.3,
-                      opacity: mine ? 0.9 : 1,
+                      maxWidth: "80%",
+                      px: 1.5,
+                      py: 1,
+                      borderRadius: 2,
+                      bgcolor: mine ? "#10b981" : "#e2e8f0",
+                      color: mine ? "white" : "#0f172a",
                     }}
                   >
-                    {mine ? `You (${senderRole || "user"})` : `${senderName} (${senderRole || "user"})`}
-                  </Typography>
-                  {editingMessageId === String(msg._id) ? (
-                    <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
-                      <TextField
-                        fullWidth
-                        size="small"
-                        multiline
-                        minRows={2}
-                        value={editText}
-                        onChange={(e) => setEditText(e.target.value)}
-                      />
-                      <Button size="small" onClick={() => saveEditedMessage(msg._id)}>
-                        Save
-                      </Button>
-                    </Stack>
-                  ) : (
-                    <Typography sx={{ fontSize: 14 }}>{msg.text}</Typography>
-                  )}
-                  <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
-                    <Button
-                      size="small"
-                      onClick={() => reactToMessage(msg._id, "like")}
-                      startIcon={<ThumbUpAltOutlinedIcon fontSize="small" />}
-                      sx={{ minWidth: 0, px: 1, color: mine ? "#d1fae5" : "inherit" }}
-                    >
-                      {Array.isArray(msg.likedBy) ? msg.likedBy.length : 0}
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={() => reactToMessage(msg._id, "dislike")}
-                      startIcon={<ThumbDownAltOutlinedIcon fontSize="small" />}
-                      sx={{ minWidth: 0, px: 1, color: mine ? "#fecaca" : "inherit" }}
-                    >
-                      {Array.isArray(msg.dislikedBy) ? msg.dislikedBy.length : 0}
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={() => {
-                        setEditingMessageId(String(msg._id));
-                        setEditText(msg.text || "");
+                    <Typography
+                      sx={{
+                        fontSize: 11,
+                        fontWeight: 700,
+                        mb: 0.3,
+                        opacity: mine ? 0.9 : 1,
                       }}
-                      startIcon={<EditOutlinedIcon fontSize="small" />}
-                      sx={{ minWidth: 0, px: 1 }}
                     >
-                      Edit
-                    </Button>
-                    <Button
-                      size="small"
-                      onClick={() => removeMessage(msg._id)}
-                      startIcon={<DeleteOutlineOutlinedIcon fontSize="small" />}
-                      sx={{ minWidth: 0, px: 1 }}
+                      {mine ? `You (${senderRole || "user"})` : `${senderName} (${senderRole || "user"})`}
+                    </Typography>
+                    {editingMessageId === String(msg._id) ? (
+                      <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
+                        <TextField
+                          fullWidth
+                          size="small"
+                          multiline
+                          minRows={2}
+                          value={editText}
+                          onChange={(e) => setEditText(e.target.value)}
+                        />
+                        <Button size="small" onClick={() => saveEditedMessage(msg._id)}>
+                          Save
+                        </Button>
+                      </Stack>
+                    ) : (
+                      <Typography sx={{ fontSize: 14 }}>{msg.text}</Typography>
+                    )}
+                    <Typography
+                      sx={{
+                        fontSize: 10,
+                        opacity: mine ? 0.9 : 0.75,
+                        textAlign: "right",
+                        mt: 0.5,
+                      }}
                     >
-                      Delete
-                    </Button>
+                      {formatTimeLabel(msg?.createdAt || msg?.updatedAt)}
+                    </Typography>
+                    <Box sx={{ display: "flex", gap: 1, mt: 0.5 }}>
+                      <Button
+                        size="small"
+                        onClick={() => reactToMessage(msg._id, "like")}
+                        startIcon={<ThumbUpAltOutlinedIcon fontSize="small" />}
+                        sx={{ minWidth: 0, px: 1, color: mine ? "#d1fae5" : "inherit" }}
+                      >
+                        {Array.isArray(msg.likedBy) ? msg.likedBy.length : 0}
+                      </Button>
+                      <Button
+                        size="small"
+                        onClick={() => reactToMessage(msg._id, "dislike")}
+                        startIcon={<ThumbDownAltOutlinedIcon fontSize="small" />}
+                        sx={{ minWidth: 0, px: 1, color: mine ? "#fecaca" : "inherit" }}
+                      >
+                        {Array.isArray(msg.dislikedBy) ? msg.dislikedBy.length : 0}
+                      </Button>
+                      {canEdit && (
+                        <Button
+                          size="small"
+                          onClick={() => {
+                            setEditingMessageId(String(msg._id));
+                            setEditText(msg.text || "");
+                          }}
+                          startIcon={<EditOutlinedIcon fontSize="small" />}
+                          sx={{ minWidth: 0, px: 1 }}
+                        >
+                          Edit
+                        </Button>
+                      )}
+                      {canDelete && (
+                        <Button
+                          size="small"
+                          onClick={() => removeMessage(msg._id)}
+                          startIcon={<DeleteOutlineOutlinedIcon fontSize="small" />}
+                          sx={{ minWidth: 0, px: 1 }}
+                        >
+                          Delete
+                        </Button>
+                      )}
+                    </Box>
                   </Box>
                 </Box>
-              </Box>
+              </React.Fragment>
             );
           })
         )}
