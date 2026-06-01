@@ -3383,6 +3383,7 @@ const AdminOwner = () => {
           onProfile={() => {
             window.location.href = "/profile";
           }}
+          chatUnreadCount={chatUnreadCount}
           moreActions={[
             { label: "Coach Ratings", onClick: () => setActiveTab("coaches") },
             {

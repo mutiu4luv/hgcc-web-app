@@ -534,6 +534,10 @@ const CoachDashboard = () => {
   const [startingLive, setStartingLive] = useState(false);
   const [endingLive, setEndingLive] = useState(false);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
+  const [chatUnreadByChannel, setChatUnreadByChannel] = useState({
+    students: 0,
+    coaches: 0,
+  });
 
   const [contentType, setContentType] = useState("");
   const [title, setTitle] = useState("");
@@ -942,6 +946,10 @@ const CoachDashboard = () => {
         </Badge>
       ),
       key: "chat",
+      secondary:
+        chatUnreadByChannel.students || chatUnreadByChannel.coaches
+          ? `${chatUnreadByChannel.students} unread from students, ${chatUnreadByChannel.coaches} unread from coaches`
+          : "No unread messages",
     },
     { text: "Upload Cohort Video", icon: <UploadFile />, key: "upload-video" },
     { text: "Upload Cohort Document", icon: <UploadFile />, key: "upload-doc" },
@@ -998,30 +1006,32 @@ const CoachDashboard = () => {
     const channels = ["coaches", "students"];
     const makeKey = (channel) => `group_chat_last_seen_coach_${channel}`;
 
-    if (activeTab === "chat") {
-      const now = new Date().toISOString();
-      channels.forEach((ch) => localStorage.setItem(makeKey(ch), now));
-      setChatUnreadCount(0);
-    }
-
     const pollUnread = async () => {
       try {
         let total = 0;
+        const nextByChannel = { students: 0, coaches: 0 };
         for (const channel of channels) {
           let data;
           try {
-            const res = await axios.get(
-              `${BASE_URL}/api/group-chat/${channel}/messages`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            data = res.data;
+            if (channel === "students") {
+              const res = await axios.get(
+                `${BASE_URL}/api/group-chat/students/messages`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              data = res.data;
+            } else {
+              const res = await axios.get(
+                `${BASE_URL}/api/group-chat/${channel}/messages`,
+                { headers: { Authorization: `Bearer ${token}` } }
+              );
+              data = res.data;
+            }
           } catch (error) {
             const looksLikeLegacyStudents =
               channel === "students" &&
-              error?.response?.status === 400 &&
-              String(error?.response?.data?.message || "")
-                .toLowerCase()
-                .includes("invalid chat channel");
+              (error?.response?.status === 400 ||
+                error?.response?.status === 403 ||
+                error?.response?.status === 404);
             if (!looksLikeLegacyStudents) continue;
             const legacyRes = await axios.get(
               `${BASE_URL}/api/group-chat/users/messages`,
@@ -1031,15 +1041,18 @@ const CoachDashboard = () => {
           }
           const messages = Array.isArray(data?.messages) ? data.messages : [];
           const lastSeen = new Date(localStorage.getItem(makeKey(channel)) || 0);
-          total += messages.filter((m) => {
+          const count = messages.filter((m) => {
             const senderId = m?.senderId?._id || m?.senderId;
             return (
               new Date(m.createdAt || m.updatedAt || 0) > lastSeen &&
               String(senderId) !== String(currentUserId)
             );
           }).length;
+          nextByChannel[channel] = count;
+          total += count;
         }
-        if (activeTab !== "chat") setChatUnreadCount(total);
+        setChatUnreadByChannel(nextByChannel);
+        setChatUnreadCount(total);
       } catch {
         // no-op
       }
@@ -1063,14 +1076,20 @@ const CoachDashboard = () => {
     socket.emit("joinGroupChat", { channel: "coaches" });
     socket.emit("joinGroupChat", { channel: "students" });
 
-    const handleGroupMessage = ({ message }) => {
+    const handleGroupMessage = ({ message, channel }) => {
       const senderId = message?.senderId?._id || message?.senderId;
-      if (
-        activeTab !== "chat" &&
-        String(senderId) !== String(currentUserId)
-      ) {
-        setChatUnreadCount((count) => count + 1);
-      }
+      if (String(senderId) === String(currentUserId)) return;
+      const incomingChannel = channel || message?.channel;
+      if (incomingChannel !== "students" && incomingChannel !== "coaches") return;
+
+      setChatUnreadByChannel((prev) => {
+        const next = {
+          ...prev,
+          [incomingChannel]: (prev[incomingChannel] || 0) + 1,
+        };
+        setChatUnreadCount((next.students || 0) + (next.coaches || 0));
+        return next;
+      });
     };
 
     socket.on("groupChatMessage", handleGroupMessage);
@@ -1080,6 +1099,17 @@ const CoachDashboard = () => {
       socket.disconnect();
     };
   }, [activeTab, BASE_URL, token]);
+
+  const markGroupChannelSeen = (seenChannel) => {
+    if (!seenChannel) return;
+    const key = `group_chat_last_seen_coach_${seenChannel}`;
+    localStorage.setItem(key, new Date().toISOString());
+    setChatUnreadByChannel((prev) => {
+      const next = { ...prev, [seenChannel]: 0 };
+      setChatUnreadCount((next.students || 0) + (next.coaches || 0));
+      return next;
+    });
+  };
   // Listen for incoming messages
   useEffect(() => {
     if (!socketRef.current) return;
@@ -2180,7 +2210,12 @@ const CoachDashboard = () => {
               <ListItemIcon sx={{ color: "#fff" }}>{item.icon}</ListItemIcon>
               <ListItemText
                 primary={item.text}
+                secondary={item.secondary || ""}
                 primaryTypographyProps={{ color: "#fff" }}
+                secondaryTypographyProps={{
+                  color: "rgba(255,255,255,0.85)",
+                  sx: { fontSize: 11, fontWeight: 600, mt: 0.25 },
+                }}
               />
             </ListItemButton>
           ))}
@@ -3988,12 +4023,8 @@ const CoachDashboard = () => {
               role="coach"
               token={token}
               baseUrl={BASE_URL}
-              onSeen={() => {
-                const now = new Date().toISOString();
-                localStorage.setItem("group_chat_last_seen_coach_students", now);
-                localStorage.setItem("group_chat_last_seen_coach_coaches", now);
-                setChatUnreadCount(0);
-              }}
+              unreadSummary={chatUnreadByChannel}
+              onSeen={(seenChannel) => markGroupChannelSeen(seenChannel)}
             />
           )}
           {activeTab === "more" && (

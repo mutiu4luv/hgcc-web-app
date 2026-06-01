@@ -4,6 +4,7 @@ import {
   Button,
   FormControl,
   InputLabel,
+  Menu,
   MenuItem,
   Paper,
   Select,
@@ -48,7 +49,13 @@ const canEditMessage = (message) => {
   return Date.now() - createdAt <= 20 * 60 * 1000;
 };
 
-const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
+const GlobalChatPanel = ({
+  role = "student",
+  token,
+  baseUrl,
+  onSeen,
+  unreadSummary = null,
+}) => {
   const storageKey = `group_chat_selected_channel_${role}`;
   const defaultChannel =
     role === "coach" || role === "owner" || role === "admin"
@@ -67,6 +74,50 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
   const [loadingMore, setLoadingMore] = useState(false);
   const [editingMessageId, setEditingMessageId] = useState("");
   const [editText, setEditText] = useState("");
+  const [deleteAnchorEl, setDeleteAnchorEl] = useState(null);
+  const [deleteMessageId, setDeleteMessageId] = useState("");
+  const hiddenMessagesKey = `group_chat_hidden_${role}_${channel}`;
+  const lastSeenKey = `group_chat_last_seen_${role}_${channel}`;
+  const [hiddenMessageIds, setHiddenMessageIds] = useState(() => {
+    try {
+      const raw = localStorage.getItem(hiddenMessagesKey);
+      return raw ? JSON.parse(raw) : [];
+    } catch {
+      return [];
+    }
+  });
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(hiddenMessagesKey);
+      setHiddenMessageIds(raw ? JSON.parse(raw) : []);
+    } catch {
+      setHiddenMessageIds([]);
+    }
+  }, [hiddenMessagesKey]);
+
+  const [lastSeenAt, setLastSeenAt] = useState(() => {
+    const raw = localStorage.getItem(lastSeenKey);
+    return raw ? new Date(raw) : new Date(0);
+  });
+
+  useEffect(() => {
+    const raw = localStorage.getItem(lastSeenKey);
+    setLastSeenAt(raw ? new Date(raw) : new Date(0));
+  }, [lastSeenKey]);
+
+  const markChannelAsRead = () => {
+    const now = new Date().toISOString();
+    localStorage.setItem(lastSeenKey, now);
+    setLastSeenAt(new Date(now));
+    if (typeof onSeen === "function") onSeen(channel);
+  };
+
+  const hideMessageOnlyForMe = (messageId) => {
+    const next = Array.from(new Set([...hiddenMessageIds, String(messageId)]));
+    setHiddenMessageIds(next);
+    localStorage.setItem(hiddenMessagesKey, JSON.stringify(next));
+  };
 
   const channelOptions = useMemo(() => {
     const map = {
@@ -97,7 +148,20 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
         const { data } = await axios.get(`${baseUrl}/api/group-chat/channels`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const channels = Array.isArray(data?.channels) ? data.channels : ["students"];
+        const rawChannels = Array.isArray(data?.channels) ? data.channels : ["students"];
+        const normalized = Array.from(
+          new Set(
+            rawChannels.map((ch) => (ch === "users" ? "students" : ch)).filter(Boolean)
+          )
+        );
+
+        const channels =
+          role === "coach"
+            ? Array.from(new Set(["coaches", "students", ...normalized]))
+            : normalized.length > 0
+            ? normalized
+            : ["students"];
+
         setAllowedChannels(channels);
         if (!channels.includes(channel)) {
           const fallback = channels.includes(defaultChannel)
@@ -111,8 +175,8 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
           role === "student"
             ? ["students"]
             : role === "coach"
-            ? ["students", "coaches"]
-            : ["students", "coaches"];
+            ? ["coaches", "students"]
+            : ["coaches", "students"];
         setAllowedChannels(fallback);
         if (!fallback.includes(channel)) {
           const fb = fallback.includes(defaultChannel)
@@ -126,20 +190,18 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     loadChannels();
   }, [token, baseUrl, role, storageKey, defaultChannel]);
 
-  const withLegacyStudentsFallback = async (fn) => {
+  const callChatApiWithStudentsAlias = async (fn) => {
+    if (channel !== "students") return fn(channel);
     try {
-      return await fn(channel);
-    } catch (err) {
-      const status = err?.response?.status;
-      const looksLikeInvalidChannel =
-        status === 400 &&
-        String(err?.response?.data?.message || "")
-          .toLowerCase()
-          .includes("invalid chat channel");
-      if (channel === "students" && looksLikeInvalidChannel) {
-        return fn("users");
+      // Primary students endpoint.
+      return await fn("students");
+    } catch (studentsErr) {
+      try {
+        // Legacy alias endpoint.
+        return await fn("users");
+      } catch {
+        throw studentsErr;
       }
-      throw err;
     }
   };
 
@@ -152,7 +214,7 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     const loadMessages = async (silent = false) => {
       try {
         if (!silent) setLoading(true);
-        const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+        const { data } = await callChatApiWithStudentsAlias((resolvedChannel) =>
           axios.get(
             `${baseUrl}/api/group-chat/${resolvedChannel}/messages?page=1&limit=30`,
             { headers: { Authorization: `Bearer ${token}` } }
@@ -189,7 +251,7 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     try {
       setLoadingMore(true);
       const nextPage = page + 1;
-      const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+      const { data } = await callChatApiWithStudentsAlias((resolvedChannel) =>
         axios.get(
           `${baseUrl}/api/group-chat/${resolvedChannel}/messages?page=${nextPage}&limit=30`,
           { headers: { Authorization: `Bearer ${token}` } }
@@ -212,7 +274,7 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
 
   const reactToMessage = async (messageId, reaction) => {
     try {
-      const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+      const { data } = await callChatApiWithStudentsAlias((resolvedChannel) =>
         axios.patch(
           `${baseUrl}/api/group-chat/${resolvedChannel}/messages/${messageId}/reaction`,
           { reaction },
@@ -248,7 +310,7 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
   const saveEditedMessage = async (messageId) => {
     if (!editText.trim()) return;
     try {
-      const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+      const { data } = await callChatApiWithStudentsAlias((resolvedChannel) =>
         axios.patch(
           `${baseUrl}/api/group-chat/${resolvedChannel}/messages/${messageId}`,
           { text: editText.trim() },
@@ -267,9 +329,9 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     }
   };
 
-  const removeMessage = async (messageId) => {
+  const removeMessageForEveryone = async (messageId) => {
     try {
-      await withLegacyStudentsFallback((resolvedChannel) =>
+      await callChatApiWithStudentsAlias((resolvedChannel) =>
         axios.delete(`${baseUrl}/api/group-chat/${resolvedChannel}/messages/${messageId}`, {
           headers: { Authorization: `Bearer ${token}` },
         })
@@ -280,15 +342,25 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
     }
   };
 
+  const openDeleteMenu = (event, messageId) => {
+    setDeleteAnchorEl(event.currentTarget);
+    setDeleteMessageId(String(messageId));
+  };
+
+  const closeDeleteMenu = () => {
+    setDeleteAnchorEl(null);
+    setDeleteMessageId("");
+  };
+
   useEffect(() => {
-    if (typeof onSeen === "function") onSeen();
-  }, [messages.length, onSeen]);
+    if (typeof onSeen === "function") onSeen(channel);
+  }, [messages.length, onSeen, channel]);
 
   const sendMessage = async () => {
     if (!text.trim()) return;
     try {
       setSending(true);
-      const { data } = await withLegacyStudentsFallback((resolvedChannel) =>
+      const { data } = await callChatApiWithStudentsAlias((resolvedChannel) =>
         axios.post(
           `${baseUrl}/api/group-chat/${resolvedChannel}/messages`,
           { text: text.trim() },
@@ -304,12 +376,20 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
 
   const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
   const currentUserId = currentUser?.id || currentUser?._id;
+  const visibleMessages = messages.filter(
+    (msg) => !hiddenMessageIds.includes(String(msg._id))
+  );
 
   return (
     <Paper sx={{ p: 3, borderRadius: 3 }}>
-      <Typography variant="h5" fontWeight="bold" sx={{ mb: 2 }}>
-        Group Chat
-      </Typography>
+      <Box sx={{ mb: 2, display: "flex", justifyContent: "space-between", gap: 1 }}>
+        <Typography variant="h5" fontWeight="bold">
+          Group Chat
+        </Typography>
+        <Button size="small" onClick={markChannelAsRead}>
+          Mark as read
+        </Button>
+      </Box>
 
       <FormControl fullWidth sx={{ mb: 2 }}>
         <InputLabel>Chat Room</InputLabel>
@@ -329,6 +409,26 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
           ))}
         </Select>
       </FormControl>
+      {(role === "coach" || role === "owner" || role === "admin") &&
+        unreadSummary && (
+          <Box
+            sx={{
+              mb: 2,
+              p: 1.25,
+              borderRadius: 2,
+              bgcolor: "#eff6ff",
+              border: "1px solid #bfdbfe",
+            }}
+          >
+            <Typography sx={{ fontSize: 12, color: "#1d4ed8", fontWeight: 700 }}>
+              Unread updates
+            </Typography>
+            <Typography sx={{ fontSize: 13, color: "#1e3a8a", fontWeight: 600 }}>
+              {unreadSummary.students || 0} unread from students •{" "}
+              {unreadSummary.coaches || 0} unread from coaches
+            </Typography>
+          </Box>
+        )}
 
       <Box
         sx={{
@@ -353,18 +453,20 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
         )}
         {loading ? (
           <Typography>Loading messages...</Typography>
-        ) : messages.length === 0 ? (
+        ) : visibleMessages.length === 0 ? (
           <Typography>No messages yet. Start the conversation.</Typography>
         ) : (
-          messages.map((msg, index) => {
+          visibleMessages.map((msg, index) => {
             const mine =
               String(msg?.senderId?._id || msg?.senderId) === String(currentUserId);
             const senderName = msg?.senderId?.fullName || "User";
             const senderRole = msg?.senderId?.role || "";
             const canEdit = mine && canEditMessage(msg);
             const canDelete = mine;
+            const messageTime = new Date(msg?.createdAt || msg?.updatedAt || 0);
+            const isUnread = !mine && messageTime > lastSeenAt;
             const currentDay = formatDayLabel(msg?.createdAt || msg?.updatedAt);
-            const prev = messages[index - 1];
+            const prev = visibleMessages[index - 1];
             const prevDay = prev
               ? formatDayLabel(prev?.createdAt || prev?.updatedAt)
               : "";
@@ -400,14 +502,15 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
                       px: 1.5,
                       py: 1,
                       borderRadius: 2,
-                      bgcolor: mine ? "#10b981" : "#e2e8f0",
+                      bgcolor: mine ? "#10b981" : isUnread ? "#dbeafe" : "#e2e8f0",
                       color: mine ? "white" : "#0f172a",
+                      border: isUnread ? "1px solid #93c5fd" : "1px solid transparent",
                     }}
                   >
                     <Typography
                       sx={{
                         fontSize: 11,
-                        fontWeight: 700,
+                        fontWeight: isUnread ? 800 : 700,
                         mb: 0.3,
                         opacity: mine ? 0.9 : 1,
                       }}
@@ -429,12 +532,15 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
                         </Button>
                       </Stack>
                     ) : (
-                      <Typography sx={{ fontSize: 14 }}>{msg.text}</Typography>
+                      <Typography sx={{ fontSize: 14, fontWeight: isUnread ? 700 : 400 }}>
+                        {msg.text}
+                      </Typography>
                     )}
                     <Typography
                       sx={{
                         fontSize: 10,
-                        opacity: mine ? 0.9 : 0.75,
+                        opacity: mine ? 0.9 : isUnread ? 0.95 : 0.75,
+                        fontWeight: isUnread ? 700 : 400,
                         textAlign: "right",
                         mt: 0.5,
                       }}
@@ -474,7 +580,7 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
                       {canDelete && (
                         <Button
                           size="small"
-                          onClick={() => removeMessage(msg._id)}
+                          onClick={(event) => openDeleteMenu(event, msg._id)}
                           startIcon={<DeleteOutlineOutlinedIcon fontSize="small" />}
                           sx={{ minWidth: 0, px: 1 }}
                         >
@@ -490,6 +596,37 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
         )}
       </Box>
 
+      <Menu
+        anchorEl={deleteAnchorEl}
+        open={Boolean(deleteAnchorEl)}
+        onClose={closeDeleteMenu}
+      >
+        <MenuItem
+          onClick={async () => {
+            const targetId = deleteMessageId;
+            closeDeleteMenu();
+            if (!targetId) return;
+            if (window.confirm("Are you sure you want to delete for everyone?")) {
+              await removeMessageForEveryone(targetId);
+            }
+          }}
+        >
+          Delete for everyone
+        </MenuItem>
+        <MenuItem
+          onClick={() => {
+            const targetId = deleteMessageId;
+            closeDeleteMenu();
+            if (!targetId) return;
+            if (window.confirm("Remove this message from your UI only?")) {
+              hideMessageOnlyForMe(targetId);
+            }
+          }}
+        >
+          Delete for me
+        </MenuItem>
+      </Menu>
+
       <Stack direction="row" spacing={1}>
         <TextField
           fullWidth
@@ -500,7 +637,10 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
           value={text}
           onChange={(e) => setText(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") sendMessage();
+            if (e.key === "Enter" && !e.shiftKey) {
+              e.preventDefault();
+              sendMessage();
+            }
           }}
         />
         <Button variant="contained" disabled={sending} onClick={sendMessage}>
