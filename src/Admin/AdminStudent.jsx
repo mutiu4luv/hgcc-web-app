@@ -113,10 +113,12 @@ const getSubmittedAssignmentGrade = (assignment) => {
     assignment?.submission?.grade ??
     assignment?.submissions?.[0]?.grade;
 
-  return grade === null || grade === undefined || grade === ""
-    || grade === "-"
-    || String(grade).toLowerCase() === "not graded"
-    || String(grade).toLowerCase() === "not graded yet"
+  return grade === null ||
+    grade === undefined ||
+    grade === "" ||
+    grade === "-" ||
+    String(grade).toLowerCase() === "not graded" ||
+    String(grade).toLowerCase() === "not graded yet"
     ? "Not graded by coach"
     : `${grade}%`;
 };
@@ -713,9 +715,24 @@ const StudentDashboard = () => {
 
     const pollUnread = async () => {
       try {
-        const { data } = await axios.get(`${BASE_URL}/api/group-chat/students/messages`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
+        let data;
+        try {
+          const res = await axios.get(`${BASE_URL}/api/group-chat/students/messages`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          data = res.data;
+        } catch (error) {
+          const looksLikeLegacyStudents =
+            error?.response?.status === 400 &&
+            String(error?.response?.data?.message || "")
+              .toLowerCase()
+              .includes("invalid chat channel");
+          if (!looksLikeLegacyStudents) throw error;
+          const legacyRes = await axios.get(`${BASE_URL}/api/group-chat/users/messages`, {
+            headers: { Authorization: `Bearer ${token}` },
+          });
+          data = legacyRes.data;
+        }
         const messages = Array.isArray(data?.messages) ? data.messages : [];
         const lastSeen = new Date(localStorage.getItem(lastSeenKey) || 0);
         const unread = messages.filter((m) => {
@@ -1560,7 +1577,7 @@ const StudentDashboard = () => {
             // ml: isMobile ? 0 : `${drawerWidth}px`,
             p: { xs: 2, md: 4 },
             overflowY: "auto",
-            overflowX: "hidden",
+            overflowX: "auto",
           }}
         >
           {/* Dashboard */}
@@ -1581,21 +1598,32 @@ const StudentDashboard = () => {
               </Typography>
 
               {/* Summary Cards */}
-              <Box sx={{ display: "flex", flexWrap: "wrap", gap: 2, mb: 4 }}>
+              <Box
+                sx={{
+                  display: "grid",
+                  gridTemplateColumns: {
+                    xs: "1fr",
+                    sm: "repeat(2, minmax(0, 1fr))",
+                    lg: "repeat(3, minmax(0, 1fr))",
+                  },
+                  gap: 2,
+                  mb: 4,
+                }}
+              >
                 <Paper
-                  sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#d1fae5" }}
+                  sx={{ p: 2, minWidth: 0, bgcolor: "#d1fae5" }}
                 >
-                  <Typography variant="h6">Assignments</Typography>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="subtitle1">Assignments</Typography>
+                  <Typography variant="h4" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
                     {assignments.length}
                   </Typography>
                 </Paper>
 
                 <Paper
-                  sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#fef9c3" }}
+                  sx={{ p: 2, minWidth: 0, bgcolor: "#fef9c3" }}
                 >
-                  <Typography variant="h6">My Submissions</Typography>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="subtitle1">My Submissions</Typography>
+                  <Typography variant="h4" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
                     {
                       assignments.filter(
                         (a) => a.status?.toLowerCase() === "submitted"
@@ -1605,10 +1633,10 @@ const StudentDashboard = () => {
                 </Paper>
 
                 <Paper
-                  sx={{ flex: 1, p: 2, minWidth: 200, bgcolor: "#bfdbfe" }}
+                  sx={{ p: 2, minWidth: 0, bgcolor: "#bfdbfe" }}
                 >
-                  <Typography variant="h6">Active Courses</Typography>
-                  <Typography variant="h4" fontWeight="bold">
+                  <Typography variant="subtitle1">Active Courses</Typography>
+                  <Typography variant="h4" fontWeight="bold" sx={{ lineHeight: 1.2 }}>
                     {courses.length}
                   </Typography>
                 </Paper>
@@ -1621,7 +1649,7 @@ const StudentDashboard = () => {
                 </Typography>
 
                 <div style={{ width: "100%", overflowX: "auto" }}>
-                  <div style={{ height: 250, minWidth: 700 }}>
+                  <div style={{ height: 260, minWidth: 820 }}>
                   <DataGrid
                     rows={assignments.map((a, idx) => ({
                       id: idx,
@@ -1653,6 +1681,9 @@ const StudentDashboard = () => {
                     ]}
                     pageSize={5}
                     hideFooter
+                    sx={{
+                      "& .MuiDataGrid-columnHeaders": { whiteSpace: "nowrap" },
+                    }}
                   />
                   </div>
                 </div>
