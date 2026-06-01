@@ -226,16 +226,16 @@ const GlobalChatPanel = ({ role = "student", token, baseUrl, onSeen }) => {
             ? {
                 ...m,
                 ...(data?.message || {}),
-                likedBy:
-                  data?.message?.likedBy ||
-                  (Array.isArray(m.likedBy)
-                    ? new Array(data?.likedCount ?? m.likedBy.length).fill("x")
-                    : []),
-                dislikedBy:
-                  data?.message?.dislikedBy ||
-                  (Array.isArray(m.dislikedBy)
-                    ? new Array(data?.dislikedCount ?? m.dislikedBy.length).fill("x")
-                    : []),
+                likedBy: Array.isArray(data?.message?.likedBy)
+                  ? data.message.likedBy
+                  : Array.isArray(m.likedBy)
+                  ? m.likedBy
+                  : [],
+                dislikedBy: Array.isArray(data?.message?.dislikedBy)
+                  ? data.message.dislikedBy
+                  : Array.isArray(m.dislikedBy)
+                  ? m.dislikedBy
+                  : [],
               }
             : m
         )

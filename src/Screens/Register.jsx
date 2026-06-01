@@ -21,6 +21,9 @@ import Visibility from "@mui/icons-material/Visibility";
 import VisibilityOff from "@mui/icons-material/VisibilityOff";
 import { toast } from "react-toastify";
 
+const MAX_PROFILE_PHOTO_MB = 2;
+const MAX_PROFILE_PHOTO_BYTES = MAX_PROFILE_PHOTO_MB * 1024 * 1024;
+
 const RegisterForm = () => {
   const navigate = useNavigate();
 
@@ -50,6 +53,17 @@ const RegisterForm = () => {
   // Handle file selection
   const handleFileChange = (e) => {
     const file = e.target.files[0];
+
+    if (file && file.size > MAX_PROFILE_PHOTO_BYTES) {
+      toast.error(
+        `Profile photo must be ${MAX_PROFILE_PHOTO_MB}MB or less. Please choose a smaller image.`
+      );
+      e.target.value = "";
+      setProfilePhoto(null);
+      setPreviewUrl(null);
+      return;
+    }
+
     setProfilePhoto(file);
     if (file) setPreviewUrl(URL.createObjectURL(file));
   };
@@ -61,12 +75,6 @@ const RegisterForm = () => {
     // Validate terms
     if (!formData.acceptedTerms) {
       alert("Please accept the terms & conditions");
-      return;
-    }
-
-    // Validate photo
-    if (!profilePhoto) {
-      toast.error("Please upload a profile photo");
       return;
     }
 
