@@ -211,6 +211,7 @@ const GlobalChatPanel = ({
     let mounted = true;
 
     setPage(1);
+    setMessages([]);
 
     const loadMessages = async (silent = false) => {
       try {
@@ -223,13 +224,21 @@ const GlobalChatPanel = ({
         );
         if (mounted) {
           const incoming = Array.isArray(data?.messages) ? data.messages : [];
-          setMessages((prev) => {
-            const byId = new Map();
-            [...prev, ...incoming].forEach((m) => byId.set(String(m._id), m));
-            return Array.from(byId.values()).sort(
-              (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+          if (silent) {
+            setMessages((prev) => {
+              const byId = new Map();
+              [...prev, ...incoming].forEach((m) => byId.set(String(m._id), m));
+              return Array.from(byId.values()).sort(
+                (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+              );
+            });
+          } else {
+            setMessages(
+              incoming.sort(
+                (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
+              )
             );
-          });
+          }
           setHasMore(Boolean(data?.hasMore));
         }
       } catch {
