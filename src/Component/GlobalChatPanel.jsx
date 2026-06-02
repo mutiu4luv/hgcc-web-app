@@ -62,6 +62,26 @@ const getTwoNames = (rawName = "User") => {
   return parts[0] || "User";
 };
 
+const parseReplyText = (value = "") => {
+  const text = String(value || "");
+  const replyPrefix = "↪ ";
+  if (!text.startsWith(replyPrefix)) return null;
+
+  const firstBreak = text.indexOf("\n");
+  if (firstBreak < 0) return null;
+
+  const replyLine = text.slice(replyPrefix.length, firstBreak).trim();
+  const body = text.slice(firstBreak + 1);
+  const colonIndex = replyLine.indexOf(":");
+  if (colonIndex < 0) return null;
+
+  return {
+    senderName: replyLine.slice(0, colonIndex).trim() || "User",
+    preview: replyLine.slice(colonIndex + 1).trim(),
+    body,
+  };
+};
+
 const GlobalChatPanel = ({
   role = "student",
   token,
@@ -588,6 +608,7 @@ const GlobalChatPanel = ({
               String(msg?.senderId?._id || msg?.senderId) === String(currentUserId);
             const senderName = msg?.senderId?.fullName || "User";
             const senderRole = msg?.senderId?.role || "";
+            const replyData = parseReplyText(msg?.text);
             const canEdit = mine && canEditMessage(msg);
             const canDelete = mine;
             const messageTime = new Date(msg?.createdAt || msg?.updatedAt || 0);
@@ -667,6 +688,38 @@ const GlobalChatPanel = ({
                     >
                       {mine ? `You (${senderRole || "user"})` : `${senderName} (${senderRole || "user"})`}
                     </Typography>
+                    {replyData?.preview && (
+                      <Box
+                        sx={{
+                          mb: 0.8,
+                          p: 0.9,
+                          borderRadius: 1.5,
+                          borderLeft: "3px solid rgba(255,255,255,0.7)",
+                          bgcolor: mine ? "rgba(255,255,255,0.14)" : "rgba(15,23,42,0.05)",
+                        }}
+                      >
+                        <Typography
+                          sx={{
+                            fontSize: 11,
+                            fontWeight: 800,
+                            lineHeight: 1.2,
+                            opacity: mine ? 0.95 : 0.9,
+                          }}
+                        >
+                          {replyData.senderName}
+                        </Typography>
+                        <Typography
+                          sx={{
+                            fontSize: 11,
+                            lineHeight: 1.35,
+                            opacity: mine ? 0.92 : 0.85,
+                            whiteSpace: "pre-wrap",
+                          }}
+                        >
+                          {replyData.preview}
+                        </Typography>
+                      </Box>
+                    )}
                     {editingMessageId === String(msg._id) ? (
                       <Stack direction="row" spacing={1} sx={{ mt: 0.5 }}>
                         <TextField
@@ -682,8 +735,8 @@ const GlobalChatPanel = ({
                         </Button>
                       </Stack>
                     ) : (
-                      <Typography sx={{ fontSize: 14, fontWeight: isUnread ? 700 : 400 }}>
-                        {msg.text}
+                      <Typography sx={{ fontSize: 14, fontWeight: isUnread ? 700 : 400, whiteSpace: "pre-wrap" }}>
+                        {replyData?.body || msg.text}
                       </Typography>
                     )}
                     <Typography
