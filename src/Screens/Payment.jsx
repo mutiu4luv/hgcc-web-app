@@ -7,6 +7,7 @@ import {
   Typography,
   Alert,
   CircularProgress,
+  TextField,
 } from "@mui/material";
 import axios from "axios";
 
@@ -18,31 +19,34 @@ const PaymentScreen = ({ token }) => {
 
   const [loading, setLoading] = useState(false);
   const [message, setMessage] = useState("");
+  const [proof, setProof] = useState(null);
 
   const handleConfirmPayment = async () => {
+    if (!proof) {
+      setMessage("Please upload your proof of payment first.");
+      return;
+    }
+
     try {
       setLoading(true);
 
+      const formData = new FormData();
+      formData.append("courseId", courseId);
+      formData.append("proof", proof);
+
       const res = await axios.post(
-        `${BASE_URL}/api/payment/confirm`,
+        `${BASE_URL}/api/cohort/student/register-cohort/${cohortId}`,
+        formData,
         {
-          cohortId,
-          courseId,
-        },
-        {
-          headers: { Authorization: `Bearer ${token}` },
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "multipart/form-data",
+          },
         }
       );
 
       setMessage(res.data.message);
-
-      // ⭐ redirect to WhatsApp
-      const phone = "2349071651329";
-      const text = encodeURIComponent(
-        "Hello, I have made my payment. Here is my proof of payment."
-      );
-
-      window.location.href = `https://wa.me/${phone}?text=${text}`;
+      setProof(null);
     } catch (err) {
       setMessage(
         err.response?.data?.message || "Something went wrong. Try again."
@@ -66,9 +70,28 @@ const PaymentScreen = ({ token }) => {
         </Typography>
 
         <Typography sx={{ mt: 2, color: "gray" }}>
-          After payment, click the button below to confirm and send proof via
-          WhatsApp.
+          After payment, upload your proof below so the owner can review it in
+          the dashboard.
         </Typography>
+
+        <Button component="label" variant="outlined" fullWidth sx={{ mt: 3 }}>
+          Upload Proof of Payment
+          <input
+            hidden
+            type="file"
+            accept="image/*,.pdf"
+            onChange={(e) => setProof(e.target.files?.[0] || null)}
+          />
+        </Button>
+
+        {proof && (
+          <TextField
+            fullWidth
+            margin="normal"
+            value={proof.name}
+            InputProps={{ readOnly: true }}
+          />
+        )}
 
         <Button
           fullWidth
@@ -78,7 +101,7 @@ const PaymentScreen = ({ token }) => {
           disabled={loading}
           onClick={handleConfirmPayment}
         >
-          {loading ? <CircularProgress size={26} /> : "I Have Paid"}
+          {loading ? <CircularProgress size={26} /> : "Submit Payment Proof"}
         </Button>
 
         {message && (

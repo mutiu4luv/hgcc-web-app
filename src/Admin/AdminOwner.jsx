@@ -187,6 +187,18 @@ const AdminOwner = () => {
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const user = JSON.parse(localStorage.getItem("user"));
+  const markGroupChannelSeenOnServer = async (channel) => {
+    if (!BASE_URL || !token || !channel) return;
+    try {
+      await axios.post(
+        `${BASE_URL}/api/group-chat/${channel}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch {
+      // Fall back to local storage only on older backends.
+    }
+  };
 
   useEffect(() => {
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
@@ -197,10 +209,32 @@ const AdminOwner = () => {
     if (activeTab === "chat") {
       const now = new Date().toISOString();
       channels.forEach((ch) => localStorage.setItem(makeKey(ch), now));
+      channels.forEach((ch) => {
+        markGroupChannelSeenOnServer(ch);
+      });
       setChatUnreadCount(0);
     }
 
     const pollUnread = async () => {
+      try {
+        const { data } = await axios.get(
+          `${BASE_URL}/api/group-chat/unread-summary`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const nextByChannel = {
+          students: Number(data?.unreadByChannel?.students || 0),
+          coaches: Number(data?.unreadByChannel?.coaches || 0),
+        };
+        const total = Number(
+          data?.total ?? nextByChannel.students + nextByChannel.coaches
+        );
+        setChatUnreadByChannel(nextByChannel);
+        if (activeTab !== "chat") setChatUnreadCount(total);
+        return;
+      } catch {
+        // Fall through to the legacy local-storage-based unread calculation.
+      }
+
       try {
         let total = 0;
         const nextByChannel = { students: 0, coaches: 0 };
@@ -2916,7 +2950,7 @@ const AdminOwner = () => {
                                     View Proof
                                   </Button>
                                 ) : (
-                                  "-"
+                                  "No proof uploaded"
                                 )}
                               </TableCell>
 
@@ -3288,6 +3322,7 @@ const AdminOwner = () => {
                   `group_chat_last_seen_owner_${seenChannel}`,
                   new Date().toISOString()
                 );
+                markGroupChannelSeenOnServer(seenChannel);
                 setChatUnreadByChannel((prev) => {
                   const next = { ...prev, [seenChannel]: 0 };
                   setChatUnreadCount((next.students || 0) + (next.coaches || 0));

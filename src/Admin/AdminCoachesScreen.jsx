@@ -540,6 +540,12 @@ const CoachDashboard = () => {
     coaches: 0,
   });
 
+  const uploadCohorts = assignedCourses.filter(
+    (cohort) => Array.isArray(cohort.courses) && cohort.courses.length > 0
+  );
+  const uploadCoursesForSelectedCohort =
+    uploadCohorts.find((cohort) => cohort.cohortId === selectedCohortId)?.courses || [];
+
   const [contentType, setContentType] = useState("");
   const [title, setTitle] = useState("");
   const [file, setFile] = useState(null);
@@ -1005,6 +1011,19 @@ const CoachDashboard = () => {
     activeTabRef.current = activeTab;
   }, [activeTab]);
 
+  const markGroupChannelSeenOnServer = async (channel) => {
+    if (!BASE_URL || !token || !channel) return;
+    try {
+      await axios.post(
+        `${BASE_URL}/api/group-chat/${channel}/read`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+    } catch {
+      // Fall back to local storage only on older backends.
+    }
+  };
+
   useEffect(() => {
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const currentUserId = currentUser?.id || currentUser?._id;
@@ -1012,6 +1031,25 @@ const CoachDashboard = () => {
     const makeKey = (channel) => `group_chat_last_seen_coach_${channel}`;
 
     const pollUnread = async () => {
+      try {
+        const { data } = await axios.get(
+          `${BASE_URL}/api/group-chat/unread-summary`,
+          { headers: { Authorization: `Bearer ${token}` } }
+        );
+        const nextByChannel = {
+          students: Number(data?.unreadByChannel?.students || 0),
+          coaches: Number(data?.unreadByChannel?.coaches || 0),
+        };
+        const total = Number(
+          data?.total ?? nextByChannel.students + nextByChannel.coaches
+        );
+        setChatUnreadByChannel(nextByChannel);
+        setChatUnreadCount(total);
+        return;
+      } catch {
+        // Fall through to the legacy local-storage-based unread calculation.
+      }
+
       try {
         let total = 0;
         const nextByChannel = { students: 0, coaches: 0 };
@@ -1110,6 +1148,7 @@ const CoachDashboard = () => {
     if (!seenChannel) return;
     const key = `group_chat_last_seen_coach_${seenChannel}`;
     localStorage.setItem(key, new Date().toISOString());
+    markGroupChannelSeenOnServer(seenChannel);
     setChatUnreadByChannel((prev) => {
       const next = { ...prev, [seenChannel]: 0 };
       setChatUnreadCount((next.students || 0) + (next.coaches || 0));
@@ -1667,6 +1706,35 @@ const CoachDashboard = () => {
     }
   }, [activeTab]);
 
+  useEffect(() => {
+    if (!uploadCohorts.length) {
+      setSelectedCohortId("");
+      setSelectedCourseId("");
+      return;
+    }
+
+    const cohortStillValid = uploadCohorts.some(
+      (cohort) => cohort.cohortId === selectedCohortId
+    );
+    const nextCohortId = cohortStillValid
+      ? selectedCohortId
+      : uploadCohorts[0].cohortId;
+
+    if (nextCohortId !== selectedCohortId) {
+      setSelectedCohortId(nextCohortId);
+    }
+
+    const nextCourses =
+      uploadCohorts.find((cohort) => cohort.cohortId === nextCohortId)?.courses || [];
+    const courseStillValid = nextCourses.some(
+      (course) => course.courseId === selectedCourseId
+    );
+
+    if (!courseStillValid) {
+      setSelectedCourseId(nextCourses[0]?.courseId || "");
+    }
+  }, [uploadCohorts, selectedCohortId, selectedCourseId]);
+
   // ========================= // FETCH  ASSIGNMENT DONE BY STUDENT // =========================
   // const loadStudentAssignments = async () => {
   //   setStudentAssignmentsLoading(true);
@@ -1690,25 +1758,11 @@ const CoachDashboard = () => {
   // }, []);
 
   useEffect(() => {
-    const fetchCohorts = async () => {
-      try {
-        const res = await axios.get(`${BASE_URL}/api/cohort/available`, {
-          headers: { Authorization: `Bearer ${token}` },
-        });
-        if (res.data?.cohorts?.length > 0) {
-          setCohorts(res.data.cohorts);
-          setSelectedCohortId(res.data.cohorts[0].cohortId);
-          setCohortId(res.data.cohorts[0].cohortId);
-        } else {
-          console.warn("No cohorts found in response", res.data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch cohorts:", err);
-      }
-    };
-
-    fetchCohorts();
-  }, []);
+    setCohorts(uploadCohorts);
+    if (uploadCohorts.length > 0 && !cohortId) {
+      setCohortId(uploadCohorts[0].cohortId);
+    }
+  }, [uploadCohorts, cohortId]);
 
   // =========================
   // FETCH VIDEOS & DOCUMENTS
@@ -2374,8 +2428,10 @@ const CoachDashboard = () => {
                     setVideoTitle("");
                     setVideoFile(null);
                     setClassStartTime("");
-                    setSelectedCourseId(courses[0]?._id || "");
-                    setSelectedCohortId(cohorts[0]?.cohortId || "");
+                    setSelectedCourseId(
+                      uploadCoursesForSelectedCohort[0]?.courseId || ""
+                    );
+                    setSelectedCohortId(uploadCohorts[0]?.cohortId || "");
                     loadVideos();
                     await fetchMyVideos();
                   } catch (err) {
@@ -2417,11 +2473,11 @@ const CoachDashboard = () => {
                   value={selectedCourseId}
                   onChange={(e) => setSelectedCourseId(e.target.value)}
                 >
-                  {courses.length === 0 ? (
+                  {uploadCoursesForSelectedCohort.length === 0 ? (
                     <MenuItem disabled>No courses available</MenuItem>
                   ) : (
-                    courses.map((course) => (
-                      <MenuItem key={course._id} value={course._id}>
+                    uploadCoursesForSelectedCohort.map((course) => (
+                      <MenuItem key={course.courseId} value={course.courseId}>
                         {course.name}
                       </MenuItem>
                     ))
@@ -2437,10 +2493,10 @@ const CoachDashboard = () => {
                   value={selectedCohortId}
                   onChange={(e) => setSelectedCohortId(e.target.value)}
                 >
-                  {cohorts.length === 0 ? (
+                  {uploadCohorts.length === 0 ? (
                     <MenuItem disabled>No cohorts available</MenuItem>
                   ) : (
-                    cohorts.map((cohort) => (
+                    uploadCohorts.map((cohort) => (
                       <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
                         {cohort.cohortName}
                       </MenuItem>

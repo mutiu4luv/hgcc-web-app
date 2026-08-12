@@ -710,13 +710,44 @@ const StudentDashboard = () => {
     const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
     const currentUserId = currentUser?.id || currentUser?._id;
     const lastSeenKey = "group_chat_last_seen_student_students";
+    const markSeenOnServer = async () => {
+      if (!BASE_URL || !token) return;
+      try {
+        await axios.post(
+          `${BASE_URL}/api/group-chat/students/read`,
+          {},
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+      } catch {
+        // Fall back to local storage only on older backends.
+      }
+    };
 
     if (activeTab === "chat") {
       localStorage.setItem(lastSeenKey, new Date().toISOString());
+      markSeenOnServer();
       setChatUnreadCount(0);
     }
 
     const pollUnread = async () => {
+      try {
+        const { data } = await axios.get(
+          `${BASE_URL}/api/group-chat/unread-summary`,
+          {
+            headers: { Authorization: `Bearer ${token}` },
+          }
+        );
+        const unread = Number(
+          data?.unreadByChannel?.students ?? data?.total ?? 0
+        );
+        if (activeTab !== "chat") setChatUnreadCount(unread);
+        return;
+      } catch {
+        // Fall through to the legacy local-storage-based unread calculation.
+      }
+
       try {
         let data;
         try {
@@ -3401,6 +3432,15 @@ const StudentDashboard = () => {
                   "group_chat_last_seen_student_students",
                   new Date().toISOString()
                 );
+                axios
+                  .post(
+                    `${BASE_URL}/api/group-chat/students/read`,
+                    {},
+                    {
+                      headers: { Authorization: `Bearer ${token}` },
+                    }
+                  )
+                  .catch(() => {});
                 setChatUnreadCount(0);
               }}
             />
