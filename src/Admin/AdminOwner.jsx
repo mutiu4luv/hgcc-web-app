@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import {
   Box,
   Typography,
@@ -67,6 +67,7 @@ import {
 
 import { motion } from "framer-motion";
 import axios from "axios";
+import { io } from "socket.io-client";
 import { toast } from "react-toastify";
 import GlobalChatPanel from "../Component/GlobalChatPanel";
 import MobileBottomNav from "../Component/MobileBottomNav";
@@ -148,6 +149,8 @@ const AdminOwner = () => {
     students: 0,
     coaches: 0,
   });
+  const [openGroupChatChannel, setOpenGroupChatChannel] = useState("coaches");
+  const activeTabRef = useRef(activeTab);
 
   // ✅ Filter students by name, email, or phone number
   const filteredStudent = useMemo(() => {
@@ -187,6 +190,11 @@ const AdminOwner = () => {
   const token = localStorage.getItem("token");
   const BASE_URL = import.meta.env.VITE_BASE_URL;
   const user = JSON.parse(localStorage.getItem("user"));
+
+  useEffect(() => {
+    activeTabRef.current = activeTab;
+  }, [activeTab]);
+
   const markGroupChannelSeenOnServer = async (channel) => {
     if (!BASE_URL || !token || !channel) return;
     try {
@@ -290,6 +298,77 @@ const AdminOwner = () => {
     const interval = setInterval(pollUnread, 7000);
     return () => clearInterval(interval);
   }, [activeTab, BASE_URL, token]);
+
+  useEffect(() => {
+    if (!BASE_URL || !token) return;
+
+    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUserId = currentUser?.id || currentUser?._id;
+    const socket = io(BASE_URL, {
+      auth: { token },
+      transports: ["websocket", "polling"],
+    });
+
+    const joinGroupRooms = () => {
+      ["coaches", "students"].forEach((channel) => {
+        socket.emit("joinGroupChat", {
+          channel,
+          room: `group-chat:${channel}`,
+          role: "owner",
+          joinedAt: new Date().toISOString(),
+        });
+      });
+    };
+
+    const handleGroupMessage = ({ channel, message }) => {
+      const incomingChannel =
+        channel === "users" ? "students" : channel || message?.channel;
+      if (incomingChannel !== "students" && incomingChannel !== "coaches") return;
+
+      const senderId = message?.senderId?._id || message?.senderId;
+      if (String(senderId) === String(currentUserId)) return;
+
+      const isActiveRoom =
+        activeTabRef.current === "chat" && openGroupChatChannel === incomingChannel;
+
+      if (isActiveRoom) {
+        localStorage.setItem(
+          `group_chat_last_seen_owner_${incomingChannel}`,
+          new Date().toISOString()
+        );
+        markGroupChannelSeenOnServer(incomingChannel);
+        setChatUnreadByChannel((prev) => {
+          const next = { ...prev, [incomingChannel]: 0 };
+          setChatUnreadCount((next.students || 0) + (next.coaches || 0));
+          return next;
+        });
+        return;
+      }
+
+      setChatUnreadByChannel((prev) => {
+        const next = {
+          ...prev,
+          [incomingChannel]: (prev[incomingChannel] || 0) + 1,
+        };
+        if (activeTabRef.current !== "chat") {
+          setChatUnreadCount((next.students || 0) + (next.coaches || 0));
+        } else {
+          setChatUnreadCount((count) => count + 1);
+        }
+        return next;
+      });
+    };
+
+    socket.on("connect", joinGroupRooms);
+    socket.on("groupChatMessage", handleGroupMessage);
+    if (socket.connected) joinGroupRooms();
+
+    return () => {
+      socket.off("connect", joinGroupRooms);
+      socket.off("groupChatMessage", handleGroupMessage);
+      socket.disconnect();
+    };
+  }, [BASE_URL, token, openGroupChatChannel]);
 
   const handleSendBroadcastEmail = async () => {
     if (!broadcastSubject.trim() || !broadcastMessage.trim()) {
@@ -3316,6 +3395,7 @@ const AdminOwner = () => {
               token={token}
               baseUrl={BASE_URL}
               unreadSummary={chatUnreadByChannel}
+              onActiveChannelChange={setOpenGroupChatChannel}
               onSeen={(seenChannel) => {
                 if (!seenChannel) return;
                 localStorage.setItem(

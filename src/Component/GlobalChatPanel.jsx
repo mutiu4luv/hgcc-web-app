@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from "react";
+import React, { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   Box,
   Button,
@@ -82,11 +82,15 @@ const parseReplyText = (value = "") => {
   };
 };
 
+const normalizeGroupChannel = (value) =>
+  value === "users" ? "students" : String(value || "");
+
 const GlobalChatPanel = ({
   role = "student",
   token,
   baseUrl,
   onSeen,
+  onActiveChannelChange,
   unreadSummary = null,
 }) => {
   const storageKey = `group_chat_selected_channel_${role}`;
@@ -146,12 +150,12 @@ const GlobalChatPanel = ({
     setLastSeenAt(raw ? new Date(raw) : new Date(0));
   }, [lastSeenKey]);
 
-  const markChannelAsRead = () => {
+  const markChannelAsRead = useCallback(() => {
     const now = new Date().toISOString();
     localStorage.setItem(lastSeenKey, now);
     setLastSeenAt(new Date(now));
     if (typeof onSeen === "function") onSeen(channel);
-  };
+  }, [channel, lastSeenKey, onSeen]);
 
   const hideMessageOnlyForMe = (messageId) => {
     const next = Array.from(new Set([...hiddenMessageIds, String(messageId)]));
@@ -403,8 +407,14 @@ const GlobalChatPanel = ({
   };
 
   useEffect(() => {
-    if (typeof onSeen === "function") onSeen(channel);
-  }, [messages.length, onSeen, channel]);
+    markChannelAsRead();
+  }, [markChannelAsRead]);
+
+  useEffect(() => {
+    if (typeof onActiveChannelChange === "function") {
+      onActiveChannelChange(channel);
+    }
+  }, [channel, onActiveChannelChange]);
 
   const sendMessage = async () => {
     if (!text.trim()) return;
@@ -429,9 +439,11 @@ const GlobalChatPanel = ({
       const firstName = getTwoNames(currentUser?.fullName || currentUser?.name || "User");
       socketRef.current?.emit("groupChatTyping", {
         channel,
+        room: `group-chat:${channel}`,
         userId: currentUserId,
         firstName,
         isTyping: false,
+        sentAt: new Date().toISOString(),
       });
     } finally {
       setSending(false);
@@ -462,8 +474,9 @@ const GlobalChatPanel = ({
     socketRef.current = socket;
 
     const onGroupMessage = ({ channel: incomingChannel, message }) => {
-      const resolvedChannel =
-        incomingChannel === "users" ? "students" : incomingChannel;
+      const resolvedChannel = normalizeGroupChannel(
+        incomingChannel || message?.channel
+      );
       if (resolvedChannel !== channel || !message?._id) return;
       setMessages((prev) => {
         const byId = new Map();
@@ -472,11 +485,14 @@ const GlobalChatPanel = ({
           (a, b) => new Date(a.createdAt || 0) - new Date(b.createdAt || 0)
         );
       });
+      const senderId = message?.senderId?._id || message?.senderId;
+      if (String(senderId) !== String(currentUserId)) {
+        markChannelAsRead();
+      }
     };
 
     const onTyping = ({ channel: incomingChannel, userId, firstName, isTyping }) => {
-      const resolvedChannel =
-        incomingChannel === "users" ? "students" : incomingChannel;
+      const resolvedChannel = normalizeGroupChannel(incomingChannel);
       if (resolvedChannel !== channel) return;
       if (!userId || String(userId) === String(currentUserId)) return;
       setTypingUsers((prev) => {
@@ -486,18 +502,29 @@ const GlobalChatPanel = ({
       });
     };
 
+    const joinGroupChat = () => {
+      socket.emit("joinGroupChat", {
+        channel,
+        room: `group-chat:${channel}`,
+        role,
+        joinedAt: new Date().toISOString(),
+      });
+    };
+
     socket.on("groupChatMessage", onGroupMessage);
     socket.on("groupChatTyping", onTyping);
-    socket.emit("joinGroupChat", { channel });
+    socket.on("connect", joinGroupChat);
+    if (socket.connected) joinGroupChat();
 
     return () => {
       socket.off("groupChatMessage", onGroupMessage);
       socket.off("groupChatTyping", onTyping);
+      socket.off("connect", joinGroupChat);
       socket.disconnect();
       socketRef.current = null;
       if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
     };
-  }, [baseUrl, token, channel]);
+  }, [baseUrl, token, channel, currentUserId, markChannelAsRead, role]);
 
   return (
     <Paper sx={{ p: 3, borderRadius: 3 }}>
@@ -869,17 +896,21 @@ const GlobalChatPanel = ({
             const firstName = getTwoNames(currentUser?.fullName || currentUser?.name || "User");
             socketRef.current.emit("groupChatTyping", {
               channel,
+              room: `group-chat:${channel}`,
               userId: currentUserId,
               firstName,
               isTyping: nextText.trim().length > 0,
+              sentAt: new Date().toISOString(),
             });
             if (typingTimeoutRef.current) clearTimeout(typingTimeoutRef.current);
             typingTimeoutRef.current = setTimeout(() => {
               socketRef.current?.emit("groupChatTyping", {
                 channel,
+                room: `group-chat:${channel}`,
                 userId: currentUserId,
                 firstName,
                 isTyping: false,
+                sentAt: new Date().toISOString(),
               });
             }, 1200);
           }}

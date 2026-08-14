@@ -475,6 +475,7 @@ const CoachDashboard = () => {
   const [loading, setLoading] = useState(false);
   const [globalLoading, setGlobalLoading] = useState(true);
   const [message, setMessage] = useState("");
+  const [videoUploadFeedback, setVideoUploadFeedback] = useState(null);
   const [savedMessage, setSavedMessage] = useState(null);
   const [messages, setMessages] = useState([]);
 
@@ -535,6 +536,7 @@ const CoachDashboard = () => {
   const [endingLive, setEndingLive] = useState(false);
   const [chatUnreadCount, setChatUnreadCount] = useState(0);
   const activeTabRef = useRef(activeTab);
+  const [openGroupChatChannel, setOpenGroupChatChannel] = useState("coaches");
   const [chatUnreadByChannel, setChatUnreadByChannel] = useState({
     students: 0,
     coaches: 0,
@@ -558,6 +560,53 @@ const CoachDashboard = () => {
     useState("");
   const [selfLearningLoading, setSelfLearningLoading] = useState(false);
   const [slError, setSlError] = useState("");
+
+  const buildVideoUploadFeedback = (error) => {
+    const status = error?.response?.status;
+    const serverMessage = error?.response?.data?.message;
+    const fallbackMessage = error?.message || "Upload failed";
+
+    if (status === 400 && serverMessage) {
+      return {
+        severity: "warning",
+        title: "Upload needs attention",
+        detail: serverMessage,
+      };
+    }
+
+    if (status === 403) {
+      return {
+        severity: "error",
+        title: "Upload not allowed",
+        detail:
+          serverMessage ||
+          "This coach is not assigned to the selected course and cohort.",
+      };
+    }
+
+    if (status === 404) {
+      return {
+        severity: "error",
+        title: "Course setup issue",
+        detail: serverMessage || "The selected course could not be found.",
+      };
+    }
+
+    if (!error?.response) {
+      return {
+        severity: "error",
+        title: "Network or server issue",
+        detail:
+          "The upload could not reach the server. Please check your connection and try again.",
+      };
+    }
+
+    return {
+      severity: "error",
+      title: "Video upload failed",
+      detail: serverMessage || fallbackMessage,
+    };
+  };
 
   const [freeContentType, setFreeContentType] = useState("");
   const [freeTitle, setFreeTitle] = useState("");
@@ -1044,7 +1093,7 @@ const CoachDashboard = () => {
           data?.total ?? nextByChannel.students + nextByChannel.coaches
         );
         setChatUnreadByChannel(nextByChannel);
-        setChatUnreadCount(total);
+        if (activeTabRef.current !== "chat") setChatUnreadCount(total);
         return;
       } catch {
         // Fall through to the legacy local-storage-based unread calculation.
@@ -1095,7 +1144,7 @@ const CoachDashboard = () => {
           total += count;
         }
         setChatUnreadByChannel(nextByChannel);
-        setChatUnreadCount(total);
+        if (activeTabRef.current !== "chat") setChatUnreadCount(total);
       } catch {
         // no-op
       }
@@ -1122,16 +1171,37 @@ const CoachDashboard = () => {
     const handleGroupMessage = ({ message, channel }) => {
       const senderId = message?.senderId?._id || message?.senderId;
       if (String(senderId) === String(currentUserId)) return;
-      const incomingChannel = channel || message?.channel;
+      const incomingChannel =
+        channel === "users" ? "students" : channel || message?.channel;
       if (incomingChannel !== "students" && incomingChannel !== "coaches") return;
 
-      if (activeTabRef.current === "chat") return;
+      const isActiveRoom =
+        activeTabRef.current === "chat" && openGroupChatChannel === incomingChannel;
+
+      if (isActiveRoom) {
+        localStorage.setItem(
+          `group_chat_last_seen_coach_${incomingChannel}`,
+          new Date().toISOString()
+        );
+        markGroupChannelSeenOnServer(incomingChannel);
+        setChatUnreadByChannel((prev) => {
+          const next = { ...prev, [incomingChannel]: 0 };
+          setChatUnreadCount((next.students || 0) + (next.coaches || 0));
+          return next;
+        });
+        return;
+      }
+
       setChatUnreadByChannel((prev) => {
         const next = {
           ...prev,
           [incomingChannel]: (prev[incomingChannel] || 0) + 1,
         };
-        setChatUnreadCount((next.students || 0) + (next.coaches || 0));
+        if (activeTabRef.current !== "chat") {
+          setChatUnreadCount((next.students || 0) + (next.coaches || 0));
+        } else {
+          setChatUnreadCount((count) => count + 1);
+        }
         return next;
       });
     };
@@ -1142,7 +1212,7 @@ const CoachDashboard = () => {
       socket.off("groupChatMessage", handleGroupMessage);
       socket.disconnect();
     };
-  }, [BASE_URL, token]);
+  }, [BASE_URL, token, openGroupChatChannel]);
 
   const markGroupChannelSeen = (seenChannel) => {
     if (!seenChannel) return;
@@ -2419,12 +2489,20 @@ const CoachDashboard = () => {
 
                   try {
                     setLoading(true);
+                    setVideoUploadFeedback(null);
                     const { data } = await axios.post(
                       `${BASE_URL}/api/coach/upload-video`,
                       formData,
                       { headers: { Authorization: `Bearer ${token}` } }
                     );
                     setMessage(data.message);
+                    setVideoUploadFeedback({
+                      severity: "success",
+                      title: "Video uploaded successfully",
+                      detail:
+                        data.message ||
+                        "The video is now saved and scheduled for the selected class time.",
+                    });
                     setVideoTitle("");
                     setVideoFile(null);
                     setClassStartTime("");
@@ -2441,6 +2519,7 @@ const CoachDashboard = () => {
                       err.message ||
                       "Upload failed";
                     setMessage(`❌ ${errMsg}`);
+                    setVideoUploadFeedback(buildVideoUploadFeedback(err));
                   } finally {
                     setLoading(false);
                   }
@@ -2547,6 +2626,20 @@ const CoachDashboard = () => {
                 >
                   {message}
                 </Typography>
+              )}
+
+              {videoUploadFeedback && (
+                <Alert
+                  severity={videoUploadFeedback.severity}
+                  sx={{ mt: 2, mb: 2 }}
+                >
+                  <Typography fontWeight="bold">
+                    {videoUploadFeedback.title}
+                  </Typography>
+                  <Typography variant="body2">
+                    {videoUploadFeedback.detail}
+                  </Typography>
+                </Alert>
               )}
 
               <Typography variant="h6">🎬 My Uploaded Videos</Typography>
@@ -4086,6 +4179,7 @@ const CoachDashboard = () => {
               token={token}
               baseUrl={BASE_URL}
               unreadSummary={chatUnreadByChannel}
+              onActiveChannelChange={setOpenGroupChatChannel}
               onSeen={(seenChannel) => markGroupChannelSeen(seenChannel)}
             />
           )}
