@@ -80,6 +80,14 @@ function App() {
           }
         />
         <Route
+          path="/coach/:cohortIds"
+          element={
+            <ProtectedRoute>
+              <AdminCoach />
+            </ProtectedRoute>
+          }
+        />
+        <Route
           path="/student/dashboard"
           element={
             <ProtectedRoute>
