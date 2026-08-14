@@ -50,9 +50,16 @@ const Navbar = () => {
   const handleDashboardClick = () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const role = user.role || "student";
+    const storedSelectedCohortId = localStorage.getItem("selectedCohortId");
+    const fallbackCohortId =
+      user?.cohorts?.find((cohort) => cohort?._id)?._id || "";
+    const coachDashboardPath =
+      storedSelectedCohortId || fallbackCohortId
+        ? `/coach/${storedSelectedCohortId || fallbackCohortId}`
+        : "/coach";
 
     if (role === "owner") navigate("/owner");
-    else if (role === "coach") navigate("/coach");
+    else if (role === "coach") navigate(coachDashboardPath);
     else navigate("/student/dashboard");
 
     handleUserMenuClose();

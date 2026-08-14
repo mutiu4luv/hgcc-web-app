@@ -70,6 +70,43 @@ const toAssignmentExpiry = (dateValue) => {
   return new Date(year, month - 1, day, 23, 59, 0, 0).toISOString();
 };
 
+const ensureArray = (value) => (Array.isArray(value) ? value : []);
+
+const normalizeAssignedCohorts = (value) =>
+  ensureArray(value)
+    .filter(Boolean)
+    .map((cohort) => ({
+      ...cohort,
+      cohortId:
+        cohort?._id ||
+        cohort?.cohortId?._id ||
+        cohort?.cohortId ||
+        "",
+      cohortName:
+        cohort?.cohortName ||
+        cohort?.name ||
+        cohort?.cohortId?.name ||
+        "No Cohort",
+      courses: ensureArray(cohort?.courses)
+        .filter(Boolean)
+        .map((course) => ({
+          ...course,
+          cohortCourseId: course?.cohortCourseId || "",
+          courseId:
+            typeof course?.courseId === "object"
+              ? course?.courseId?._id || ""
+              : course?.courseId || "",
+          name: course?.name || course?.courseId?.name || "Untitled Course",
+        })),
+    }));
+
+const normalizeRatings = (value) => {
+  if (Array.isArray(value)) return value;
+  if (Array.isArray(value?.ratings)) return value.ratings;
+  if (Array.isArray(value?.data)) return value.data;
+  return [];
+};
+
 function ChatSidebarLocal({
   cohortId,
   courseId,
@@ -542,7 +579,8 @@ const CoachDashboard = () => {
     coaches: 0,
   });
 
-  const uploadCohorts = assignedCourses.filter(
+  const safeAssignedCourses = normalizeAssignedCohorts(assignedCourses);
+  const uploadCohorts = safeAssignedCourses.filter(
     (cohort) => Array.isArray(cohort.courses) && cohort.courses.length > 0
   );
   const uploadCoursesForSelectedCohort =
@@ -1597,7 +1635,7 @@ const CoachDashboard = () => {
       });
 
       console.log("Assigned courses from API:", res.data);
-      setAssignedCourses(res.data.cohorts || []);
+      setAssignedCourses(normalizeAssignedCohorts(res.data?.cohorts));
     } catch (err) {
       console.error("Error fetching assigned courses:", err);
     } finally {
@@ -1609,14 +1647,14 @@ const CoachDashboard = () => {
   // FLATTEN COURSES FOR DROPDOWN
   // =========================
   useEffect(() => {
-    if (!assignedCourses || assignedCourses.length === 0) {
+    if (!safeAssignedCourses.length) {
       setCoursesArray([]);
       return;
     }
 
     // Transform assignedCourses into flat array for dropdown
 
-    const flatCourses = assignedCourses.flatMap((cohort) =>
+    const flatCourses = safeAssignedCourses.flatMap((cohort) =>
       cohort.courses.map((course) => ({
         cohortCourseId: course.cohortCourseId,
         courseId: course.courseId,
@@ -1628,7 +1666,7 @@ const CoachDashboard = () => {
     //
 
     setCoursesArray(flatCourses);
-  }, [assignedCourses]);
+  }, [safeAssignedCourses]);
   // auto-select first course when coursesArray changes
   useEffect(() => {
     if (coursesArray.length > 0 && !selectedCourse) {
@@ -1752,12 +1790,12 @@ const CoachDashboard = () => {
   // };
 
   useEffect(() => {
-    if (!assignedCourses || assignedCourses.length === 0) {
+    if (!safeAssignedCourses.length) {
       setCoursesArray([]);
       return;
     }
 
-    const flatCourses = assignedCourses.flatMap((cohort) =>
+    const flatCourses = safeAssignedCourses.flatMap((cohort) =>
       cohort.courses.map((course) => ({
         cohortCourseId: course.cohortCourseId,
         courseId: course.courseId,
@@ -1768,7 +1806,7 @@ const CoachDashboard = () => {
     );
 
     setCoursesArray(flatCourses);
-  }, [assignedCourses]);
+  }, [safeAssignedCourses]);
 
   useEffect(() => {
     if (activeTab === "course-control") {
@@ -2056,7 +2094,8 @@ const CoachDashboard = () => {
         const res = await axios.get(`${BASE_URL}/api/feedbacks/my-ratings`, {
           headers: { Authorization: `Bearer ${token}` },
         });
-        const monthlyRatings = res.data.reduce((acc, item) => {
+        const ratingItems = normalizeRatings(res.data);
+        const monthlyRatings = ratingItems.reduce((acc, item) => {
           const month = new Date(item.createdAt).toLocaleString("default", {
             month: "short",
           });
@@ -2126,6 +2165,7 @@ const CoachDashboard = () => {
 
   const assignmentRows = Object.values(assignments || {})
     .flat()
+    .filter((assignment) => assignment && typeof assignment === "object")
     .flatMap((a) => {
       const submissions = Array.isArray(a.submissions) ? a.submissions : [];
       const submittedRows = submissions.map((s, idx) => ({
