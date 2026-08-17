@@ -97,7 +97,8 @@ const normalizeAssignedCohorts = (value) =>
               ? course?.courseId?._id || ""
               : course?.courseId || "",
           name: course?.name || course?.courseId?.name || "Untitled Course",
-        })),
+        }))
+        .filter((course) => course.cohortCourseId && course.courseId),
     }));
 
 const normalizeRatings = (value) => {
@@ -656,7 +657,7 @@ const CoachDashboard = () => {
   const [loadingFreeContent, setLoadingFreeContent] = useState(false);
 
   const CHAT_STORAGE_KEY = "coach_chat_open";
-  const user = JSON.parse(localStorage.getItem("user"));
+  const user = JSON.parse(localStorage.getItem("user") || "{}");
 
   const studentId = user?._id || user?.id;
   const studentName = user?.name || user?.fullName || "Coach";
@@ -1816,8 +1817,11 @@ const CoachDashboard = () => {
 
   useEffect(() => {
     if (!uploadCohorts.length) {
+      setCohorts([]);
+      setCohortId("");
       setSelectedCohortId("");
       setSelectedCourseId("");
+      setSelectedCourse("");
       return;
     }
 
@@ -1867,7 +1871,13 @@ const CoachDashboard = () => {
 
   useEffect(() => {
     setCohorts(uploadCohorts);
-    if (uploadCohorts.length > 0 && !cohortId) {
+    if (!uploadCohorts.length) return;
+
+    const cohortStillValid = uploadCohorts.some(
+      (cohort) => cohort.cohortId === cohortId
+    );
+
+    if (!cohortStillValid) {
       setCohortId(uploadCohorts[0].cohortId);
     }
   }, [uploadCohorts, cohortId]);

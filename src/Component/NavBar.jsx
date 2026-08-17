@@ -51,12 +51,24 @@ const Navbar = () => {
     const user = JSON.parse(localStorage.getItem("user") || "{}");
     const role = user.role || "student";
     const storedSelectedCohortId = localStorage.getItem("selectedCohortId");
+    const storedCohorts = JSON.parse(localStorage.getItem("userCohorts") || "[]");
     const fallbackCohortId =
-      user?.cohorts?.find((cohort) => cohort?._id)?._id || "";
+      storedCohorts.find((cohort) => cohort?._id)?._id ||
+      user?.cohorts?.find((cohort) => cohort?._id)?._id ||
+      "";
+    const validStoredCohortId = storedCohorts.some(
+      (cohort) => cohort?._id === storedSelectedCohortId
+    )
+      ? storedSelectedCohortId
+      : "";
     const coachDashboardPath =
-      storedSelectedCohortId || fallbackCohortId
-        ? `/coach/${storedSelectedCohortId || fallbackCohortId}`
+      validStoredCohortId || fallbackCohortId
+        ? `/coach/${validStoredCohortId || fallbackCohortId}`
         : "/coach";
+
+    if (storedSelectedCohortId && !validStoredCohortId) {
+      localStorage.removeItem("selectedCohortId");
+    }
 
     if (role === "owner") navigate("/owner");
     else if (role === "coach") navigate(coachDashboardPath);

@@ -65,11 +65,16 @@ const LoginForm = () => {
           localStorage.setItem("selectedCohortId", availableCohort._id);
           navigate(`/coach/${availableCohort._id}`);
         } else {
+          localStorage.removeItem("selectedCohortId");
           navigate("/coach");
         }
       } else if (user.role === "owner") {
+        localStorage.removeItem("selectedCohortId");
+        localStorage.removeItem("userCohorts");
         navigate("/owner");
       } else {
+        localStorage.removeItem("selectedCohortId");
+        localStorage.removeItem("userCohorts");
         navigate("/student/dashboard");
       }
 
