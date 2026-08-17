@@ -107,6 +107,17 @@ const getEntityId = (value) => {
   return value._id || value.id || "";
 };
 
+const normalizeCoachOwnedCourses = (value) =>
+  ensureArray(value)
+    .filter(Boolean)
+    .map((course) => ({
+      courseId: getEntityId(course?._id || course?.courseId),
+      name: course?.name || "Untitled Course",
+      cohortId: "",
+      cohortName: "No Cohort",
+    }))
+    .filter((course) => course.courseId);
+
 const normalizeRatings = (value) => {
   if (Array.isArray(value)) return value;
   if (Array.isArray(value?.ratings)) return value.ratings;
@@ -588,11 +599,13 @@ const CoachDashboard = () => {
   });
 
   const safeAssignedCourses = normalizeAssignedCohorts(assignedCourses);
+  const fallbackOwnedCourses = normalizeCoachOwnedCourses(courses);
   const uploadCohorts = safeAssignedCourses.filter(
     (cohort) => Array.isArray(cohort.courses) && cohort.courses.length > 0
   );
-  const uploadCoursesForSelectedCohort =
-    uploadCohorts.find((cohort) => cohort.cohortId === selectedCohortId)?.courses || [];
+  const uploadCoursesForSelectedCohort = uploadCohorts.length
+    ? uploadCohorts.find((cohort) => cohort.cohortId === selectedCohortId)?.courses || []
+    : fallbackOwnedCourses;
 
   const [contentType, setContentType] = useState("");
   const [title, setTitle] = useState("");
@@ -1002,6 +1015,10 @@ const CoachDashboard = () => {
 
         <Typography variant="subtitle1" fontWeight="bold">
           {video.title}
+        </Typography>
+
+        <Typography variant="body2" color="text.secondary">
+          {video.course?.name || "Unknown Course"} • {video.cohortName || "No Cohort"}
         </Typography>
 
         <video
@@ -1464,7 +1481,7 @@ const CoachDashboard = () => {
       const courseId =
         typeof firstVideo.courseId === "object"
           ? firstVideo.courseId._id
-          : firstVideo.courseId;
+          : firstVideo.courseId || firstVideo.course?._id;
 
       if (courseId) {
         setSelectedCourseId(courseId);
@@ -1827,7 +1844,7 @@ const CoachDashboard = () => {
       setCohorts([]);
       setCohortId("");
       setSelectedCohortId("");
-      setSelectedCourseId("");
+      setSelectedCourseId(fallbackOwnedCourses[0]?.courseId || "");
       setSelectedCourse("");
       return;
     }
@@ -1852,7 +1869,7 @@ const CoachDashboard = () => {
     if (!courseStillValid) {
       setSelectedCourseId(nextCourses[0]?.courseId || "");
     }
-  }, [uploadCohorts, selectedCohortId, selectedCourseId]);
+  }, [uploadCohorts, selectedCohortId, selectedCourseId, fallbackOwnedCourses]);
 
   // ========================= // FETCH  ASSIGNMENT DONE BY STUDENT // =========================
   // const loadStudentAssignments = async () => {
@@ -1878,7 +1895,12 @@ const CoachDashboard = () => {
 
   useEffect(() => {
     setCohorts(uploadCohorts);
-    if (!uploadCohorts.length) return;
+    if (!uploadCohorts.length) {
+      if (!selectedCourseId && fallbackOwnedCourses.length) {
+        setSelectedCourseId(fallbackOwnedCourses[0].courseId);
+      }
+      return;
+    }
 
     const cohortStillValid = uploadCohorts.some(
       (cohort) => cohort.cohortId === cohortId
@@ -1887,7 +1909,7 @@ const CoachDashboard = () => {
     if (!cohortStillValid) {
       setCohortId(uploadCohorts[0].cohortId);
     }
-  }, [uploadCohorts, cohortId]);
+  }, [uploadCohorts, cohortId, selectedCourseId, fallbackOwnedCourses]);
 
   // =========================
   // FETCH VIDEOS & DOCUMENTS
@@ -2570,8 +2592,6 @@ const CoachDashboard = () => {
                     return alert("Class start time is required!");
                   if (!selectedCourseId)
                     return alert("Please select a course!");
-                  if (!selectedCohortId)
-                    return alert("Please select a cohort!");
 
                   const utcTime = new Date(classStartTime).toISOString();
 
@@ -2580,7 +2600,9 @@ const CoachDashboard = () => {
                   formData.append("file", videoFile);
                   formData.append("classStartTime", utcTime);
                   formData.append("courseId", selectedCourseId);
-                  formData.append("cohortId", selectedCohortId);
+                  if (selectedCohortId) {
+                    formData.append("cohortId", selectedCohortId);
+                  }
 
                   try {
                     setLoading(true);
@@ -2602,7 +2624,9 @@ const CoachDashboard = () => {
                     setVideoFile(null);
                     setClassStartTime("");
                     setSelectedCourseId(
-                      uploadCoursesForSelectedCohort[0]?.courseId || ""
+                      uploadCoursesForSelectedCohort[0]?.courseId ||
+                        fallbackOwnedCourses[0]?.courseId ||
+                        ""
                     );
                     setSelectedCohortId(uploadCohorts[0]?.cohortId || "");
                     loadVideos();
@@ -2662,13 +2686,12 @@ const CoachDashboard = () => {
                   label="Select Cohort"
                   select
                   fullWidth
-                  required
                   sx={{ mb: 2 }}
                   value={selectedCohortId}
                   onChange={(e) => setSelectedCohortId(e.target.value)}
                 >
                   {uploadCohorts.length === 0 ? (
-                    <MenuItem disabled>No cohorts available</MenuItem>
+                    <MenuItem value="">No cohort assigned</MenuItem>
                   ) : (
                     uploadCohorts.map((cohort) => (
                       <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
