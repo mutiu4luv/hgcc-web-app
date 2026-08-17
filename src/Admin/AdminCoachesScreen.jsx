@@ -101,6 +101,12 @@ const normalizeAssignedCohorts = (value) =>
         .filter((course) => course.cohortCourseId && course.courseId),
     }));
 
+const getEntityId = (value) => {
+  if (!value) return "";
+  if (typeof value === "string") return value;
+  return value._id || value.id || "";
+};
+
 const normalizeRatings = (value) => {
   if (Array.isArray(value)) return value;
   if (Array.isArray(value?.ratings)) return value.ratings;
@@ -2178,12 +2184,28 @@ const CoachDashboard = () => {
     .filter((assignment) => assignment && typeof assignment === "object")
     .flatMap((a) => {
       const submissions = Array.isArray(a.submissions) ? a.submissions : [];
+      const cohortStudentEntries = Array.isArray(a?.cohortId?.studentIds)
+        ? a.cohortId.studentIds
+        : [];
+      const eligibleStudentIds = new Set(
+        cohortStudentEntries
+          .filter((entry) =>
+            Array.isArray(entry?.enrollments) &&
+            entry.enrollments.some(
+              (enrollment) =>
+                String(getEntityId(enrollment?.courseId)) ===
+                  String(getEntityId(a?.courseId)) && enrollment?.hasAccess
+            )
+          )
+          .map((entry) => String(getEntityId(entry?.studentId)))
+          .filter(Boolean)
+      );
       const submittedRows = submissions.map((s, idx) => ({
           id: `${a._id}-${s.studentId?._id || idx}`,
           assignmentId: a._id,
           title: a.title,
           description: a.description,
-          cohortId: a.cohortId?._id,
+          cohortId: getEntityId(a.cohortId),
           cohortName: a.cohortId?.name || "No Cohort",
           studentId: s.studentId?._id,
           studentName: s.studentId?.fullName || "Unknown",
@@ -2193,6 +2215,7 @@ const CoachDashboard = () => {
           status: s.grade != null ? "Completed" : "Submitted",
           dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
           submission: s,
+          createdAt: a.createdAt || a.updatedAt || a.dueDate || null,
       }));
 
       const submittedStudentIds = new Set(
@@ -2204,7 +2227,11 @@ const CoachDashboard = () => {
       const noSubmissionRows = (Array.isArray(students) ? students : [])
         .filter((student) => {
           const studentId = String(student?.studentId || student?._id || "");
-          return studentId && !submittedStudentIds.has(studentId);
+          return (
+            studentId &&
+            eligibleStudentIds.has(studentId) &&
+            !submittedStudentIds.has(studentId)
+          );
         })
         .map((student) => {
           const studentId = student?.studentId || student?._id;
@@ -2213,7 +2240,7 @@ const CoachDashboard = () => {
             assignmentId: a._id,
             title: a.title,
             description: a.description,
-            cohortId: a.cohortId?._id,
+            cohortId: getEntityId(a.cohortId),
             cohortName: a.cohortId?.name || "No Cohort",
             studentId,
             studentName: student?.fullName || "Unknown Student",
@@ -2223,6 +2250,7 @@ const CoachDashboard = () => {
             status: new Date(a.dueDate) < new Date() ? "Expired" : "Not submitted",
             dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
             submission: null,
+            createdAt: a.createdAt || a.updatedAt || a.dueDate || null,
           };
         });
 
@@ -2236,7 +2264,7 @@ const CoachDashboard = () => {
           assignmentId: a._id,
           title: a.title,
           description: a.description,
-          cohortId: a.cohortId?._id,
+          cohortId: getEntityId(a.cohortId),
           cohortName: a.cohortId?.name || "No Cohort",
           studentId: null,
           studentName: "-",
@@ -2246,8 +2274,14 @@ const CoachDashboard = () => {
           status: new Date(a.dueDate) < new Date() ? "Expired" : "Pending",
           dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
           submission: null,
+          createdAt: a.createdAt || a.updatedAt || a.dueDate || null,
         },
       ];
+    })
+    .sort((left, right) => {
+      const leftDate = new Date(left.createdAt || 0).getTime();
+      const rightDate = new Date(right.createdAt || 0).getTime();
+      return rightDate - leftDate;
     });
 
   const filteredAssignmentRows = selectedCohortId
