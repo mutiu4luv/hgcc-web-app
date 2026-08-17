@@ -534,6 +534,7 @@ const CoachDashboard = () => {
   const [courses, setCourses] = useState([]);
 
   const [assignments, setAssignments] = useState([]);
+  const [assignmentSummaries, setAssignmentSummaries] = useState([]);
   const [assignmentPage, setAssignmentPage] = useState(1);
   const [students, setStudents] = useState([]);
   const [ratingData, setRatingData] = useState([]);
@@ -2025,11 +2026,15 @@ const CoachDashboard = () => {
       );
 
       setAssignments(res.data.assignmentsByCohort || {}); // FIX
+      setAssignmentSummaries(
+        Array.isArray(res.data.assignments) ? res.data.assignments : []
+      );
       setFlattenedSubmissions(res.data.submissions || []); // FIX
     } catch (err) {
       console.error("Error fetching assignments:", err?.response?.data || err);
       setMessage("Failed to load assignments");
       setAssignments({});
+      setAssignmentSummaries([]);
       setFlattenedSubmissions([]);
     } finally {
       setAssignmentsLoading(false);
@@ -2287,6 +2292,12 @@ const CoachDashboard = () => {
   const filteredAssignmentRows = selectedCohortId
     ? assignmentRows.filter((r) => r.cohortId === selectedCohortId)
     : assignmentRows;
+
+  const filteredAssignmentSummaries = selectedCohortId
+    ? assignmentSummaries.filter(
+        (assignment) => String(assignment?.cohortId || "") === selectedCohortId
+      )
+    : assignmentSummaries;
 
   useEffect(() => {
     setAssignmentPage(1);
@@ -3660,10 +3671,45 @@ const CoachDashboard = () => {
                 >
                   <CircularProgress size={60} color="success" />
                 </Box>
-              ) : filteredAssignmentRows.length === 0 ? (
+              ) : filteredAssignmentSummaries.length === 0 &&
+                filteredAssignmentRows.length === 0 ? (
                 <Typography>No assignments available yet.</Typography>
               ) : (
                 <>
+                  <Stack spacing={1.5} sx={{ mb: 3 }}>
+                    {filteredAssignmentSummaries.map((assignment) => (
+                      <Paper
+                        key={assignment.assignmentId}
+                        variant="outlined"
+                        sx={{
+                          p: 2,
+                          borderRadius: 2,
+                          bgcolor: "#f8fafc",
+                        }}
+                      >
+                        <Typography fontWeight="bold">
+                          {assignment.title}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {assignment.cohortName} • {assignment.courseName} • Due:{" "}
+                          {assignment.dueDate
+                            ? new Date(assignment.dueDate).toLocaleDateString()
+                            : "N/A"}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Eligible Students: {assignment.eligibleStudentsCount} •
+                          Submitted: {assignment.submissionCount} • Pending Review:{" "}
+                          {assignment.pendingReviewCount}
+                        </Typography>
+                        {assignment.description ? (
+                          <Typography variant="body2" sx={{ mt: 1 }}>
+                            {assignment.description}
+                          </Typography>
+                        ) : null}
+                      </Paper>
+                    ))}
+                  </Stack>
+
                   <Stack spacing={1.5} sx={{ mb: 2 }}>
                     {filteredAssignmentRows
                       .slice(
