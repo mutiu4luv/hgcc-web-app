@@ -23,6 +23,12 @@ import {
   Select,
   Stack,
   Pagination,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Tooltip as MuiTooltip,
+  Chip,
 } from "@mui/material";
 import {
   Dashboard,
@@ -36,6 +42,8 @@ import {
   LiveTv,
   Delete,
   Chat as ChatIcon,
+  Edit as EditIcon,
+  Visibility as VisibilityIcon,
 } from "@mui/icons-material";
 import {
   BarChart,
@@ -68,6 +76,15 @@ const toAssignmentExpiry = (dateValue) => {
 
   const [year, month, day] = dateValue.split("-").map(Number);
   return new Date(year, month - 1, day, 23, 59, 0, 0).toISOString();
+};
+
+const toDateInputValue = (dateValue) => {
+  if (!dateValue) return "";
+
+  const parsedDate = new Date(dateValue);
+  if (Number.isNaN(parsedDate.getTime())) return "";
+
+  return parsedDate.toISOString().slice(0, 10);
 };
 
 const ensureArray = (value) => (Array.isArray(value) ? value : []);
@@ -726,8 +743,6 @@ const CoachDashboard = () => {
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setCoursesArray(res.data.courses || []);
-
-        console.log("live class courses:", res.data.courses);
       } catch (err) {
         setCoursesArray([]);
       }
@@ -745,7 +760,6 @@ const CoachDashboard = () => {
       );
 
       setFreeCourses(res.data.courses || []);
-      console.log(res);
     } catch {
       toast.error("Failed to load your free courses");
     }
@@ -809,7 +823,6 @@ const CoachDashboard = () => {
         }
       );
 
-      console.log("✅ fetched content:", data.contents);
       setSlContents(data.contents || []);
     } catch (err) {
       console.error("❌ Failed to fetch content", err);
@@ -1530,12 +1543,14 @@ const CoachDashboard = () => {
   const handleOpenAssignmentModal = (assignment, submission) => {
     setSelectedAssignment({ ...assignment, submission });
     setGradeInput(submission?.grade || "");
+    setEditDueDate(toDateInputValue(assignment?.dueDate));
     setOpenAssignmentModal(true);
   };
   // close assignment modal
   const handleCloseAssignmentModal = () => {
     setSelectedAssignment(null);
     setGradeInput("");
+    setEditDueDate("");
     setOpenAssignmentModal(false);
   };
   const updateAssignmentDueDate = async () => {
@@ -1544,14 +1559,16 @@ const CoachDashboard = () => {
     try {
       setUpdatingDueDate(true);
 
-      await axios.patch(
+      const response = await axios.patch(
         `${BASE_URL}/api/assignment/${selectedAssignment.assignmentId}`,
         { dueDate: toAssignmentExpiry(editDueDate) },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
-      loadAssignments();
-      setMessage("Assignment reopened successfully");
+      await loadAssignments();
+      setMessage(
+        response?.data?.message || "Assignment due date updated successfully"
+      );
       handleCloseAssignmentModal();
     } catch (err) {
       console.error(err);
@@ -1656,7 +1673,6 @@ const CoachDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      console.log("Assigned courses from API:", res.data);
       setAssignedCourses(normalizeAssignedCohorts(res.data?.cohorts));
     } catch (err) {
       console.error("Error fetching assigned courses:", err);
@@ -1936,13 +1952,6 @@ const CoachDashboard = () => {
     e.preventDefault();
 
     if (!videoTitle || !videoFile || !classStartTime || !selectedCourseId) {
-      console.log({
-        videoTitle,
-        videoFile,
-        classStartTime,
-        selectedCourseId,
-        selectedCohortId,
-      });
       return alert("All fields are required!");
     }
 
@@ -2092,7 +2101,6 @@ const CoachDashboard = () => {
   // ========================= // FETCH COACH STUDENTS // =========================
   useEffect(() => {
     const loadStudents = async () => {
-      console.log("📡 Fetching students...");
       setStudentsLoading(true); // set loading true at the start
 
       try {
@@ -2103,7 +2111,6 @@ const CoachDashboard = () => {
         if (res.data.students) {
           setStudents(res.data.students);
         } else {
-          console.warn("⚠ No 'students' field found in response");
           setStudents([]); // fallback
         }
       } catch (err) {
@@ -2124,7 +2131,6 @@ const CoachDashboard = () => {
   // ========================= // FETCH RATINGS // =========================
   useEffect(() => {
     const loadRatings = async () => {
-      console.log("📡 Fetching ratings...");
       try {
         const res = await axios.get(`${BASE_URL}/api/feedbacks/my-ratings`, {
           headers: { Authorization: `Bearer ${token}` },
@@ -2144,7 +2150,6 @@ const CoachDashboard = () => {
             monthlyRatings[month].reduce((a, b) => a + b, 0) /
             monthlyRatings[month].length,
         }));
-        console.log("📊 Processed rating data:", avgData);
         setRatingData(avgData);
       } catch (err) {
         console.error("❌ Error fetching ratings:", err?.response?.data || err);
@@ -2312,6 +2317,23 @@ const CoachDashboard = () => {
         (assignment) => String(assignment?.cohortId || "") === selectedCohortId
       )
     : assignmentSummaries;
+
+  const assignmentSummaryRows = filteredAssignmentSummaries.map(
+    (assignment, index) => {
+      const dueDate = assignment?.dueDate ? new Date(assignment.dueDate) : null;
+      const isExpired = dueDate ? dueDate < new Date() : false;
+
+      return {
+        id: assignment.assignmentId || `assignment-${index}`,
+        ...assignment,
+        dueDateLabel: dueDate ? dueDate.toLocaleDateString() : "N/A",
+        createdAtLabel: assignment?.createdAt
+          ? new Date(assignment.createdAt).toLocaleDateString()
+          : "N/A",
+        statusLabel: isExpired ? "Expired" : "Active",
+      };
+    }
+  );
 
   useEffect(() => {
     setAssignmentPage(1);
@@ -3704,39 +3726,143 @@ const CoachDashboard = () => {
                 <Typography>No assignments available yet.</Typography>
               ) : (
                 <>
-                  <Stack spacing={1.5} sx={{ mb: 3 }}>
-                    {filteredAssignmentSummaries.map((assignment) => (
-                      <Paper
-                        key={assignment.assignmentId}
-                        variant="outlined"
-                        sx={{
-                          p: 2,
-                          borderRadius: 2,
-                          bgcolor: "#f8fafc",
+                  <Paper
+                    variant="outlined"
+                    sx={{ mb: 3, borderRadius: 3, overflow: "hidden" }}
+                  >
+                    <Box
+                      sx={{
+                        px: 2,
+                        py: 1.5,
+                        bgcolor: "#ecfdf5",
+                        borderBottom: "1px solid #d1fae5",
+                      }}
+                    >
+                      <Typography fontWeight="bold" color="#065f46">
+                        Recent Assignments
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Click any assignment to view details or extend the due date.
+                      </Typography>
+                    </Box>
+                    <Box sx={{ height: 360, width: "100%" }}>
+                      <DataGrid
+                        rows={assignmentSummaryRows}
+                        disableRowSelectionOnClick
+                        hideFooterSelectedRowCount
+                        onRowClick={(params) =>
+                          handleOpenAssignmentModal(params.row, null)
+                        }
+                        columns={[
+                          {
+                            field: "title",
+                            headerName: "Assignment",
+                            flex: 1.1,
+                            minWidth: 220,
+                          },
+                          {
+                            field: "cohortName",
+                            headerName: "Cohort",
+                            flex: 0.9,
+                            minWidth: 160,
+                          },
+                          {
+                            field: "courseName",
+                            headerName: "Course",
+                            flex: 0.9,
+                            minWidth: 160,
+                          },
+                          {
+                            field: "dueDateLabel",
+                            headerName: "Due Date",
+                            flex: 0.7,
+                            minWidth: 130,
+                          },
+                          {
+                            field: "submissionCount",
+                            headerName: "Submitted",
+                            type: "number",
+                            width: 110,
+                          },
+                          {
+                            field: "pendingReviewCount",
+                            headerName: "Pending",
+                            type: "number",
+                            width: 110,
+                          },
+                          {
+                            field: "statusLabel",
+                            headerName: "Status",
+                            width: 120,
+                            renderCell: (params) => (
+                              <Chip
+                                size="small"
+                                label={params.value}
+                                color={
+                                  params.value === "Expired"
+                                    ? "warning"
+                                    : "success"
+                                }
+                                variant="outlined"
+                              />
+                            ),
+                          },
+                          {
+                            field: "actions",
+                            headerName: "Action",
+                            sortable: false,
+                            filterable: false,
+                            width: 120,
+                            renderCell: (params) => (
+                              <Stack direction="row" spacing={0.5}>
+                                <MuiTooltip title="View assignment">
+                                  <IconButton
+                                    size="small"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleOpenAssignmentModal(
+                                        params.row,
+                                        null
+                                      );
+                                    }}
+                                  >
+                                    <VisibilityIcon fontSize="small" />
+                                  </IconButton>
+                                </MuiTooltip>
+                                <MuiTooltip title="Edit due date">
+                                  <IconButton
+                                    size="small"
+                                    onClick={(event) => {
+                                      event.stopPropagation();
+                                      handleOpenAssignmentModal(
+                                        params.row,
+                                        null
+                                      );
+                                    }}
+                                  >
+                                    <EditIcon fontSize="small" />
+                                  </IconButton>
+                                </MuiTooltip>
+                              </Stack>
+                            ),
+                          },
+                        ]}
+                        initialState={{
+                          sorting: {
+                            sortModel: [{ field: "createdAt", sort: "desc" }],
+                          },
+                          pagination: {
+                            paginationModel: { pageSize: 5, page: 0 },
+                          },
                         }}
-                      >
-                        <Typography fontWeight="bold">
-                          {assignment.title}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {assignment.cohortName} • {assignment.courseName} • Due:{" "}
-                          {assignment.dueDate
-                            ? new Date(assignment.dueDate).toLocaleDateString()
-                            : "N/A"}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Eligible Students: {assignment.eligibleStudentsCount} •
-                          Submitted: {assignment.submissionCount} • Pending Review:{" "}
-                          {assignment.pendingReviewCount}
-                        </Typography>
-                        {assignment.description ? (
-                          <Typography variant="body2" sx={{ mt: 1 }}>
-                            {assignment.description}
-                          </Typography>
-                        ) : null}
-                      </Paper>
-                    ))}
-                  </Stack>
+                        pageSizeOptions={[5, 10, 20]}
+                        sx={{
+                          border: "none",
+                          "& .MuiDataGrid-row": { cursor: "pointer" },
+                        }}
+                      />
+                    </Box>
+                  </Paper>
 
                   <Stack spacing={1.5} sx={{ mb: 2 }}>
                     {filteredAssignmentRows
@@ -4021,94 +4147,178 @@ const CoachDashboard = () => {
               ))}
               {/* Assignment Modal */}
 
-              <Drawer
-                anchor="right"
+              <Dialog
                 open={openAssignmentModal}
                 onClose={handleCloseAssignmentModal}
-                PaperProps={{ sx: { width: { xs: "90%", md: 500 }, p: 3 } }}
+                fullWidth
+                maxWidth="md"
               >
                 {selectedAssignment && (
                   <>
-                    <Box
+                    <DialogTitle
                       sx={{
                         display: "flex",
+                        alignItems: "center",
                         justifyContent: "space-between",
-                        mb: 2,
+                        gap: 2,
+                        pb: 1,
                       }}
                     >
-                      <Typography variant="h6">Grade Assignment</Typography>
+                      <Box>
+                        <Typography variant="h6" fontWeight="bold">
+                          {selectedAssignment.title}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {selectedAssignment.cohortName || selectedAssignment.cohort} •{" "}
+                          {selectedAssignment.courseName || "N/A"}
+                        </Typography>
+                      </Box>
                       <IconButton onClick={handleCloseAssignmentModal}>
                         <CloseIcon />
                       </IconButton>
-                    </Box>
-
-                    <Typography variant="subtitle1" sx={{ mb: 2 }}>
-                      {selectedAssignment.title}
-                    </Typography>
-
-                    {selectedAssignment.submission?.file ? (
-                      <Typography sx={{ mb: 2 }}>
-                        <a
-                          href={selectedAssignment.submission.file}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                    </DialogTitle>
+                    <DialogContent dividers>
+                      <Stack spacing={2.5}>
+                        <Box
+                          sx={{
+                            display: "grid",
+                            gridTemplateColumns: {
+                              xs: "1fr",
+                              sm: "repeat(2, minmax(0, 1fr))",
+                            },
+                            gap: 2,
+                          }}
                         >
-                          View Submitted Document
-                        </a>
-                      </Typography>
-                    ) : (
-                      <Alert severity="info" sx={{ mb: 2 }}>
-                        No submission available
-                      </Alert>
-                    )}
+                          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Due Date
+                            </Typography>
+                            <Typography fontWeight="bold">
+                              {selectedAssignment.dueDate
+                                ? new Date(
+                                    selectedAssignment.dueDate
+                                  ).toLocaleString()
+                                : "N/A"}
+                            </Typography>
+                          </Paper>
+                          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Assignment Status
+                            </Typography>
+                            <Typography fontWeight="bold">
+                              {selectedAssignment.dueDate &&
+                              new Date(selectedAssignment.dueDate) < new Date()
+                                ? "Expired"
+                                : "Active"}
+                            </Typography>
+                          </Paper>
+                          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Eligible Students
+                            </Typography>
+                            <Typography fontWeight="bold">
+                              {selectedAssignment.eligibleStudentsCount ?? "N/A"}
+                            </Typography>
+                          </Paper>
+                          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                            <Typography variant="body2" color="text.secondary">
+                              Submitted / Pending Review
+                            </Typography>
+                            <Typography fontWeight="bold">
+                              {selectedAssignment.submissionCount ?? 0} /{" "}
+                              {selectedAssignment.pendingReviewCount ?? 0}
+                            </Typography>
+                          </Paper>
+                        </Box>
 
-                    {selectedAssignment.submission?.grade != null ? (
-                      <Alert severity="success" sx={{ mb: 2 }}>
-                        Grade: <b>{selectedAssignment.submission.grade}%</b>
-                      </Alert>
-                    ) : (
-                      <TextField
-                        label="Grade"
-                        type="number"
-                        fullWidth
-                        value={gradeInput}
-                        onChange={(e) => setGradeInput(e.target.value)}
-                        sx={{ mb: 2 }}
-                      />
-                    )}
+                        {selectedAssignment.description ? (
+                          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                              Description
+                            </Typography>
+                            <Typography>{selectedAssignment.description}</Typography>
+                          </Paper>
+                        ) : null}
 
-                    <Button
-                      variant="contained"
-                      color="success"
-                      disabled={!gradeInput || gradingLoading || isExpired}
-                      onClick={handleGradeAssignment}
-                      sx={{ mb: 3 }}
-                    >
-                      {gradingLoading ? "Submitting..." : "Submit Grade"}
-                    </Button>
+                        {selectedAssignment.submission?.file ? (
+                          <Typography>
+                            <a
+                              href={selectedAssignment.submission.file}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                            >
+                              View Submitted Document
+                            </a>
+                          </Typography>
+                        ) : (
+                          <Alert severity="info">
+                            Opened from the assignment table. Submission details will appear here when you open a student submission.
+                          </Alert>
+                        )}
 
-                    <Divider sx={{ mb: 2 }} />
+                        {selectedAssignment.submission ? (
+                          <>
+                            {selectedAssignment.submission?.grade != null ? (
+                              <Alert severity="success">
+                                Grade: <b>{selectedAssignment.submission.grade}%</b>
+                              </Alert>
+                            ) : (
+                              <TextField
+                                label="Grade"
+                                type="number"
+                                fullWidth
+                                value={gradeInput}
+                                onChange={(e) => setGradeInput(e.target.value)}
+                              />
+                            )}
 
-                    <TextField
-                      type="date"
-                      label="Edit Due Date"
-                      fullWidth
-                      InputLabelProps={{ shrink: true }}
-                      value={editDueDate}
-                      onChange={(e) => setEditDueDate(e.target.value)}
-                      sx={{ mb: 2 }}
-                    />
+                            <Button
+                              variant="contained"
+                              color="success"
+                              disabled={!gradeInput || gradingLoading || isExpired}
+                              onClick={handleGradeAssignment}
+                              sx={{ alignSelf: "flex-start" }}
+                            >
+                              {gradingLoading ? "Submitting..." : "Submit Grade"}
+                            </Button>
+                          </>
+                        ) : null}
 
-                    <Button
-                      variant="contained"
-                      disabled={updatingDueDate || !editDueDate}
-                      onClick={updateAssignmentDueDate}
-                    >
-                      {updatingDueDate ? "Updating..." : "Update Due Date"}
-                    </Button>
+                        <Divider />
+
+                        <Box>
+                          <Typography fontWeight="bold" sx={{ mb: 1 }}>
+                            Extend Assignment Due Date
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                            Updating this date will notify the eligible students and also send a confirmation email to the coach.
+                          </Typography>
+                          <TextField
+                            type="date"
+                            label="New Due Date"
+                            fullWidth
+                            InputLabelProps={{ shrink: true }}
+                            value={editDueDate}
+                            onChange={(e) => setEditDueDate(e.target.value)}
+                          />
+                        </Box>
+                      </Stack>
+                    </DialogContent>
+                    <DialogActions sx={{ px: 3, py: 2 }}>
+                      <Button onClick={handleCloseAssignmentModal}>
+                        Close
+                      </Button>
+                      <Button
+                        variant="contained"
+                        disabled={updatingDueDate || !editDueDate}
+                        onClick={updateAssignmentDueDate}
+                      >
+                        {updatingDueDate ? "Updating..." : "Save Due Date"}
+                      </Button>
+                    </DialogActions>
                   </>
                 )}
-              </Drawer>
+              </Dialog>
             </Paper>
           )}
           {/* Students */}

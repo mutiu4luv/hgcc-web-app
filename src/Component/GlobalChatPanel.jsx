@@ -85,6 +85,15 @@ const parseReplyText = (value = "") => {
 const normalizeGroupChannel = (value) =>
   value === "users" ? "students" : String(value || "");
 
+const safeParseJSON = (value, fallback) => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
 const GlobalChatPanel = ({
   role = "student",
   token,
@@ -119,6 +128,7 @@ const GlobalChatPanel = ({
   const scrollBoxRef = useRef(null);
   const socketRef = useRef(null);
   const typingTimeoutRef = useRef(null);
+  const onSeenRef = useRef(onSeen);
   const [typingUsers, setTypingUsers] = useState([]);
   const hiddenMessagesKey = `group_chat_hidden_${role}_${channel}`;
   const lastSeenKey = `group_chat_last_seen_${role}_${channel}`;
@@ -130,6 +140,10 @@ const GlobalChatPanel = ({
       return [];
     }
   });
+
+  useEffect(() => {
+    onSeenRef.current = onSeen;
+  }, [onSeen]);
 
   useEffect(() => {
     try {
@@ -154,8 +168,8 @@ const GlobalChatPanel = ({
     const now = new Date().toISOString();
     localStorage.setItem(lastSeenKey, now);
     setLastSeenAt(new Date(now));
-    if (typeof onSeen === "function") onSeen(channel);
-  }, [channel, lastSeenKey, onSeen]);
+    if (typeof onSeenRef.current === "function") onSeenRef.current(channel);
+  }, [channel, lastSeenKey]);
 
   const hideMessageOnlyForMe = (messageId) => {
     const next = Array.from(new Set([...hiddenMessageIds, String(messageId)]));
@@ -180,9 +194,11 @@ const GlobalChatPanel = ({
       role === "coach" || role === "owner" || role === "admin"
         ? "coaches"
         : saved || defaultChannel;
-    setChannel(next);
+    setChannel((prev) => (prev === next ? prev : next));
     localStorage.setItem(storageKey, next);
-    setAllowedChannels([defaultChannel]);
+    setAllowedChannels((prev) =>
+      prev.length === 1 && prev[0] === defaultChannel ? prev : [defaultChannel]
+    );
   }, [defaultChannel, role, storageKey]);
 
   useEffect(() => {
@@ -206,7 +222,12 @@ const GlobalChatPanel = ({
             ? normalized
             : ["students"];
 
-        setAllowedChannels(channels);
+        setAllowedChannels((prev) =>
+          prev.length === channels.length &&
+          prev.every((value, index) => value === channels[index])
+            ? prev
+            : channels
+        );
         if (!channels.includes(channel)) {
           const fallback = channels.includes(defaultChannel)
             ? defaultChannel
@@ -221,7 +242,12 @@ const GlobalChatPanel = ({
             : role === "coach"
             ? ["coaches", "students"]
             : ["coaches", "students"];
-        setAllowedChannels(fallback);
+          setAllowedChannels((prev) =>
+            prev.length === fallback.length &&
+            prev.every((value, index) => value === fallback[index])
+              ? prev
+              : fallback
+          );
         if (!fallback.includes(channel)) {
           const fb = fallback.includes(defaultChannel)
             ? defaultChannel
@@ -408,7 +434,7 @@ const GlobalChatPanel = ({
 
   useEffect(() => {
     markChannelAsRead();
-  }, [markChannelAsRead]);
+  }, [channel, markChannelAsRead]);
 
   useEffect(() => {
     if (typeof onActiveChannelChange === "function") {
@@ -434,7 +460,7 @@ const GlobalChatPanel = ({
       setText("");
       setReplyTarget(null);
       setTypingUsers([]);
-      const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+      const currentUser = safeParseJSON(localStorage.getItem("user"), {});
       const currentUserId = currentUser?.id || currentUser?._id;
       const firstName = getTwoNames(currentUser?.fullName || currentUser?.name || "User");
       socketRef.current?.emit("groupChatTyping", {
@@ -450,7 +476,7 @@ const GlobalChatPanel = ({
     }
   };
 
-  const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+  const currentUser = safeParseJSON(localStorage.getItem("user"), {});
   const currentUserId = currentUser?.id || currentUser?._id;
   const visibleMessages = messages.filter(
     (msg) => !hiddenMessageIds.includes(String(msg._id))
@@ -464,12 +490,12 @@ const GlobalChatPanel = ({
 
   useEffect(() => {
     if (!baseUrl || !token) return;
-    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+      const currentUser = safeParseJSON(localStorage.getItem("user"), {});
     const currentUserId = currentUser?.id || currentUser?._id;
 
     const socket = io(baseUrl, {
       auth: { token },
-      transports: ["websocket", "polling"],
+      transports: ["polling"],
     });
     socketRef.current = socket;
 
@@ -555,26 +581,6 @@ const GlobalChatPanel = ({
           ))}
         </Select>
       </FormControl>
-      {(role === "coach" || role === "owner" || role === "admin") &&
-        unreadSummary && (
-          <Box
-            sx={{
-              mb: 2,
-              p: 1.25,
-              borderRadius: 2,
-              bgcolor: "#eff6ff",
-              border: "1px solid #bfdbfe",
-            }}
-          >
-            <Typography sx={{ fontSize: 12, color: "#1d4ed8", fontWeight: 700 }}>
-              Unread updates
-            </Typography>
-            <Typography sx={{ fontSize: 13, color: "#1e3a8a", fontWeight: 600 }}>
-              {unreadSummary.students || 0} unread from students •{" "}
-              {unreadSummary.coaches || 0} unread from coaches
-            </Typography>
-          </Box>
-        )}
       {replyTarget && (
         <Box
           sx={{
@@ -891,7 +897,7 @@ const GlobalChatPanel = ({
             const nextText = e.target.value;
             setText(nextText);
             if (!socketRef.current) return;
-            const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+            const currentUser = safeParseJSON(localStorage.getItem("user"), {});
             const currentUserId = currentUser?.id || currentUser?._id;
             const firstName = getTwoNames(currentUser?.fullName || currentUser?.name || "User");
             socketRef.current.emit("groupChatTyping", {
