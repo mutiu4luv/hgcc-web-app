@@ -580,7 +580,9 @@ const CoachDashboard = () => {
   const [assignmentsLoading, setAssignmentsLoading] = useState(true);
   const [creatingAssignment, setCreatingAssignment] = useState(false);
   const [editDueDate, setEditDueDate] = useState("");
+  const [studentEditDueDate, setStudentEditDueDate] = useState("");
   const [updatingDueDate, setUpdatingDueDate] = useState(false);
+  const [reopeningAssignment, setReopeningAssignment] = useState(false);
 
   const [newTitle, setNewTitle] = useState("");
   const [newDescription, setNewDescription] = useState("");
@@ -1543,7 +1545,10 @@ const CoachDashboard = () => {
   const handleOpenAssignmentModal = (assignment, submission) => {
     setSelectedAssignment({ ...assignment, submission });
     setGradeInput(submission?.grade || "");
-    setEditDueDate(toDateInputValue(assignment?.dueDate));
+    setEditDueDate(
+      toDateInputValue(assignment?.assignmentDueDate || assignment?.dueDate)
+    );
+    setStudentEditDueDate(toDateInputValue(assignment?.dueDate));
     setOpenAssignmentModal(true);
   };
   // close assignment modal
@@ -1551,9 +1556,10 @@ const CoachDashboard = () => {
     setSelectedAssignment(null);
     setGradeInput("");
     setEditDueDate("");
+    setStudentEditDueDate("");
     setOpenAssignmentModal(false);
   };
-  const updateAssignmentDueDate = async () => {
+  const updateAssignmentDueDate = async (scope = "assignment") => {
     if (!selectedAssignment?.assignmentId || !editDueDate) return;
 
     try {
@@ -1561,7 +1567,10 @@ const CoachDashboard = () => {
 
       const response = await axios.patch(
         `${BASE_URL}/api/assignment/${selectedAssignment.assignmentId}`,
-        { dueDate: toAssignmentExpiry(editDueDate) },
+        {
+          dueDate: toAssignmentExpiry(editDueDate),
+          scope,
+        },
         { headers: { Authorization: `Bearer ${token}` } }
       );
 
@@ -1575,6 +1584,71 @@ const CoachDashboard = () => {
       setMessage("Failed to update assignment");
     } finally {
       setUpdatingDueDate(false);
+    }
+  };
+
+  const updateStudentAssignmentDueDate = async () => {
+    if (
+      !selectedAssignment?.assignmentId ||
+      !selectedAssignment?.studentId ||
+      !studentEditDueDate
+    ) {
+      return;
+    }
+
+    try {
+      setUpdatingDueDate(true);
+
+      const response = await axios.patch(
+        `${BASE_URL}/api/assignment/${selectedAssignment.assignmentId}`,
+        {
+          dueDate: toAssignmentExpiry(studentEditDueDate),
+          studentId: selectedAssignment.studentId,
+          scope: "student",
+        },
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      await loadAssignments();
+      setMessage(
+        response?.data?.message || "Student due date updated successfully"
+      );
+      handleCloseAssignmentModal();
+    } catch (err) {
+      console.error(err);
+      setMessage(
+        err?.response?.data?.message || "Failed to update student due date"
+      );
+    } finally {
+      setUpdatingDueDate(false);
+    }
+  };
+
+  const allowStudentRedoAssignment = async () => {
+    if (!selectedAssignment?.assignmentId || !selectedAssignment?.studentId) {
+      return;
+    }
+
+    try {
+      setReopeningAssignment(true);
+      const response = await axios.post(
+        `${BASE_URL}/api/assignment/${selectedAssignment.assignmentId}/reopen/${selectedAssignment.studentId}`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } }
+      );
+
+      await loadAssignments();
+      setMessage(
+        response?.data?.message || "Student can now redo this assignment"
+      );
+      handleCloseAssignmentModal();
+    } catch (err) {
+      console.error(err);
+      setMessage(
+        err?.response?.data?.message || "Failed to reopen assignment"
+      );
+    } finally {
+      setReopeningAssignment(false);
     }
   };
 
@@ -2207,6 +2281,18 @@ const CoachDashboard = () => {
     .flat()
     .filter((assignment) => assignment && typeof assignment === "object")
     .flatMap((a) => {
+      const studentOverrideMap = new Map(
+        (Array.isArray(a?.studentDueDateOverrides)
+          ? a.studentDueDateOverrides
+          : []
+        )
+          .filter((entry) => entry?.studentId && entry?.dueDate)
+          .map((entry) => [
+            String(getEntityId(entry.studentId)),
+            entry.dueDate,
+          ])
+      );
+      const globalDueDate = a.dueDate || null;
       const submissions = Array.isArray(a.submissions) ? a.submissions : [];
       const cohortStudentEntries = Array.isArray(a?.cohortId?.studentIds)
         ? a.cohortId.studentIds
@@ -2229,6 +2315,7 @@ const CoachDashboard = () => {
           assignmentId: a._id,
           title: a.title,
           description: a.description,
+          assignmentDueDate: globalDueDate,
           cohortId: getEntityId(a.cohortId),
           cohortName: a.cohortId?.name || "No Cohort",
           studentId: s.studentId?._id,
@@ -2236,8 +2323,17 @@ const CoachDashboard = () => {
           grade: s.grade ?? "Not Graded",
           isGraded: s.grade != null,
           hasSubmission: true,
+          hasSubmitted: true,
           status: s.grade != null ? "Completed" : "Submitted",
-          dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
+          dueDate:
+            (studentOverrideMap.get(String(s.studentId?._id || s.studentId)) ||
+              globalDueDate)
+              ? new Date(
+                  studentOverrideMap.get(
+                    String(s.studentId?._id || s.studentId)
+                  ) || globalDueDate
+                ).toLocaleDateString()
+              : "N/A",
           submission: s,
           createdAt: a.createdAt || a.updatedAt || a.dueDate || null,
       }));
@@ -2259,11 +2355,14 @@ const CoachDashboard = () => {
         })
         .map((student) => {
           const studentId = student?.studentId || student?._id;
+          const effectiveDueDate =
+            studentOverrideMap.get(String(studentId)) || globalDueDate;
           return {
             id: `${a._id}-${studentId}-no-sub`,
             assignmentId: a._id,
             title: a.title,
             description: a.description,
+            assignmentDueDate: globalDueDate,
             cohortId: getEntityId(a.cohortId),
             cohortName: a.cohortId?.name || "No Cohort",
             studentId,
@@ -2271,8 +2370,14 @@ const CoachDashboard = () => {
             grade: "No submission",
             isGraded: false,
             hasSubmission: false,
-            status: new Date(a.dueDate) < new Date() ? "Expired" : "Not submitted",
-            dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
+            hasSubmitted: false,
+            status:
+              effectiveDueDate && new Date(effectiveDueDate) < new Date()
+                ? "Expired"
+                : "Not submitted",
+            dueDate: effectiveDueDate
+              ? new Date(effectiveDueDate).toLocaleDateString()
+              : "N/A",
             submission: null,
             createdAt: a.createdAt || a.updatedAt || a.dueDate || null,
           };
@@ -2288,6 +2393,7 @@ const CoachDashboard = () => {
           assignmentId: a._id,
           title: a.title,
           description: a.description,
+          assignmentDueDate: globalDueDate,
           cohortId: getEntityId(a.cohortId),
           cohortName: a.cohortId?.name || "No Cohort",
           studentId: null,
@@ -2295,8 +2401,9 @@ const CoachDashboard = () => {
           grade: "No submission",
           isGraded: false,
           hasSubmission: false,
-          status: new Date(a.dueDate) < new Date() ? "Expired" : "Pending",
-          dueDate: a.dueDate ? new Date(a.dueDate).toLocaleDateString() : "N/A",
+          hasSubmitted: false,
+          status: globalDueDate && new Date(globalDueDate) < new Date() ? "Expired" : "Pending",
+          dueDate: globalDueDate ? new Date(globalDueDate).toLocaleDateString() : "N/A",
           submission: null,
           createdAt: a.createdAt || a.updatedAt || a.dueDate || null,
         },
@@ -4231,6 +4338,21 @@ const CoachDashboard = () => {
                           </Paper>
                         </Box>
 
+                        {selectedAssignment.studentName &&
+                        selectedAssignment.studentName !== "-" ? (
+                          <Alert
+                            severity={
+                              selectedAssignment.hasSubmitted
+                                ? "warning"
+                                : "info"
+                            }
+                          >
+                            {selectedAssignment.hasSubmitted
+                              ? `${selectedAssignment.studentName} has already submitted this assignment. Due date changes will not affect this student unless you reopen the assignment for redo.`
+                              : `You are viewing ${selectedAssignment.studentName}. You can either update only this student's due date or update the entire assignment for everyone else who has not submitted.`}
+                          </Alert>
+                        ) : null}
+
                         {selectedAssignment.description ? (
                           <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                             <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
@@ -4286,34 +4408,98 @@ const CoachDashboard = () => {
 
                         <Divider />
 
-                        <Box>
+                        <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
                           <Typography fontWeight="bold" sx={{ mb: 1 }}>
-                            Extend Assignment Due Date
+                            Update Entire Assignment Due Date
                           </Typography>
                           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                            Updating this date will notify the eligible students and also send a confirmation email to the coach.
+                            This changes the assignment deadline for students who have not submitted yet. Submitted students remain locked unless you explicitly reopen them.
                           </Typography>
                           <TextField
                             type="date"
-                            label="New Due Date"
+                            label="Assignment Due Date"
                             fullWidth
                             InputLabelProps={{ shrink: true }}
                             value={editDueDate}
                             onChange={(e) => setEditDueDate(e.target.value)}
                           />
-                        </Box>
+                        </Paper>
+
+                        {selectedAssignment.studentId ? (
+                          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                            <Typography fontWeight="bold" sx={{ mb: 1 }}>
+                              Update Due Date For This Student Only
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                              Use this when you want to extend only {selectedAssignment.studentName}'s deadline. This option is disabled after submission.
+                            </Typography>
+                            <TextField
+                              type="date"
+                              label="Student Due Date"
+                              fullWidth
+                              InputLabelProps={{ shrink: true }}
+                              value={studentEditDueDate}
+                              onChange={(e) => setStudentEditDueDate(e.target.value)}
+                              disabled={selectedAssignment.hasSubmitted}
+                            />
+                            {selectedAssignment.hasSubmitted ? (
+                              <Alert severity="warning" sx={{ mt: 2 }}>
+                                This student has already submitted. Reopen the assignment below if you want the student to submit again.
+                              </Alert>
+                            ) : null}
+                          </Paper>
+                        ) : null}
+
+                        {selectedAssignment.studentId &&
+                        selectedAssignment.hasSubmitted ? (
+                          <Paper variant="outlined" sx={{ p: 2, borderRadius: 2 }}>
+                            <Typography fontWeight="bold" sx={{ mb: 1 }}>
+                              Allow Student To Redo Assignment
+                            </Typography>
+                            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                              This removes the current submission and reopens the assignment for {selectedAssignment.studentName}. Both the coach and student will receive email notifications.
+                            </Typography>
+                            <Button
+                              variant="outlined"
+                              color="warning"
+                              disabled={reopeningAssignment}
+                              onClick={allowStudentRedoAssignment}
+                            >
+                              {reopeningAssignment
+                                ? "Reopening..."
+                                : "Allow Redo"}
+                            </Button>
+                          </Paper>
+                        ) : null}
                       </Stack>
                     </DialogContent>
                     <DialogActions sx={{ px: 3, py: 2 }}>
                       <Button onClick={handleCloseAssignmentModal}>
                         Close
                       </Button>
+                      {selectedAssignment.studentId ? (
+                        <Button
+                          variant="outlined"
+                          disabled={
+                            updatingDueDate ||
+                            !studentEditDueDate ||
+                            selectedAssignment.hasSubmitted
+                          }
+                          onClick={updateStudentAssignmentDueDate}
+                        >
+                          {updatingDueDate
+                            ? "Updating..."
+                            : "Save Student Due Date"}
+                        </Button>
+                      ) : null}
                       <Button
                         variant="contained"
                         disabled={updatingDueDate || !editDueDate}
-                        onClick={updateAssignmentDueDate}
+                        onClick={() => updateAssignmentDueDate("assignment")}
                       >
-                        {updatingDueDate ? "Updating..." : "Save Due Date"}
+                        {updatingDueDate
+                          ? "Updating..."
+                          : "Save Assignment Due Date"}
                       </Button>
                     </DialogActions>
                   </>
