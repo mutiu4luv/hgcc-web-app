@@ -118,6 +118,15 @@ const normalizeCoachOwnedCourses = (value) =>
     }))
     .filter((course) => course.courseId);
 
+const safeParseJSON = (value, fallback) => {
+  if (!value) return fallback;
+  try {
+    return JSON.parse(value);
+  } catch {
+    return fallback;
+  }
+};
+
 const normalizeRatings = (value) => {
   if (Array.isArray(value)) return value;
   if (Array.isArray(value?.ratings)) return value.ratings;
@@ -598,14 +607,23 @@ const CoachDashboard = () => {
     coaches: 0,
   });
 
-  const safeAssignedCourses = normalizeAssignedCohorts(assignedCourses);
-  const fallbackOwnedCourses = normalizeCoachOwnedCourses(courses);
-  const uploadCohorts = safeAssignedCourses.filter(
-    (cohort) => Array.isArray(cohort.courses) && cohort.courses.length > 0
+  const safeAssignedCourses = React.useMemo(
+    () => normalizeAssignedCohorts(assignedCourses),
+    [assignedCourses]
   );
-  const uploadCoursesForSelectedCohort = uploadCohorts.length
-    ? uploadCohorts.find((cohort) => cohort.cohortId === selectedCohortId)?.courses || []
-    : fallbackOwnedCourses;
+  const uploadCohorts = React.useMemo(
+    () =>
+      safeAssignedCourses.filter(
+        (cohort) => Array.isArray(cohort.courses) && cohort.courses.length > 0
+      ),
+    [safeAssignedCourses]
+  );
+  const uploadCoursesForSelectedCohort = React.useMemo(
+    () =>
+      uploadCohorts.find((cohort) => cohort.cohortId === selectedCohortId)
+        ?.courses || [],
+    [uploadCohorts, selectedCohortId]
+  );
 
   const [contentType, setContentType] = useState("");
   const [title, setTitle] = useState("");
@@ -677,7 +695,7 @@ const CoachDashboard = () => {
   const [loadingFreeContent, setLoadingFreeContent] = useState(false);
 
   const CHAT_STORAGE_KEY = "coach_chat_open";
-  const user = JSON.parse(localStorage.getItem("user") || "{}");
+  const user = safeParseJSON(localStorage.getItem("user"), {});
 
   const studentId = user?._id || user?.id;
   const studentName = user?.name || user?.fullName || "Coach";
@@ -1039,8 +1057,10 @@ const CoachDashboard = () => {
   }, [chatOpen]);
 
   const [chatMessages, setChatMessages] = useState(() => {
-    const saved = localStorage.getItem("classChats");
-    return saved ? JSON.parse(saved) : { video: {}, doc: {} };
+    return safeParseJSON(localStorage.getItem("classChats"), {
+      video: {},
+      doc: {},
+    });
   });
   const [newMessages, setNewMessages] = useState({});
   const socketRef = useRef(null);
@@ -1137,7 +1157,7 @@ const CoachDashboard = () => {
   };
 
   useEffect(() => {
-    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUser = safeParseJSON(localStorage.getItem("user"), {});
     const currentUserId = currentUser?.id || currentUser?._id;
     const channels = ["coaches", "students"];
     const makeKey = (channel) => `group_chat_last_seen_coach_${channel}`;
@@ -1221,7 +1241,7 @@ const CoachDashboard = () => {
   useEffect(() => {
     if (!BASE_URL || !token) return;
 
-    const currentUser = JSON.parse(localStorage.getItem("user") || "{}");
+    const currentUser = safeParseJSON(localStorage.getItem("user"), {});
     const currentUserId = currentUser?.id || currentUser?._id;
     const socket = io(BASE_URL, {
       auth: { token },
@@ -1312,7 +1332,12 @@ const CoachDashboard = () => {
     const handleStorage = (e) => {
       if (e.key === STORAGE_KEY) {
         try {
-          setChatMessages(JSON.parse(e.newValue || "{}"));
+          setChatMessages(
+            safeParseJSON(e.newValue, {
+              video: {},
+              doc: {},
+            })
+          );
         } catch (err) {
           console.warn("Failed to parse classChats from storage event", err);
         }
@@ -1321,7 +1346,12 @@ const CoachDashboard = () => {
 
     const handleCustom = () => {
       try {
-        setChatMessages(JSON.parse(localStorage.getItem(STORAGE_KEY) || "{}"));
+        setChatMessages(
+          safeParseJSON(localStorage.getItem(STORAGE_KEY), {
+            video: {},
+            doc: {},
+          })
+        );
       } catch (err) {
         console.warn("Failed to parse classChats from localStorage", err);
       }
@@ -1671,27 +1701,23 @@ const CoachDashboard = () => {
   // =========================
   // FLATTEN COURSES FOR DROPDOWN
   // =========================
+  const flattenedAssignedCourses = React.useMemo(
+    () =>
+      safeAssignedCourses.flatMap((cohort) =>
+        cohort.courses.map((course) => ({
+          cohortCourseId: course.cohortCourseId,
+          courseId: course.courseId,
+          courseName: course.name,
+          cohortName: cohort.cohortName,
+          status: course.status,
+        }))
+      ),
+    [safeAssignedCourses]
+  );
+
   useEffect(() => {
-    if (!safeAssignedCourses.length) {
-      setCoursesArray([]);
-      return;
-    }
-
-    // Transform assignedCourses into flat array for dropdown
-
-    const flatCourses = safeAssignedCourses.flatMap((cohort) =>
-      cohort.courses.map((course) => ({
-        cohortCourseId: course.cohortCourseId,
-        courseId: course.courseId,
-        courseName: course.name,
-        cohortName: cohort.cohortName,
-        status: course.status,
-      }))
-    );
-    //
-
-    setCoursesArray(flatCourses);
-  }, [safeAssignedCourses]);
+    setCoursesArray(flattenedAssignedCourses);
+  }, [flattenedAssignedCourses]);
   // auto-select first course when coursesArray changes
   useEffect(() => {
     if (coursesArray.length > 0 && !selectedCourse) {
@@ -1844,7 +1870,7 @@ const CoachDashboard = () => {
       setCohorts([]);
       setCohortId("");
       setSelectedCohortId("");
-      setSelectedCourseId(fallbackOwnedCourses[0]?.courseId || "");
+      setSelectedCourseId("");
       setSelectedCourse("");
       return;
     }
@@ -1869,7 +1895,7 @@ const CoachDashboard = () => {
     if (!courseStillValid) {
       setSelectedCourseId(nextCourses[0]?.courseId || "");
     }
-  }, [uploadCohorts, selectedCohortId, selectedCourseId, fallbackOwnedCourses]);
+  }, [uploadCohorts, selectedCohortId, selectedCourseId]);
 
   // ========================= // FETCH  ASSIGNMENT DONE BY STUDENT // =========================
   // const loadStudentAssignments = async () => {
@@ -1895,12 +1921,7 @@ const CoachDashboard = () => {
 
   useEffect(() => {
     setCohorts(uploadCohorts);
-    if (!uploadCohorts.length) {
-      if (!selectedCourseId && fallbackOwnedCourses.length) {
-        setSelectedCourseId(fallbackOwnedCourses[0].courseId);
-      }
-      return;
-    }
+    if (!uploadCohorts.length) return;
 
     const cohortStillValid = uploadCohorts.some(
       (cohort) => cohort.cohortId === cohortId
@@ -1909,7 +1930,7 @@ const CoachDashboard = () => {
     if (!cohortStillValid) {
       setCohortId(uploadCohorts[0].cohortId);
     }
-  }, [uploadCohorts, cohortId, selectedCourseId, fallbackOwnedCourses]);
+  }, [uploadCohorts, cohortId, selectedCourseId]);
 
   // =========================
   // FETCH VIDEOS & DOCUMENTS
@@ -1947,13 +1968,7 @@ const CoachDashboard = () => {
   const handleVideoUpload = async (e) => {
     e.preventDefault();
 
-    if (
-      !videoTitle ||
-      !videoFile ||
-      !classStartTime ||
-      !selectedCourseId ||
-      !selectedCohortId
-    ) {
+    if (!videoTitle || !videoFile || !classStartTime || !selectedCourseId) {
       console.log({
         videoTitle,
         videoFile,
@@ -1983,7 +1998,9 @@ const CoachDashboard = () => {
     formData.append("file", videoFile);
     formData.append("classStartTime", utcTime.toISOString()); // <-- use UTC ISO string
     formData.append("courseId", selectedCourseId);
-    formData.append("cohortId", selectedCohortId);
+    if (selectedCohortId) {
+      formData.append("cohortId", selectedCohortId);
+    }
 
     try {
       setLoading(true);
@@ -1997,8 +2014,10 @@ const CoachDashboard = () => {
       setVideoTitle("");
       setVideoFile(null);
       setClassStartTime("");
-      setSelectedCourseId("");
-      setSelectedCohortId("");
+      setSelectedCourseId(
+        uploadCoursesForSelectedCohort[0]?.courseId || selectedCourseId
+      );
+      setSelectedCohortId(uploadCohorts[0]?.cohortId || "");
       loadVideos();
       await fetchMyVideos();
     } catch (error) {
@@ -2033,6 +2052,12 @@ const CoachDashboard = () => {
   const handleLogout = () => {
     localStorage.removeItem("token");
     localStorage.removeItem("user");
+    localStorage.removeItem("selectedCohortId");
+    localStorage.removeItem("userCohorts");
+    localStorage.removeItem("classChats");
+    localStorage.removeItem("userName");
+    localStorage.removeItem("userPhoto");
+    sessionStorage.removeItem(CHAT_STORAGE_KEY);
     window.location.href = "/login";
   };
 
@@ -2590,6 +2615,8 @@ const CoachDashboard = () => {
                   if (!videoFile) return alert("Please select a video file!");
                   if (!classStartTime)
                     return alert("Class start time is required!");
+                  if (!selectedCohortId)
+                    return alert("Please select a cohort!");
                   if (!selectedCourseId)
                     return alert("Please select a course!");
 
@@ -2624,9 +2651,7 @@ const CoachDashboard = () => {
                     setVideoFile(null);
                     setClassStartTime("");
                     setSelectedCourseId(
-                      uploadCoursesForSelectedCohort[0]?.courseId ||
-                        fallbackOwnedCourses[0]?.courseId ||
-                        ""
+                      uploadCoursesForSelectedCohort[0]?.courseId || ""
                     );
                     setSelectedCohortId(uploadCohorts[0]?.cohortId || "");
                     loadVideos();
@@ -2670,6 +2695,7 @@ const CoachDashboard = () => {
                   sx={{ mb: 2 }}
                   value={selectedCourseId}
                   onChange={(e) => setSelectedCourseId(e.target.value)}
+                  disabled={!selectedCohortId || uploadCoursesForSelectedCohort.length === 0}
                 >
                   {uploadCoursesForSelectedCohort.length === 0 ? (
                     <MenuItem disabled>No courses available</MenuItem>
@@ -2686,6 +2712,7 @@ const CoachDashboard = () => {
                   label="Select Cohort"
                   select
                   fullWidth
+                  required
                   sx={{ mb: 2 }}
                   value={selectedCohortId}
                   onChange={(e) => setSelectedCohortId(e.target.value)}
@@ -2732,7 +2759,18 @@ const CoachDashboard = () => {
                     </Typography>
                   )}
 
-                  <Button type="submit" variant="contained" disabled={loading}>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    disabled={
+                      loading ||
+                      !selectedCohortId ||
+                      !selectedCourseId ||
+                      !videoTitle ||
+                      !videoFile ||
+                      !classStartTime
+                    }
+                  >
                     {loading ? <CircularProgress size={24} /> : "Upload Video"}
                   </Button>
                 </Box>
