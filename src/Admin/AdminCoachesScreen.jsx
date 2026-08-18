@@ -1085,10 +1085,6 @@ const CoachDashboard = () => {
         </Badge>
       ),
       key: "chat",
-      secondary:
-        chatUnreadByChannel.students || chatUnreadByChannel.coaches
-          ? `${chatUnreadByChannel.students} unread from students, ${chatUnreadByChannel.coaches} unread from coaches`
-          : "No unread messages",
     },
     { text: "Upload Cohort Video", icon: <UploadFile />, key: "upload-video" },
     { text: "Upload Cohort Document", icon: <UploadFile />, key: "upload-doc" },
@@ -1123,6 +1119,7 @@ const CoachDashboard = () => {
     // create socket
     socketRef.current = io(BASE_URL, {
       auth: { token },
+      transports: ["polling"],
     });
 
     // join room (emit ONLY)
@@ -1159,15 +1156,18 @@ const CoachDashboard = () => {
   useEffect(() => {
     const currentUser = safeParseJSON(localStorage.getItem("user"), {});
     const currentUserId = currentUser?.id || currentUser?._id;
-    const channels = ["coaches", "students"];
-    const makeKey = (channel) => `group_chat_last_seen_coach_${channel}`;
+    let cancelled = false;
 
     const pollUnread = async () => {
       try {
         const { data } = await axios.get(
           `${BASE_URL}/api/group-chat/unread-summary`,
-          { headers: { Authorization: `Bearer ${token}` } }
+          {
+            headers: { Authorization: `Bearer ${token}` },
+            timeout: 10000,
+          }
         );
+        if (cancelled) return;
         const nextByChannel = {
           students: Number(data?.unreadByChannel?.students || 0),
           coaches: Number(data?.unreadByChannel?.coaches || 0),
@@ -1176,66 +1176,26 @@ const CoachDashboard = () => {
           data?.total ?? nextByChannel.students + nextByChannel.coaches
         );
         setChatUnreadByChannel(nextByChannel);
-        if (activeTabRef.current !== "chat") setChatUnreadCount(total);
+        setChatUnreadCount(total);
         return;
       } catch {
-        // Fall through to the legacy local-storage-based unread calculation.
-      }
-
-      try {
-        let total = 0;
-        const nextByChannel = { students: 0, coaches: 0 };
-        for (const channel of channels) {
-          let data;
-          try {
-            if (channel === "students") {
-              const res = await axios.get(
-                `${BASE_URL}/api/group-chat/students/messages`,
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-              data = res.data;
-            } else {
-              const res = await axios.get(
-                `${BASE_URL}/api/group-chat/${channel}/messages`,
-                { headers: { Authorization: `Bearer ${token}` } }
-              );
-              data = res.data;
-            }
-          } catch (error) {
-            const looksLikeLegacyStudents =
-              channel === "students" &&
-              (error?.response?.status === 400 ||
-                error?.response?.status === 403 ||
-                error?.response?.status === 404);
-            if (!looksLikeLegacyStudents) continue;
-            const legacyRes = await axios.get(
-              `${BASE_URL}/api/group-chat/users/messages`,
-              { headers: { Authorization: `Bearer ${token}` } }
-            );
-            data = legacyRes.data;
-          }
-          const messages = Array.isArray(data?.messages) ? data.messages : [];
-          const lastSeen = new Date(localStorage.getItem(makeKey(channel)) || 0);
-          const count = messages.filter((m) => {
-            const senderId = m?.senderId?._id || m?.senderId;
-            return (
-              new Date(m.createdAt || m.updatedAt || 0) > lastSeen &&
-              String(senderId) !== String(currentUserId)
-            );
-          }).length;
-          nextByChannel[channel] = count;
-          total += count;
-        }
-        setChatUnreadByChannel(nextByChannel);
-        if (activeTabRef.current !== "chat") setChatUnreadCount(total);
-      } catch {
-        // no-op
+        // Keep the last unread state instead of hammering fallback endpoints.
       }
     };
 
     pollUnread();
-    const interval = setInterval(pollUnread, 30000);
-    return () => clearInterval(interval);
+    const handleVisibility = () => {
+      if (document.visibilityState === "visible") {
+        pollUnread();
+      }
+    };
+    const interval = setInterval(pollUnread, 60000);
+    document.addEventListener("visibilitychange", handleVisibility);
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+      document.removeEventListener("visibilitychange", handleVisibility);
+    };
   }, [BASE_URL, token]);
 
   useEffect(() => {
@@ -1245,7 +1205,7 @@ const CoachDashboard = () => {
     const currentUserId = currentUser?.id || currentUser?._id;
     const socket = io(BASE_URL, {
       auth: { token },
-      transports: ["websocket", "polling"],
+      transports: ["polling"],
     });
 
     socket.emit("joinGroupChat", { channel: "coaches" });
@@ -1295,7 +1255,7 @@ const CoachDashboard = () => {
       socket.off("groupChatMessage", handleGroupMessage);
       socket.disconnect();
     };
-  }, [BASE_URL, token, openGroupChatChannel]);
+  }, [BASE_URL, token]);
 
   const markGroupChannelSeen = (seenChannel) => {
     if (!seenChannel) return;
@@ -1413,6 +1373,13 @@ const CoachDashboard = () => {
   const openChat = () => {
     setChatOpen(true);
     setUnreadCount(0);
+  };
+
+  const closeChat = () => {
+    if (document.activeElement instanceof HTMLElement) {
+      document.activeElement.blur();
+    }
+    setChatOpen(false);
   };
 
   // helper to update parent chatMessages state
@@ -4449,7 +4416,10 @@ const CoachDashboard = () => {
       <Drawer
         anchor="right"
         open={isMobile && chatOpen}
-        onClose={() => setChatOpen(false)}
+        onClose={closeChat}
+        ModalProps={{
+          disableRestoreFocus: true,
+        }}
         PaperProps={{
           sx: {
             width: "85%",
@@ -4467,7 +4437,7 @@ const CoachDashboard = () => {
             }}
           >
             <Typography fontWeight="bold">💬 Chat</Typography>
-            <IconButton onClick={() => setChatOpen(false)}>
+            <IconButton onClick={closeChat}>
               <CloseIcon />
             </IconButton>
           </Box>
