@@ -3118,18 +3118,59 @@ const CoachDashboard = () => {
                 {/* Select Course */}
                 <TextField
                   select
+                  label="Select Cohort"
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={selectedCohortId}
+                  onChange={(e) => {
+                    const nextCohortId = e.target.value;
+                    setSelectedCohortId(nextCohortId);
+
+                    const nextCourses =
+                      uploadCohorts.find(
+                        (cohort) => cohort.cohortId === nextCohortId
+                      )?.courses || [];
+                    setSelectedCourseId(nextCourses[0]?.courseId || "");
+                  }}
+                >
+                  {uploadCohorts.length === 0 ? (
+                    <MenuItem value="" disabled>
+                      No cohorts assigned
+                    </MenuItem>
+                  ) : (
+                    uploadCohorts.map((cohort) => (
+                      <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                        {cohort.cohortName}
+                      </MenuItem>
+                    ))
+                  )}
+                </TextField>
+
+                <TextField
+                  select
                   label="Select Course"
                   fullWidth
                   required
                   sx={{ mb: 2 }}
                   value={selectedCourseId}
                   onChange={(e) => setSelectedCourseId(e.target.value)}
+                  disabled={
+                    !selectedCohortId ||
+                    uploadCoursesForSelectedCohort.length === 0
+                  }
                 >
-                  {courses.map((course) => (
-                    <MenuItem key={course._id} value={course._id}>
-                      {course.name}
+                  {uploadCoursesForSelectedCohort.length === 0 ? (
+                    <MenuItem value="" disabled>
+                      No courses available
                     </MenuItem>
-                  ))}
+                  ) : (
+                    uploadCoursesForSelectedCohort.map((course) => (
+                      <MenuItem key={course.courseId} value={course.courseId}>
+                        {course.name}
+                      </MenuItem>
+                    ))
+                  )}
                 </TextField>
 
                 {/* File Upload Button */}
@@ -3342,7 +3383,7 @@ const CoachDashboard = () => {
                 >
                   {selfLearningCourses.map((course) => (
                     <MenuItem key={course._id} value={course._id}>
-                      {course.title}
+                      {course.title || course.name || "Untitled Course"}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -3584,7 +3625,7 @@ const CoachDashboard = () => {
                 >
                   {freeCourses.map((course) => (
                     <MenuItem key={course._id} value={course._id}>
-                      {course.title}
+                      {course.title || course.name || "Untitled Course"}
                     </MenuItem>
                   ))}
                 </TextField>
