@@ -135,6 +135,45 @@ const normalizeCoachOwnedCourses = (value) =>
     }))
     .filter((course) => course.courseId);
 
+const normalizeCoachUploadCohorts = (value) => {
+  const grouped = new Map();
+
+  ensureArray(value)
+    .filter(Boolean)
+    .forEach((course) => {
+      const cohortId = getIdValue(course?.cohortId || course?.cohort?._id);
+      if (!cohortId) return;
+
+      const cohortName =
+        course?.cohortName || course?.cohort?.name || "No Cohort";
+      const courseId = getIdValue(course?.courseId);
+      const cohortCourseId = getIdValue(
+        course?.cohortCourseId || course?._id || course?.id
+      );
+
+      if (!courseId || !cohortCourseId) return;
+
+      const nextCourse = {
+        ...course,
+        cohortCourseId,
+        courseId,
+        name: course?.name || course?.courseName || "Untitled Course",
+      };
+
+      if (!grouped.has(cohortId)) {
+        grouped.set(cohortId, {
+          cohortId,
+          cohortName,
+          courses: [],
+        });
+      }
+
+      grouped.get(cohortId).courses.push(nextCourse);
+    });
+
+  return Array.from(grouped.values());
+};
+
 const safeParseJSON = (value, fallback) => {
   if (!value) return fallback;
   try {
@@ -1747,7 +1786,13 @@ const CoachDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      setAssignedCourses(normalizeAssignedCohorts(res.data?.cohorts));
+      const groupedCourses = normalizeCoachUploadCohorts(res.data?.courses);
+      const cohortList =
+        groupedCourses.length > 0
+          ? groupedCourses
+          : res.data?.availableCohorts || res.data?.cohorts || [];
+
+      setAssignedCourses(normalizeAssignedCohorts(cohortList));
     } catch (err) {
       console.error("Error fetching assigned courses:", err);
     } finally {
@@ -1917,7 +1962,15 @@ const CoachDashboard = () => {
   }, [safeAssignedCourses]);
 
   useEffect(() => {
-    if (activeTab === "course-control") {
+    if (
+      [
+        "course-control",
+        "upload-video",
+        "upload-doc",
+        "upload-sl-doc",
+        "upload-free-learning-doc",
+      ].includes(activeTab)
+    ) {
       fetchAssignedCourses();
     }
   }, [activeTab]);
@@ -2784,6 +2837,37 @@ const CoachDashboard = () => {
                   onChange={(e) => setClassStartTime(e.target.value)}
                 />
                 <TextField
+                  label="Select Cohort"
+                  select
+                  fullWidth
+                  required
+                  sx={{ mb: 2 }}
+                  value={selectedCohortId}
+                  onChange={(e) => {
+                    const nextCohortId = e.target.value;
+                    setSelectedCohortId(nextCohortId);
+
+                    const nextCourses =
+                      uploadCohorts.find(
+                        (cohort) => cohort.cohortId === nextCohortId
+                      )?.courses || [];
+                    setSelectedCourseId(nextCourses[0]?.courseId || "");
+                  }}
+                >
+                  {uploadCohorts.length === 0 ? (
+                    <MenuItem value="" disabled>
+                      No cohort assigned
+                    </MenuItem>
+                  ) : (
+                    uploadCohorts.map((cohort) => (
+                      <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                        {cohort.cohortName}
+                      </MenuItem>
+                    ))
+                  )}
+                </TextField>
+
+                <TextField
                   label="Select Course"
                   select
                   fullWidth
@@ -2791,34 +2875,19 @@ const CoachDashboard = () => {
                   sx={{ mb: 2 }}
                   value={selectedCourseId}
                   onChange={(e) => setSelectedCourseId(e.target.value)}
-                  disabled={!selectedCohortId || uploadCoursesForSelectedCohort.length === 0}
+                  disabled={
+                    !selectedCohortId ||
+                    uploadCoursesForSelectedCohort.length === 0
+                  }
                 >
                   {uploadCoursesForSelectedCohort.length === 0 ? (
-                    <MenuItem disabled>No courses available</MenuItem>
+                    <MenuItem value="" disabled>
+                      {loadingAssigned ? "Loading courses..." : "No courses available"}
+                    </MenuItem>
                   ) : (
                     uploadCoursesForSelectedCohort.map((course) => (
                       <MenuItem key={course.courseId} value={course.courseId}>
                         {course.name}
-                      </MenuItem>
-                    ))
-                  )}
-                </TextField>
-
-                <TextField
-                  label="Select Cohort"
-                  select
-                  fullWidth
-                  required
-                  sx={{ mb: 2 }}
-                  value={selectedCohortId}
-                  onChange={(e) => setSelectedCohortId(e.target.value)}
-                >
-                  {uploadCohorts.length === 0 ? (
-                    <MenuItem value="">No cohort assigned</MenuItem>
-                  ) : (
-                    uploadCohorts.map((cohort) => (
-                      <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
-                        {cohort.cohortName}
                       </MenuItem>
                     ))
                   )}
@@ -3117,8 +3186,8 @@ const CoachDashboard = () => {
 
                 {/* Select Course */}
                 <TextField
-                  select
                   label="Select Cohort"
+                  select
                   fullWidth
                   required
                   sx={{ mb: 2 }}
@@ -3162,7 +3231,7 @@ const CoachDashboard = () => {
                 >
                   {uploadCoursesForSelectedCohort.length === 0 ? (
                     <MenuItem value="" disabled>
-                      No courses available
+                      {loadingAssigned ? "Loading courses..." : "No courses available"}
                     </MenuItem>
                   ) : (
                     uploadCoursesForSelectedCohort.map((course) => (
