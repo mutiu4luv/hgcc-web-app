@@ -703,6 +703,10 @@ const CoachDashboard = () => {
       ),
     [safeAssignedCourses]
   );
+  const uploadCohortOptions = React.useMemo(() => {
+    if (uploadAvailableCohorts.length > 0) return uploadAvailableCohorts;
+    return uploadCohorts;
+  }, [uploadAvailableCohorts, uploadCohorts]);
   const uploadCourseOptions = React.useMemo(
     () =>
       ensureArray(uploadCoachCourses),
@@ -1836,22 +1840,15 @@ const CoachDashboard = () => {
   const fetchUploadTargets = async () => {
     try {
       setLoadingAssigned(true);
+      const res = await axios.get(`${BASE_URL}/api/cohort/coach/assigned`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
 
-      const [coachCourseRes, availableCohortRes] = await Promise.all([
-        axios.get(`${BASE_URL}/api/course/my-courses-for-coach`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get(`${BASE_URL}/api/cohort/available`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+      const cohortList = res.data?.availableCohorts || res.data?.cohorts || [];
+      const courseList = res.data?.courses || [];
 
-      setUploadCoachCourses(
-        normalizeCoachOwnedCourses(coachCourseRes.data?.courses || [])
-      );
-      setUploadAvailableCohorts(
-        normalizeAvailableUploadCohorts(availableCohortRes.data?.cohorts || [])
-      );
+      setUploadAvailableCohorts(normalizeAssignedCohorts(cohortList));
+      setUploadCoachCourses(normalizeCoachOwnedCourses(courseList));
     } catch (err) {
       console.error("Error fetching upload targets:", err);
     } finally {
@@ -2041,14 +2038,14 @@ const CoachDashboard = () => {
   }, [activeTab]);
 
   useEffect(() => {
-    if (!uploadAvailableCohorts.length) {
+    if (!uploadCohortOptions.length) {
       setUploadSelectedCohortId("");
     } else if (
-      !uploadAvailableCohorts.some(
+      !uploadCohortOptions.some(
         (cohort) => cohort.cohortId === uploadSelectedCohortId
       )
     ) {
-      setUploadSelectedCohortId(uploadAvailableCohorts[0].cohortId);
+      setUploadSelectedCohortId(uploadCohortOptions[0].cohortId);
     }
 
     if (!uploadCourseOptions.length) {
@@ -2062,7 +2059,7 @@ const CoachDashboard = () => {
     }
   }, [
     uploadCourseOptions,
-    uploadAvailableCohorts,
+    uploadCohortOptions,
     uploadSelectedCourseId,
     uploadSelectedCohortId,
   ]);
@@ -2941,10 +2938,10 @@ const CoachDashboard = () => {
                     label="Select Cohort"
                     onChange={(e) => setUploadSelectedCohortId(e.target.value)}
                   >
-                    {uploadAvailableCohorts.length === 0 ? (
+                    {uploadCohortOptions.length === 0 ? (
                       <MenuItem value="">No cohort assigned</MenuItem>
                     ) : (
-                      uploadAvailableCohorts.map((cohort) => (
+                      uploadCohortOptions.map((cohort) => (
                         <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
                           {cohort.cohortName}
                         </MenuItem>
@@ -3277,10 +3274,10 @@ const CoachDashboard = () => {
                     label="Select Cohort"
                     onChange={(e) => setUploadSelectedCohortId(e.target.value)}
                   >
-                    {uploadAvailableCohorts.length === 0 ? (
+                    {uploadCohortOptions.length === 0 ? (
                       <MenuItem value="">No cohorts assigned</MenuItem>
                     ) : (
-                      uploadAvailableCohorts.map((cohort) => (
+                      uploadCohortOptions.map((cohort) => (
                         <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
                           {cohort.cohortName}
                         </MenuItem>
