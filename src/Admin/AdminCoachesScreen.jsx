@@ -135,6 +135,23 @@ const normalizeCoachOwnedCourses = (value) =>
     }))
     .filter((course) => course.courseId);
 
+const normalizeAvailableUploadCohorts = (value) =>
+  ensureArray(value)
+    .filter(Boolean)
+    .map((cohort) => ({
+      cohortId: getIdValue(cohort?.cohortId || cohort?._id),
+      cohortName: cohort?.cohortName || cohort?.name || "No Cohort",
+      courses: ensureArray(cohort?.courses)
+        .filter(Boolean)
+        .map((course) => ({
+          courseId: getIdValue(course?.courseId || course?._id),
+          name: course?.name || course?.courseId?.name || "Untitled Course",
+          coachId: getIdValue(course?.coachId),
+        }))
+        .filter((course) => course.courseId),
+    }))
+    .filter((cohort) => cohort.cohortId);
+
 const normalizeCoachUploadCohorts = (value) => {
   const grouped = new Map();
 
@@ -650,6 +667,10 @@ const CoachDashboard = () => {
   const [actionLoading, setActionLoading] = useState(false);
   const [coursesArray, setCoursesArray] = useState([]);
   const [selected, setSelected] = useState("");
+  const [uploadSelectedCohortId, setUploadSelectedCohortId] = useState("");
+  const [uploadSelectedCourseId, setUploadSelectedCourseId] = useState("");
+  const [uploadCoachCourses, setUploadCoachCourses] = useState([]);
+  const [uploadAvailableCohorts, setUploadAvailableCohorts] = useState([]);
 
   const [myVideos, setMyVideos] = useState([]);
   const [unlockAt, setUnlockAt] = useState("");
@@ -669,6 +690,12 @@ const CoachDashboard = () => {
     () => normalizeAssignedCohorts(assignedCourses),
     [assignedCourses]
   );
+  const uploadCoursesForSelectedCohort = React.useMemo(
+    () =>
+      uploadAvailableCohorts.find((cohort) => cohort.cohortId === selectedCohortId)
+        ?.courses || [],
+    [uploadAvailableCohorts, selectedCohortId]
+  );
   const uploadCohorts = React.useMemo(
     () =>
       safeAssignedCourses.filter(
@@ -676,11 +703,10 @@ const CoachDashboard = () => {
       ),
     [safeAssignedCourses]
   );
-  const uploadCoursesForSelectedCohort = React.useMemo(
+  const uploadCourseOptions = React.useMemo(
     () =>
-      uploadCohorts.find((cohort) => cohort.cohortId === selectedCohortId)
-        ?.courses || [],
-    [uploadCohorts, selectedCohortId]
+      ensureArray(uploadCoachCourses),
+    [uploadCoachCourses]
   );
 
   const [contentType, setContentType] = useState("");
@@ -1441,7 +1467,13 @@ const CoachDashboard = () => {
   const handleDocumentUpload = async (e) => {
     e.preventDefault();
 
-    if (!docFile || !docTitle || !unlockAt) {
+    if (
+      !docFile ||
+      !docTitle ||
+      !unlockAt ||
+      !uploadSelectedCourseId ||
+      !uploadSelectedCohortId
+    ) {
       toast.warning("All fields are required, including the unlock time.");
       return;
     }
@@ -1460,7 +1492,8 @@ const CoachDashboard = () => {
       // Prepare FormData
       const formData = new FormData();
       formData.append("title", docTitle);
-      formData.append("courseId", selectedCourseId);
+      formData.append("courseId", uploadSelectedCourseId);
+      formData.append("cohortId", uploadSelectedCohortId);
       formData.append("unlockAt", utcUnlockTime);
       formData.append("file", docFile);
 
@@ -1800,6 +1833,32 @@ const CoachDashboard = () => {
     }
   };
 
+  const fetchUploadTargets = async () => {
+    try {
+      setLoadingAssigned(true);
+
+      const [coachCourseRes, availableCohortRes] = await Promise.all([
+        axios.get(`${BASE_URL}/api/course/my-courses-for-coach`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${BASE_URL}/api/cohort/available`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
+
+      setUploadCoachCourses(
+        normalizeCoachOwnedCourses(coachCourseRes.data?.courses || [])
+      );
+      setUploadAvailableCohorts(
+        normalizeAvailableUploadCohorts(availableCohortRes.data?.cohorts || [])
+      );
+    } catch (err) {
+      console.error("Error fetching upload targets:", err);
+    } finally {
+      setLoadingAssigned(false);
+    }
+  };
+
   // =========================
   // FLATTEN COURSES FOR DROPDOWN
   // =========================
@@ -1976,6 +2035,39 @@ const CoachDashboard = () => {
   }, [activeTab]);
 
   useEffect(() => {
+    if (["upload-video", "upload-doc"].includes(activeTab)) {
+      fetchUploadTargets();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (!uploadAvailableCohorts.length) {
+      setUploadSelectedCohortId("");
+    } else if (
+      !uploadAvailableCohorts.some(
+        (cohort) => cohort.cohortId === uploadSelectedCohortId
+      )
+    ) {
+      setUploadSelectedCohortId(uploadAvailableCohorts[0].cohortId);
+    }
+
+    if (!uploadCourseOptions.length) {
+      setUploadSelectedCourseId("");
+    } else if (
+      !uploadCourseOptions.some(
+        (course) => course.courseId === uploadSelectedCourseId
+      )
+    ) {
+      setUploadSelectedCourseId(uploadCourseOptions[0].courseId);
+    }
+  }, [
+    uploadCourseOptions,
+    uploadAvailableCohorts,
+    uploadSelectedCourseId,
+    uploadSelectedCohortId,
+  ]);
+
+  useEffect(() => {
     if (!uploadCohorts.length) {
       setCohorts([]);
       setCohortId("");
@@ -2078,7 +2170,13 @@ const CoachDashboard = () => {
   const handleVideoUpload = async (e) => {
     e.preventDefault();
 
-    if (!videoTitle || !videoFile || !classStartTime || !selectedCourseId) {
+    if (
+      !videoTitle ||
+      !videoFile ||
+      !classStartTime ||
+      !uploadSelectedCourseId ||
+      !uploadSelectedCohortId
+    ) {
       return alert("All fields are required!");
     }
 
@@ -2100,9 +2198,9 @@ const CoachDashboard = () => {
     formData.append("title", videoTitle);
     formData.append("file", videoFile);
     formData.append("classStartTime", utcTime.toISOString()); // <-- use UTC ISO string
-    formData.append("courseId", selectedCourseId);
-    if (selectedCohortId) {
-      formData.append("cohortId", selectedCohortId);
+    formData.append("courseId", uploadSelectedCourseId);
+    if (uploadSelectedCohortId) {
+      formData.append("cohortId", uploadSelectedCohortId);
     }
 
     try {
@@ -2117,10 +2215,8 @@ const CoachDashboard = () => {
       setVideoTitle("");
       setVideoFile(null);
       setClassStartTime("");
-      setSelectedCourseId(
-        uploadCoursesForSelectedCohort[0]?.courseId || selectedCourseId
-      );
-      setSelectedCohortId(uploadCohorts[0]?.cohortId || "");
+      setUploadSelectedCourseId(uploadCourseOptions[0]?.courseId || "");
+      setUploadSelectedCohortId(uploadAvailableCohorts[0]?.cohortId || "");
       loadVideos();
       await fetchMyVideos();
     } catch (error) {
@@ -2764,9 +2860,9 @@ const CoachDashboard = () => {
                   if (!videoFile) return alert("Please select a video file!");
                   if (!classStartTime)
                     return alert("Class start time is required!");
-                  if (!selectedCohortId)
+                  if (!uploadSelectedCohortId)
                     return alert("Please select a cohort!");
-                  if (!selectedCourseId)
+                  if (!uploadSelectedCourseId)
                     return alert("Please select a course!");
 
                   const utcTime = new Date(classStartTime).toISOString();
@@ -2775,9 +2871,9 @@ const CoachDashboard = () => {
                   formData.append("title", videoTitle);
                   formData.append("file", videoFile);
                   formData.append("classStartTime", utcTime);
-                  formData.append("courseId", selectedCourseId);
-                  if (selectedCohortId) {
-                    formData.append("cohortId", selectedCohortId);
+                  formData.append("courseId", uploadSelectedCourseId);
+                  if (uploadSelectedCohortId) {
+                    formData.append("cohortId", uploadSelectedCohortId);
                   }
 
                   try {
@@ -2799,10 +2895,12 @@ const CoachDashboard = () => {
                     setVideoTitle("");
                     setVideoFile(null);
                     setClassStartTime("");
-                    setSelectedCourseId(
-                      uploadCoursesForSelectedCohort[0]?.courseId || ""
+                    setUploadSelectedCourseId(
+                      uploadCourseOptions[0]?.courseId || ""
                     );
-                    setSelectedCohortId(uploadCohorts[0]?.cohortId || "");
+                    setUploadSelectedCohortId(
+                      uploadAvailableCohorts[0]?.cohortId || ""
+                    );
                     loadVideos();
                     await fetchMyVideos();
                   } catch (err) {
@@ -2836,62 +2934,49 @@ const CoachDashboard = () => {
                   value={classStartTime}
                   onChange={(e) => setClassStartTime(e.target.value)}
                 />
-                <TextField
-                  label="Select Cohort"
-                  select
-                  fullWidth
-                  required
-                  sx={{ mb: 2 }}
-                  value={selectedCohortId}
-                  onChange={(e) => {
-                    const nextCohortId = e.target.value;
-                    setSelectedCohortId(nextCohortId);
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Select Cohort</InputLabel>
+                  <Select
+                    value={uploadSelectedCohortId}
+                    label="Select Cohort"
+                    onChange={(e) => setUploadSelectedCohortId(e.target.value)}
+                  >
+                    {uploadAvailableCohorts.length === 0 ? (
+                      <MenuItem value="">No cohort assigned</MenuItem>
+                    ) : (
+                      uploadAvailableCohorts.map((cohort) => (
+                        <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                          {cohort.cohortName}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
 
-                    const nextCourses =
-                      uploadCohorts.find(
-                        (cohort) => cohort.cohortId === nextCohortId
-                      )?.courses || [];
-                    setSelectedCourseId(nextCourses[0]?.courseId || "");
-                  }}
-                >
-                  {uploadCohorts.length === 0 ? (
-                    <MenuItem value="" disabled>
-                      No cohort assigned
-                    </MenuItem>
-                  ) : (
-                    uploadCohorts.map((cohort) => (
-                      <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
-                        {cohort.cohortName}
-                      </MenuItem>
-                    ))
-                  )}
-                </TextField>
-
-                <TextField
-                  label="Select Course"
-                  select
+                <FormControl
                   fullWidth
-                  required
                   sx={{ mb: 2 }}
-                  value={selectedCourseId}
-                  onChange={(e) => setSelectedCourseId(e.target.value)}
-                  disabled={
-                    !selectedCohortId ||
-                    uploadCoursesForSelectedCohort.length === 0
-                  }
+                  disabled={uploadCourseOptions.length === 0}
                 >
-                  {uploadCoursesForSelectedCohort.length === 0 ? (
-                    <MenuItem value="" disabled>
-                      {loadingAssigned ? "Loading courses..." : "No courses available"}
-                    </MenuItem>
-                  ) : (
-                    uploadCoursesForSelectedCohort.map((course) => (
-                      <MenuItem key={course.courseId} value={course.courseId}>
-                        {course.name}
+                  <InputLabel>Select Course</InputLabel>
+                  <Select
+                    value={uploadSelectedCourseId}
+                    label="Select Course"
+                    onChange={(e) => setUploadSelectedCourseId(e.target.value)}
+                  >
+                    {uploadCourseOptions.length === 0 ? (
+                      <MenuItem value="" disabled>
+                        {loadingAssigned ? "Loading courses..." : "No courses available"}
                       </MenuItem>
-                    ))
-                  )}
-                </TextField>
+                    ) : (
+                      uploadCourseOptions.map((course) => (
+                        <MenuItem key={course.courseId} value={course.courseId}>
+                          {course.name}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
 
                 <Box
                   sx={{ display: "flex", gap: 2, alignItems: "center", mb: 2 }}
@@ -2929,8 +3014,8 @@ const CoachDashboard = () => {
                     variant="contained"
                     disabled={
                       loading ||
-                      !selectedCohortId ||
-                      !selectedCourseId ||
+                      !uploadSelectedCohortId ||
+                      !uploadSelectedCourseId ||
                       !videoTitle ||
                       !videoFile ||
                       !classStartTime
@@ -2997,9 +3082,9 @@ const CoachDashboard = () => {
                   if (!videoFile) return alert("Please select a video file!");
                   if (!classStartTime)
                     return alert("Class start time is required!");
-                  if (!selectedCourseId)
+                  if (!uploadSelectedCourseId)
                     return alert("Please select a course!");
-                  if (!selectedCohortId)
+                  if (!uploadSelectedCohortId)
                     return alert("Please select a cohort!");
 
                   const utcTime = new Date(classStartTime).toISOString();
@@ -3008,8 +3093,8 @@ const CoachDashboard = () => {
                   formData.append("title", videoTitle);
                   formData.append("file", videoFile);
                   formData.append("classStartTime", utcTime);
-                  formData.append("courseId", selectedCourseId);
-                  formData.append("cohortId", selectedCohortId);
+                  formData.append("courseId", uploadSelectedCourseId);
+                  formData.append("cohortId", uploadSelectedCohortId);
 
                   try {
                     setLoading(true);
@@ -3185,62 +3270,49 @@ const CoachDashboard = () => {
                 />
 
                 {/* Select Course */}
-                <TextField
-                  label="Select Cohort"
-                  select
-                  fullWidth
-                  required
-                  sx={{ mb: 2 }}
-                  value={selectedCohortId}
-                  onChange={(e) => {
-                    const nextCohortId = e.target.value;
-                    setSelectedCohortId(nextCohortId);
+                <FormControl fullWidth sx={{ mb: 2 }}>
+                  <InputLabel>Select Cohort</InputLabel>
+                  <Select
+                    value={uploadSelectedCohortId}
+                    label="Select Cohort"
+                    onChange={(e) => setUploadSelectedCohortId(e.target.value)}
+                  >
+                    {uploadAvailableCohorts.length === 0 ? (
+                      <MenuItem value="">No cohorts assigned</MenuItem>
+                    ) : (
+                      uploadAvailableCohorts.map((cohort) => (
+                        <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                          {cohort.cohortName}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
 
-                    const nextCourses =
-                      uploadCohorts.find(
-                        (cohort) => cohort.cohortId === nextCohortId
-                      )?.courses || [];
-                    setSelectedCourseId(nextCourses[0]?.courseId || "");
-                  }}
-                >
-                  {uploadCohorts.length === 0 ? (
-                    <MenuItem value="" disabled>
-                      No cohorts assigned
-                    </MenuItem>
-                  ) : (
-                    uploadCohorts.map((cohort) => (
-                      <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
-                        {cohort.cohortName}
-                      </MenuItem>
-                    ))
-                  )}
-                </TextField>
-
-                <TextField
-                  select
-                  label="Select Course"
+                <FormControl
                   fullWidth
-                  required
                   sx={{ mb: 2 }}
-                  value={selectedCourseId}
-                  onChange={(e) => setSelectedCourseId(e.target.value)}
-                  disabled={
-                    !selectedCohortId ||
-                    uploadCoursesForSelectedCohort.length === 0
-                  }
+                  disabled={uploadCourseOptions.length === 0}
                 >
-                  {uploadCoursesForSelectedCohort.length === 0 ? (
-                    <MenuItem value="" disabled>
-                      {loadingAssigned ? "Loading courses..." : "No courses available"}
-                    </MenuItem>
-                  ) : (
-                    uploadCoursesForSelectedCohort.map((course) => (
-                      <MenuItem key={course.courseId} value={course.courseId}>
-                        {course.name}
+                  <InputLabel>Select Course</InputLabel>
+                  <Select
+                    value={uploadSelectedCourseId}
+                    label="Select Course"
+                    onChange={(e) => setUploadSelectedCourseId(e.target.value)}
+                  >
+                    {uploadCourseOptions.length === 0 ? (
+                      <MenuItem value="" disabled>
+                        {loadingAssigned ? "Loading courses..." : "No courses available"}
                       </MenuItem>
-                    ))
-                  )}
-                </TextField>
+                    ) : (
+                      uploadCourseOptions.map((course) => (
+                        <MenuItem key={course.courseId} value={course.courseId}>
+                          {course.name}
+                        </MenuItem>
+                      ))
+                    )}
+                  </Select>
+                </FormControl>
 
                 {/* File Upload Button */}
                 <Button
@@ -3300,7 +3372,12 @@ const CoachDashboard = () => {
                   type="submit"
                   variant="contained"
                   fullWidth
-                  disabled={loading || !docFile}
+                  disabled={
+                    loading ||
+                    !docFile ||
+                    !uploadSelectedCourseId ||
+                    !uploadSelectedCohortId
+                  }
                 >
                   {loading ? <CircularProgress size={24} /> : "Upload Document"}
                 </Button>
