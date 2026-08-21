@@ -648,6 +648,9 @@ const CoachDashboard = () => {
   const [selectedCourseId, setSelectedCourseId] = useState("");
   const [coachTitle, setCoachTitle] = useState("");
   const [cohorts, setCohorts] = useState([]);
+  const [assignmentCohorts, setAssignmentCohorts] = useState([]);
+  const [assignmentSelectedCohortId, setAssignmentSelectedCohortId] =
+    useState("");
   const [selectedCohortId, setSelectedCohortId] = useState("");
   const [flattenedSubmissions, setFlattenedSubmissions] = useState([]);
   const [myDocuments, setMyDocuments] = useState([]);
@@ -1837,6 +1840,32 @@ const CoachDashboard = () => {
     }
   };
 
+  const fetchAssignmentCohorts = async () => {
+    try {
+      setLoadingAssigned(true);
+      const res = await axios.get(`${BASE_URL}/api/cohort/coach/assigned`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      const cohortList = res.data?.availableCohorts || res.data?.cohorts || [];
+      const normalizedCohorts = normalizeAssignedCohorts(cohortList);
+
+      setAssignmentCohorts(normalizedCohorts);
+      if (normalizedCohorts.length > 0) {
+        setAssignmentSelectedCohortId((current) =>
+          normalizedCohorts.some((cohort) => cohort.cohortId === current)
+            ? current
+            : normalizedCohorts[0].cohortId
+        );
+      }
+    } catch (err) {
+      console.error("Error fetching assignment cohorts:", err);
+      setAssignmentCohorts([]);
+    } finally {
+      setLoadingAssigned(false);
+    }
+  };
+
   const fetchUploadTargets = async () => {
     try {
       setLoadingAssigned(true);
@@ -2018,16 +2047,15 @@ const CoachDashboard = () => {
   }, [safeAssignedCourses]);
 
   useEffect(() => {
-    if (
-      [
-        "course-control",
-        "upload-video",
-        "upload-doc",
-        "upload-sl-doc",
-        "upload-free-learning-doc",
-      ].includes(activeTab)
-    ) {
+    if (["course-control", "upload-video", "upload-doc", "upload-sl-doc", "upload-free-learning-doc"].includes(activeTab)) {
       fetchAssignedCourses();
+    }
+  }, [activeTab]);
+
+  useEffect(() => {
+    if (activeTab === "assignments") {
+      fetchAssignmentCohorts();
+      loadAssignments();
     }
   }, [activeTab]);
 
@@ -2286,7 +2314,7 @@ const CoachDashboard = () => {
 
   // Create new assignment
   const createAssignment = async () => {
-    if (!newTitle || !selectedCohortId) {
+    if (!newTitle || !assignmentSelectedCohortId) {
       setMessage("Title and cohort are required");
       return;
     }
@@ -2297,7 +2325,7 @@ const CoachDashboard = () => {
       await axios.post(
         `${BASE_URL}/api/assignment`,
         {
-          cohortId: selectedCohortId,
+          cohortId: assignmentSelectedCohortId,
           title: newTitle,
           description: newDescription,
           dueDate: toAssignmentExpiry(newDueDate),
@@ -3936,10 +3964,12 @@ const CoachDashboard = () => {
                 <TextField
                   select
                   label="Select Cohort"
-                  value={selectedCohortId}
-                  onChange={(e) => setSelectedCohortId(e.target.value)}
+                  value={assignmentSelectedCohortId}
+                  onChange={(e) =>
+                    setAssignmentSelectedCohortId(e.target.value)
+                  }
                 >
-                  {(Array.isArray(cohorts) ? cohorts : []).map((c) => {
+                  {(Array.isArray(assignmentCohorts) ? assignmentCohorts : []).map((c) => {
                     const cohortId = (
                       c._id ||
                       c.cohortId?._id ||
@@ -3988,7 +4018,7 @@ const CoachDashboard = () => {
                     creatingAssignment ||
                     !newTitle ||
                     !newDueDate ||
-                    !selectedCohortId
+                    !assignmentSelectedCohortId
                   }
                 >
                   {creatingAssignment ? (
