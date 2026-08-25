@@ -36,6 +36,12 @@ const LoginForm = () => {
 
     try {
       setLoading(true);
+      localStorage.removeItem("token");
+      localStorage.removeItem("user");
+      localStorage.removeItem("userName");
+      localStorage.removeItem("userPhoto");
+      localStorage.removeItem("userCohorts");
+      localStorage.removeItem("selectedCohortId");
 
       const res = await axios.post(
         `${import.meta.env.VITE_BASE_URL}/api/users/login`,

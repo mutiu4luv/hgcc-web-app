@@ -711,8 +711,13 @@ const CoachDashboard = () => {
     [safeAssignedCourses]
   );
   const liveCohorts = React.useMemo(
-    () => liveAvailableCohorts,
-    [liveAvailableCohorts]
+    () =>
+      liveAvailableCohorts.length > 0
+        ? liveAvailableCohorts
+        : safeAssignedCourses.filter(
+            (cohort) => Array.isArray(cohort.courses) && cohort.courses.length > 0
+          ),
+    [liveAvailableCohorts, safeAssignedCourses]
   );
   const uploadCohortOptions = React.useMemo(() => {
     if (uploadAvailableCohorts.length > 0) return uploadAvailableCohorts;
@@ -738,6 +743,29 @@ const CoachDashboard = () => {
 
     return safeAssignedCourses.flatMap((cohort) => cohort.courses || []);
   }, [liveAvailableCohorts, liveCohortId, liveCoachCourses, safeAssignedCourses]);
+
+  const liveCohortLabel = React.useMemo(() => {
+    return (
+      liveAvailableCohorts.find((cohort) => cohort.cohortId === liveCohortId)
+        ?.cohortName || "No cohort assigned to you"
+    );
+  }, [liveAvailableCohorts, liveCohortId]);
+
+  const liveCourseLabel = React.useMemo(() => {
+    const selectedCourse =
+      liveCourseOptions.find(
+        (course) =>
+          (course.cohortCourseId || course.courseId) === liveCourseId
+      ) ||
+      liveCoachCourses.find((course) => course.courseId === liveCourseId) ||
+      null;
+
+    return (
+      selectedCourse?.courseName ||
+      selectedCourse?.name ||
+      "No course assigned to you"
+    );
+  }, [liveCourseOptions, liveCoachCourses, liveCourseId]);
 
   const [contentType, setContentType] = useState("");
   const [title, setTitle] = useState("");
@@ -1892,18 +1920,34 @@ const CoachDashboard = () => {
   const fetchLiveTargets = async () => {
     try {
       setLoadingAssigned(true);
-      const res = await axios.get(`${BASE_URL}/api/cohort/coach/assigned`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
+      const [assignedRes, coachCoursesRes] = await Promise.allSettled([
+        axios.get(`${BASE_URL}/api/cohort/coach/assigned`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+        axios.get(`${BASE_URL}/api/corse/my-courses-for-coach`, {
+          headers: { Authorization: `Bearer ${token}` },
+        }),
+      ]);
 
+      if (assignedRes.status !== "fulfilled") {
+        throw assignedRes.reason;
+      }
+
+      const res = assignedRes.value;
       const cohortList =
         res.data?.availableCohorts ||
         res.data?.cohorts ||
         normalizeCoachUploadCohorts(res.data?.courses) ||
         [];
       const normalizedCohorts = normalizeAssignedCohorts(cohortList);
+      const coachCoursesPayload =
+        res.data?.coachCourses ||
+        res.data?.courses ||
+        (coachCoursesRes.status === "fulfilled"
+          ? coachCoursesRes.value.data?.courses
+          : []);
       const normalizedCoachCourses = normalizeCoachOwnedCourses(
-        res.data?.coachCourses || res.data?.courses || []
+        coachCoursesPayload || []
       );
 
       setLiveAvailableCohorts(normalizedCohorts);
@@ -2131,26 +2175,27 @@ const CoachDashboard = () => {
     ) {
       fetchAssignedCourses();
     }
-  }, [activeTab]);
+  }, [activeTab, token]);
 
   useEffect(() => {
     if (activeTab === "live") {
+      fetchAssignedCourses();
       fetchLiveTargets();
     }
-  }, [activeTab]);
+  }, [activeTab, token]);
 
   useEffect(() => {
     if (activeTab === "assignments") {
       fetchAssignmentCohorts();
       loadAssignments();
     }
-  }, [activeTab]);
+  }, [activeTab, token]);
 
   useEffect(() => {
     if (["upload-video", "upload-doc"].includes(activeTab)) {
       fetchUploadTargets();
     }
-  }, [activeTab]);
+  }, [activeTab, token]);
 
   useEffect(() => {
     if (!liveAvailableCohorts.length) {
@@ -4997,10 +5042,22 @@ const CoachDashboard = () => {
 
               {/* Cohort dropdown */}
               <FormControl fullWidth sx={{ mt: 3 }}>
-                <InputLabel>Select Cohort</InputLabel>
+                <InputLabel shrink>Select Cohort</InputLabel>
                 <Select
                   value={liveCohortId}
                   label="Select Cohort"
+                  displayEmpty
+                  renderValue={() =>
+                    liveCohortId ? (
+                      liveCohortLabel
+                    ) : (
+                      <Box component="span" sx={{ color: "text.disabled" }}>
+                        {liveCohorts.length === 0
+                          ? "No cohort assigned to you"
+                          : "Select cohort"}
+                      </Box>
+                    )
+                  }
                   onChange={(e) => {
                     setLiveCohortId(e.target.value);
                     setLiveCourseId(""); // Reset course when cohort changes
@@ -5026,10 +5083,22 @@ const CoachDashboard = () => {
                 sx={{ mt: 2 }}
                 disabled={!liveCohortId && liveCourseOptions.length === 0}
               >
-                <InputLabel>Select Course</InputLabel>
+                <InputLabel shrink>Select Course</InputLabel>
                 <Select
                   value={liveCourseId}
                   label="Select Course"
+                  displayEmpty
+                  renderValue={() =>
+                    liveCourseId ? (
+                      liveCourseLabel
+                    ) : (
+                      <Box component="span" sx={{ color: "text.disabled" }}>
+                        {liveCourseOptions.length === 0
+                          ? "No course assigned to you"
+                          : "Select course"}
+                      </Box>
+                    )
+                  }
                   onChange={(e) => setLiveCourseId(e.target.value)}
                 >
                   {liveCourseOptions.length === 0 ? (

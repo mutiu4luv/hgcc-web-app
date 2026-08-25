@@ -31,10 +31,21 @@ const Navbar = () => {
   // ✅ Load user info
   useEffect(() => {
     const loadUser = () => {
-      const storedName = localStorage.getItem("userName");
-      const storedPhoto = localStorage.getItem("userPhoto");
-      if (storedName) setUserName(storedName);
-      if (storedPhoto) setUserPhoto(storedPhoto);
+      const storedUser = JSON.parse(localStorage.getItem("user") || "{}");
+      const storedName =
+        storedUser.fullName ||
+        storedUser.name ||
+        storedUser.username ||
+        localStorage.getItem("userName") ||
+        "";
+      const storedPhoto =
+        storedUser.photo ||
+        storedUser.profilePhoto ||
+        localStorage.getItem("userPhoto") ||
+        "";
+
+      setUserName(storedName);
+      setUserPhoto(storedPhoto);
     };
 
     loadUser();
