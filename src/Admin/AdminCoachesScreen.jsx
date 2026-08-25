@@ -673,6 +673,7 @@ const CoachDashboard = () => {
   const [liveCohortId, setLiveCohortId] = useState("");
   const [liveCourseId, setLiveCourseId] = useState("");
   const [liveAvailableCohorts, setLiveAvailableCohorts] = useState([]);
+  const [liveCoachCourses, setLiveCoachCourses] = useState([]);
   const [uploadSelectedCohortId, setUploadSelectedCohortId] = useState("");
   const [uploadSelectedCourseId, setUploadSelectedCourseId] = useState("");
   const [uploadCoachCourses, setUploadCoachCourses] = useState([]);
@@ -722,13 +723,21 @@ const CoachDashboard = () => {
       ensureArray(uploadCoachCourses),
     [uploadCoachCourses]
   );
-  const liveCourseOptions = React.useMemo(
-    () =>
-      ensureArray(
-        liveAvailableCohorts.find((cohort) => cohort.cohortId === liveCohortId)?.courses
-      ),
-    [liveAvailableCohorts, liveCohortId]
-  );
+  const liveCourseOptions = React.useMemo(() => {
+    const selectedLiveCohort = liveAvailableCohorts.find(
+      (cohort) => cohort.cohortId === liveCohortId
+    );
+
+    if (selectedLiveCohort?.courses?.length) {
+      return ensureArray(selectedLiveCohort.courses);
+    }
+
+    if (liveCoachCourses.length) {
+      return liveCoachCourses;
+    }
+
+    return safeAssignedCourses.flatMap((cohort) => cohort.courses || []);
+  }, [liveAvailableCohorts, liveCohortId, liveCoachCourses, safeAssignedCourses]);
 
   const [contentType, setContentType] = useState("");
   const [title, setTitle] = useState("");
@@ -1887,23 +1896,42 @@ const CoachDashboard = () => {
         headers: { Authorization: `Bearer ${token}` },
       });
 
-      const cohortList = res.data?.availableCohorts || res.data?.cohorts || [];
+      const cohortList =
+        res.data?.availableCohorts ||
+        res.data?.cohorts ||
+        normalizeCoachUploadCohorts(res.data?.courses) ||
+        [];
       const normalizedCohorts = normalizeAssignedCohorts(cohortList);
+      const normalizedCoachCourses = normalizeCoachOwnedCourses(
+        res.data?.coachCourses || res.data?.courses || []
+      );
 
       setLiveAvailableCohorts(normalizedCohorts);
+      setLiveCoachCourses(normalizedCoachCourses);
       if (normalizedCohorts.length > 0) {
         setLiveCohortId((current) =>
           normalizedCohorts.some((cohort) => cohort.cohortId === current)
             ? current
             : normalizedCohorts[0].cohortId
         );
+        const firstCohortCourses = normalizedCohorts[0]?.courses || [];
+        setLiveCourseId((current) =>
+          firstCohortCourses.some((course) => course.cohortCourseId === current)
+            ? current
+            : firstCohortCourses[0]?.cohortCourseId || current || ""
+        );
       } else {
         setLiveCohortId("");
-        setLiveCourseId("");
+        setLiveCourseId((current) =>
+          normalizedCoachCourses.some((course) => course.courseId === current)
+            ? current
+            : normalizedCoachCourses[0]?.courseId || ""
+        );
       }
     } catch (err) {
       console.error("Error fetching live targets:", err);
       setLiveAvailableCohorts([]);
+      setLiveCoachCourses([]);
       setLiveCohortId("");
       setLiveCourseId("");
     } finally {
@@ -2126,8 +2154,10 @@ const CoachDashboard = () => {
 
   useEffect(() => {
     if (!liveAvailableCohorts.length) {
-      setLiveCohortId("");
-      setLiveCourseId("");
+      if (!liveCoachCourses.length) {
+        setLiveCohortId("");
+        setLiveCourseId("");
+      }
       return;
     }
 
@@ -2151,7 +2181,7 @@ const CoachDashboard = () => {
     if (!liveCourseStillValid) {
       setLiveCourseId(nextLiveCourses[0]?.cohortCourseId || "");
     }
-  }, [liveAvailableCohorts, liveCohortId, liveCourseId]);
+  }, [liveAvailableCohorts, liveCoachCourses, liveCohortId, liveCourseId]);
 
   useEffect(() => {
     if (!uploadCohortOptions.length) {
@@ -3055,7 +3085,9 @@ const CoachDashboard = () => {
                     onChange={(e) => setUploadSelectedCohortId(e.target.value)}
                   >
                     {uploadCohortOptions.length === 0 ? (
-                      <MenuItem value="">No cohort assigned</MenuItem>
+                      <MenuItem disabled value="">
+                        No cohort assigned to you
+                      </MenuItem>
                     ) : (
                       uploadCohortOptions.map((cohort) => (
                         <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
@@ -3079,7 +3111,9 @@ const CoachDashboard = () => {
                   >
                     {uploadCourseOptions.length === 0 ? (
                       <MenuItem value="" disabled>
-                        {loadingAssigned ? "Loading courses..." : "No courses available"}
+                        {loadingAssigned
+                          ? "Loading courses..."
+                          : "No course assigned to you"}
                       </MenuItem>
                     ) : (
                       uploadCourseOptions.map((course) => (
@@ -3264,7 +3298,9 @@ const CoachDashboard = () => {
                   onChange={(e) => setSelectedCourseId(e.target.value)}
                 >
                   {courses.length === 0 ? (
-                    <MenuItem disabled>No courses available</MenuItem>
+                    <MenuItem disabled value="">
+                      No course assigned to you
+                    </MenuItem>
                   ) : (
                     courses.map((course) => (
                       <MenuItem key={course._id} value={course._id}>
@@ -3283,7 +3319,9 @@ const CoachDashboard = () => {
                   onChange={(e) => setSelectedCohortId(e.target.value)}
                 >
                   {cohorts.length === 0 ? (
-                    <MenuItem disabled>No cohorts available</MenuItem>
+                    <MenuItem disabled value="">
+                      No cohort assigned to you
+                    </MenuItem>
                   ) : (
                     cohorts.map((cohort) => (
                       <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
@@ -4968,16 +5006,26 @@ const CoachDashboard = () => {
                     setLiveCourseId(""); // Reset course when cohort changes
                   }}
                 >
-                  {liveCohorts.map((cohort) => (
-                    <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
-                      {cohort.cohortName}
+                  {liveCohorts.length === 0 ? (
+                    <MenuItem disabled value="">
+                      No cohort assigned to you
                     </MenuItem>
-                  ))}
+                  ) : (
+                    liveCohorts.map((cohort) => (
+                      <MenuItem key={cohort.cohortId} value={cohort.cohortId}>
+                        {cohort.cohortName}
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
 
               {/* Course dropdown */}
-              <FormControl fullWidth sx={{ mt: 2 }} disabled={!liveCohortId}>
+              <FormControl
+                fullWidth
+                sx={{ mt: 2 }}
+                disabled={!liveCohortId && liveCourseOptions.length === 0}
+              >
                 <InputLabel>Select Course</InputLabel>
                 <Select
                   value={liveCourseId}
@@ -4985,14 +5033,17 @@ const CoachDashboard = () => {
                   onChange={(e) => setLiveCourseId(e.target.value)}
                 >
                   {liveCourseOptions.length === 0 ? (
-                    <MenuItem disabled>No courses available</MenuItem>
+                    <MenuItem disabled value="">
+                      No course assigned to you
+                    </MenuItem>
                   ) : (
                     liveCourseOptions.map((course) => (
                       <MenuItem
-                        key={course.cohortCourseId}
-                        value={course.cohortCourseId}
+                        key={course.cohortCourseId || course.courseId}
+                        value={course.cohortCourseId || course.courseId}
                       >
-                        {course.courseName} ({course.cohortName})
+                        {course.courseName || course.name} (
+                        {course.cohortName || "No Cohort"})
                       </MenuItem>
                     ))
                   )}
