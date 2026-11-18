@@ -154,6 +154,17 @@ const getEntityId = (value) => {
   return value._id || value.id || "";
 };
 
+const getIdValue = (value) => {
+  if (!value) return "";
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+  if (typeof value === "object") {
+    return String(value._id || value.id || "");
+  }
+  return "";
+};
+
 const normalizeCoachOwnedCourses = (value) =>
   ensureArray(value)
     .filter(Boolean)
