@@ -1921,9 +1921,7 @@ const CoachDashboard = () => {
 
       const groupedCourses = normalizeCoachUploadCohorts(res.data?.courses);
       const cohortList =
-        groupedCourses.length > 0
-          ? groupedCourses
-          : res.data?.availableCohorts || res.data?.cohorts || [];
+        res.data?.availableCohorts || res.data?.cohorts || groupedCourses;
 
       setAssignedCourses(normalizeAssignedCohorts(cohortList));
     } catch (err) {
