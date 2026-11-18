@@ -40,7 +40,6 @@ const PaymentScreen = ({ token }) => {
         {
           headers: {
             Authorization: `Bearer ${token}`,
-            "Content-Type": "multipart/form-data",
           },
         }
       );
