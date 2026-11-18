@@ -2194,6 +2194,12 @@ const CoachDashboard = () => {
     );
 
     setCoursesArray(flatCourses);
+
+    setSelectedCourse((current) =>
+      flatCourses.some((course) => course.cohortCourseId === current)
+        ? current
+        : flatCourses[0]?.cohortCourseId || ""
+    );
   }, [safeAssignedCourses]);
 
   useEffect(() => {
