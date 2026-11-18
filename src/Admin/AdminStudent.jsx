@@ -1064,7 +1064,12 @@ const StudentDashboard = () => {
 
       const data = await res.json();
       if (res.ok) {
-        setVideos(data.unlockedMaterials || []);
+        // Keep scheduled videos visible with fileUrl: null. The backend
+        // supplies the real URL automatically once unlockAt is reached.
+        setVideos([
+          ...(data.unlockedMaterials || []),
+          ...(data.lockedMaterials || []),
+        ]);
       }
       // console.log("Fetched videos:", data);
     } catch (error) {
@@ -1077,6 +1082,15 @@ const StudentDashboard = () => {
     if (activeTab === "join-class") {
       fetchDocuments();
       fetchVideos();
+
+      // Poll while the student is viewing class materials so content becomes
+      // playable automatically when its unlockAt time is reached.
+      const refreshTimer = window.setInterval(() => {
+        fetchDocuments();
+        fetchVideos();
+      }, 30 * 1000);
+
+      return () => window.clearInterval(refreshTimer);
     }
   }, [activeTab]);
 
