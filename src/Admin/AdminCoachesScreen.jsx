@@ -4931,12 +4931,13 @@ const CoachDashboard = () => {
                       fullName: s?.fullName,
                       email: s?.email,
                       phoneNumber: s?.phoneNumber || "-", // fallback if missing
-                      progress:
-                        s?.enrollments && s?.enrollments.length > 0
-                          ? `${
-                              s?.enrollments.filter((e) => e.hasAccess).length
-                            }/${s?.enrollments.length} courses`
-                          : "0 courses", // simple progress
+                      status:
+                        s?.enrollments?.some(
+                          (enrollment) =>
+                            enrollment.paymentStatus === "confirmed"
+                        )
+                          ? "Approved"
+                          : "Awaiting approval",
                     }))}
                     columns={[
                       {
@@ -4946,7 +4947,7 @@ const CoachDashboard = () => {
                       },
                       { field: "email", headerName: "Email", width: 250 },
                       { field: "phoneNumber", headerName: "Phone", width: 180 },
-                      { field: "progress", headerName: "Progress", width: 150 },
+                      { field: "status", headerName: "Status", width: 180 },
                     ]}
                     pageSize={5}
                   />
