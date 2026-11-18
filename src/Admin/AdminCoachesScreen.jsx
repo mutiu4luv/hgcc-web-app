@@ -89,6 +89,36 @@ const toDateInputValue = (dateValue) => {
 
 const ensureArray = (value) => (Array.isArray(value) ? value : []);
 
+const getPaymentStatusLabel = (student = {}) => {
+  const registrations = [
+    ...ensureArray(student.enrollments),
+    ...ensureArray(student.registeredCohorts),
+    ...ensureArray(student.registrations),
+  ];
+
+  const statuses = registrations
+    .map((registration) =>
+      String(
+        registration?.paymentStatus ||
+          registration?.status ||
+          (registration?.paymentConfirmed ? "confirmed" : "")
+      ).toLowerCase()
+    )
+    .concat(
+      String(
+        student.paymentStatus ||
+          student.status ||
+          (student.paymentConfirmed ? "confirmed" : "")
+      ).toLowerCase()
+    );
+
+  return statuses.some((status) =>
+    ["confirmed", "approved", "payment confirmed", "paid"].includes(status)
+  )
+    ? "Payment confirmed"
+    : "Awaiting confirmation";
+};
+
 const normalizeAssignedCohorts = (value) =>
   ensureArray(value)
     .filter(Boolean)
@@ -2522,8 +2552,11 @@ const CoachDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        if (res.data.students) {
-          setStudents(res.data.students);
+        const coachStudents =
+          res.data?.students || res.data?.data || res.data?.registrations || [];
+
+        if (Array.isArray(coachStudents)) {
+          setStudents(coachStudents);
         } else {
           setStudents([]); // fallback
         }
@@ -4926,18 +4959,23 @@ const CoachDashboard = () => {
               ) : (
                 <div style={{ height: 500, width: "100%" }}>
                   <DataGrid
-                    rows={students.map((s) => ({
-                      id: s?.studentId, // use studentId
-                      fullName: s?.fullName,
-                      email: s?.email,
-                      phoneNumber: s?.phoneNumber || "-", // fallback if missing
-                      status:
-                        s?.enrollments?.some(
-                          (enrollment) =>
-                            enrollment.paymentStatus === "confirmed"
-                        )
-                          ? "Approved"
-                          : "Awaiting approval",
+                    rows={students.map((s, index) => ({
+                      id:
+                        s?.studentId?._id ||
+                        s?.studentId ||
+                        s?.userId?._id ||
+                        s?.userId ||
+                        s?._id ||
+                        index,
+                      fullName:
+                        s?.fullName || s?.name || s?.student?.fullName || "-",
+                      email: s?.email || s?.student?.email || "-",
+                      phoneNumber:
+                        s?.phoneNumber ||
+                        s?.phone ||
+                        s?.student?.phoneNumber ||
+                        "-",
+                      status: getPaymentStatusLabel(s),
                     }))}
                     columns={[
                       {
@@ -4947,7 +4985,11 @@ const CoachDashboard = () => {
                       },
                       { field: "email", headerName: "Email", width: 250 },
                       { field: "phoneNumber", headerName: "Phone", width: 180 },
-                      { field: "status", headerName: "Status", width: 180 },
+                      {
+                        field: "status",
+                        headerName: "Payment status",
+                        width: 220,
+                      },
                     ]}
                     pageSize={5}
                   />
