@@ -668,6 +668,7 @@ const CoachDashboard = () => {
   const [selectedCourse, setSelectedCourse] = useState("");
   const [loadingAssigned, setLoadingAssigned] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
+  const [studentsRefreshKey, setStudentsRefreshKey] = useState(0);
   const [coursesArray, setCoursesArray] = useState([]);
   const [selected, setSelected] = useState("");
   const [liveCohortId, setLiveCohortId] = useState("");
@@ -2077,6 +2078,7 @@ const CoachDashboard = () => {
       );
 
       fetchAssignedCourses(); // refresh courses
+      setStudentsRefreshKey((key) => key + 1);
       alert(data.message || "Course started successfully");
     } catch (err) {
       console.error(err);
@@ -2110,6 +2112,7 @@ const CoachDashboard = () => {
       );
 
       fetchAssignedCourses(); // refresh courses
+      setStudentsRefreshKey((key) => key + 1);
       alert(data.message || "Course ended successfully");
     } catch (err) {
       console.error(err);
@@ -2537,7 +2540,7 @@ const CoachDashboard = () => {
     };
 
     loadStudents();
-  }, [BASE_URL, token]);
+  }, [BASE_URL, token, studentsRefreshKey]);
 
   // ========================= // FETCH RATINGS // =========================
   useEffect(() => {
