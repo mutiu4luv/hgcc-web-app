@@ -1108,7 +1108,10 @@ const StudentDashboard = () => {
           headers: { Authorization: `Bearer ${token}` },
         });
 
-        const materials = res.data.unlockedMaterials || [];
+        const materials = [
+          ...(res.data.unlockedMaterials || []),
+          ...(res.data.lockedMaterials || []),
+        ];
         setVideos(materials);
 
         const now = Date.now();
