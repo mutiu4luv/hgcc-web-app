@@ -1096,6 +1096,16 @@ const StudentDashboard = () => {
 
   useEffect(() => {
     fetchVideos();
+    fetchDocuments();
+
+    // Keep dashboard/class material state synchronized even if the student
+    // remains on another tab when the scheduled class reaches unlockAt.
+    const refreshTimer = window.setInterval(() => {
+      fetchVideos();
+      fetchDocuments();
+    }, 30 * 1000);
+
+    return () => window.clearInterval(refreshTimer);
   }, []);
 
   // upcoming classes
@@ -1964,14 +1974,19 @@ const StudentDashboard = () => {
 
                             {/* VIDEO LISTING */}
                             {videos.map((video) => {
+                              const videoCourseId =
+                                video.courseId?._id || video.courseId;
                               const courseName =
-                                courses.find(
-                                  (c) => c._id === video.courseId?._id
-                                )?.name || "Unknown";
+                                courses.find((c) => c._id === videoCourseId)
+                                  ?.name ||
+                                video.courseId?.name ||
+                                "Unknown";
 
                               const unlockAt = new Date(video.unlockAt);
                               const now = new Date();
-                              const isUnlocked = now >= unlockAt;
+                              const videoUrl = video.fileUrl || video.videoUrl;
+                              const isUnlocked =
+                                now >= unlockAt && Boolean(videoUrl);
 
                               const unlockAtFormatted = unlockAt.toLocaleString(
                                 "en-US",
@@ -2029,7 +2044,7 @@ const StudentDashboard = () => {
                                       }}
                                     >
                                       <source
-                                        src={video.videoUrl}
+                                        src={videoUrl}
                                         type="video/mp4"
                                       />
                                       Your browser does not support the video
