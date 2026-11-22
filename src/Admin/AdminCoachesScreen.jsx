@@ -1585,9 +1585,9 @@ const CoachDashboard = () => {
       // 🔥 User selects Nigeria time (WAT)
       const localDate = new Date(unlockAt);
 
-      // 🔥 Convert WAT (UTC+1) → UTC
-      const adjustedDate = new Date(localDate.getTime() - 60 * 60 * 1000);
-      const utcUnlockTime = adjustedDate.toISOString();
+      // datetime-local is interpreted in the coach's browser timezone (WAT)
+      // and toISOString() converts that exact instant to UTC for the API.
+      const utcUnlockTime = localDate.toISOString();
 
       // Prepare FormData
       const formData = new FormData();
@@ -2416,19 +2416,8 @@ const CoachDashboard = () => {
       return alert("All fields are required!");
     }
 
-    // Convert local datetime to UTC ISO string
-    const localTime = new Date(classStartTime);
-    const utcTime = new Date(
-      Date.UTC(
-        localTime.getFullYear(),
-        localTime.getMonth(),
-        localTime.getDate(),
-        localTime.getHours(),
-        localTime.getMinutes(),
-        0,
-        0
-      )
-    );
+    // Convert the exact browser-local datetime to UTC for the API.
+    const utcTime = new Date(classStartTime);
 
     const formData = new FormData();
     formData.append("title", videoTitle);
