@@ -1082,31 +1082,33 @@ const StudentDashboard = () => {
     if (activeTab === "join-class") {
       fetchDocuments();
       fetchVideos();
-
-      // Poll while the student is viewing class materials so content becomes
-      // playable automatically when its unlockAt time is reached.
-      const refreshTimer = window.setInterval(() => {
-        fetchDocuments();
-        fetchVideos();
-      }, 30 * 1000);
-
-      return () => window.clearInterval(refreshTimer);
     }
   }, [activeTab]);
 
   useEffect(() => {
     fetchVideos();
     fetchDocuments();
-
-    // Keep dashboard/class material state synchronized even if the student
-    // remains on another tab when the scheduled class reaches unlockAt.
-    const refreshTimer = window.setInterval(() => {
-      fetchVideos();
-      fetchDocuments();
-    }, 30 * 1000);
-
-    return () => window.clearInterval(refreshTimer);
   }, []);
+
+  // Refresh materials only after a coach successfully uploads one. This
+  // avoids resetting or distracting students with periodic page refreshes.
+  useEffect(() => {
+    const socket = io(BASE_URL, {
+      auth: { token: localStorage.getItem("token") },
+    });
+
+    const handleMaterialUploaded = () => {
+      fetchDocuments();
+      fetchVideos();
+    };
+
+    socket.on("courseMaterialUploaded", handleMaterialUploaded);
+
+    return () => {
+      socket.off("courseMaterialUploaded", handleMaterialUploaded);
+      socket.disconnect();
+    };
+  }, [BASE_URL]);
 
   // upcoming classes
   useEffect(() => {
